@@ -1,0 +1,12 @@
+AngioTk is copyrighted software.
+
+  Copyright (c) 2013-2014 VivaBrain consortium
+  All rights reserved
+
+  You can freely use and distribute AngioTK under an Apache 2.0 license.
+  See LICENSE.TXT for details
+
+------------------------------------------------------------------------
+
+[ADD ANY LICENSES HERE]
+

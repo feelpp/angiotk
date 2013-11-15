@@ -1,0 +1,2 @@
+add_executable(MultiScaleEigenObjectnessMeasureFilter MultiScaleEigenObjectnessMeasureFilter.cxx)
+target_link_libraries(MultiScaleEigenObjectnessMeasureFilter ${ITK_LIBRARIES})
