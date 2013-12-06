@@ -54,23 +54,23 @@ if(KWSTYLE_FOUND)
 #  Define file names
 #
 set(KWSTYLE_CONFIGURATION_FILE
-  ${PROJECT_BINARY_DIR}/cmake/KWStyle/AngioTk.kws.xml)
+   ${PROJECT_BINARY_DIR}/CMake/KWStyle/AngioTk.kws.xml)
 
 set(KWSTYLE_AngioTk_FILES_LIST
-  ${PROJECT_BINARY_DIR}/cmake/KWStyle/AngioTkFiles.txt)
+  ${PROJECT_BINARY_DIR}/CMake/KWStyle/AngioTkFiles.txt)
 
 set(KWSTYLE_AngioTk_OVERWRITE_FILE
-  ${PROJECT_SOURCE_DIR}/cmake/KWStyle/AngioTkOverwrite.txt )
+  ${PROJECT_SOURCE_DIR}/CMake/KWStyle/AngioTkOverwrite.txt )
 
 #
 # Configure the files
 #
 configure_file(
-  ${PROJECT_SOURCE_DIR}/cmake/KWStyle/AngioTkFiles.txt.in
+  ${PROJECT_SOURCE_DIR}/CMake/KWStyle/AngioTkFiles.txt.in
   ${KWSTYLE_AngioTk_FILES_LIST})
 
 configure_file(
-  ${PROJECT_SOURCE_DIR}/cmake/KWStyle/AngioTk.kws.xml.in
+  ${PROJECT_SOURCE_DIR}/CMake/KWStyle/AngioTk.kws.xml.in
   ${KWSTYLE_CONFIGURATION_FILE})
 
 
