@@ -9,7 +9,6 @@
 <Tabs>1</Tabs>
 <Spaces>3</Spaces>
 <Comments>/**, *, */,true</Comments>
-<Namespace>rtk</Namespace>
 <NameOfClass>[NameOfClass],itk</NameOfClass>
 <IfNDefDefine>__[NameOfClass]_[Extension]</IfNDefDefine>
 <EmptyLines>2</EmptyLines>

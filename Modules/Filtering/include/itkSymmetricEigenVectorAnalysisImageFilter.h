@@ -42,13 +42,13 @@ public:
   ~SymmetricEigenVectorAnalysisFunction() {}
   typedef SymmetricEigenAnalysis< TInput, TOutput, TMatrix > CalculatorType;
   bool operator!=( const SymmetricEigenVectorAnalysisFunction & ) const
-  {
+    {
     return false;
-  }
+    }
   bool operator==( const SymmetricEigenVectorAnalysisFunction & other ) const
-  {
+    {
     return !(*this != other);
-  }
+    }
 
   inline TMatrix operator()( const TInput & x )
     {
@@ -119,7 +119,7 @@ public:
                                         typename TOutputMatrix::PixelType > >
                                                                       Superclass;
 
-  typedef SmartPointer<Self>   Pointer;
+  typedef SmartPointer<Self>        Pointer;
   typedef SmartPointer<const Self>  ConstPointer;
 
   typedef typename Superclass::OutputImageType    OutputImageType;
@@ -145,7 +145,9 @@ public:
   
   /** Print internal ivars */
   void PrintSelf(std::ostream& os, Indent indent) const
-    { this->Superclass::PrintSelf( os, indent ); }
+    { 
+    this->Superclass::PrintSelf( os, indent ); 
+    }
   
   /** Set the dimension of the tensor. (For example the SymmetricSecondRankTensor
    * is a pxp matrix) */

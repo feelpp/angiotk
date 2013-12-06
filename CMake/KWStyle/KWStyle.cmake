@@ -2,8 +2,6 @@ option(AngioTk_USE_KWSTYLE "Enable the use of KWStyle for checking coding style.
 mark_as_advanced(AngioTk_USE_KWSTYLE)
 if(AngioTk_USE_KWSTYLE)
 
-set(itk-module KWStyle)
-
 # Set the required KWStyle version
 set(KWSTYLE_REQ_MAJOR 1)
 set(KWSTYLE_REQ_MINOR 0)

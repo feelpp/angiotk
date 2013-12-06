@@ -1,3 +1,3 @@
-@AngioTK_SOURCE_DIR@/code/itk*.h
-@AngioTK_SOURCE_DIR@/code/itk*.hxx
-@AngioTK_SOURCE_DIR@/code/itk*.cxx
+@AngioTk_SOURCE_DIR@/Modules/*/src/itk*.cxx
+@AngioTk_SOURCE_DIR@/Modules/*/include/itk*.h
+@AngioTk_SOURCE_DIR@/Modules/*/include/itk*.hxx
