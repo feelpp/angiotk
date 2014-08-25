@@ -1,13 +1,22 @@
-// Need to add some copyright header
-
-//#include <valarray>
+/*=========================================================================
+ *
+ *  Copyright VivaBrain Consortium
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *         http://www.apache.org/licenses/LICENSE-2.0.txt
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ *=========================================================================*/
 #include <string>
-//#include <vector>
 #include <iostream>
-
-//#include <stdlib.h>
-//#include <stdio.h>
-//#include <math.h>
 
 #include "itkImageFileReader.h"
 #include "itkImageFileWriter.h"
@@ -16,7 +25,6 @@
 #include "itkMinimumMaximumImageCalculator.h"
 #include <list>
 #include "itkCastImageFilter.h"
-//#include "vnl/vnl_math.h"
 
 #include "itkMultiScaleEigenObjectnessFilter3D.h"
 #include "itkMultiScaleEigenObjectnessFilter2D.h"
@@ -25,52 +33,32 @@
 #include "itkCastImageFilter.h"
 #include <itkMinimumMaximumImageCalculator.h>
 #include "itkBinaryThresholdImageFilter.h"
+#include <itksys/SystemTools.hxx>
 
 #define EPSILON  1e-03
 
-int EigenToObjectnessMeasure2D(std::string file, std::string fe, std::string path, float smin, float smax, int ns, int gamma, float Tmin, float Tmax, bool SO)
+int EigenToObjectnessMeasure2D(std::string imageFilename, float sMin, float sMax, int nSteps, int gamma, float tMin, float tMax, bool ScaleObj)
 {
-  std::string  img = file;
-  std::string   folder = path;
-  std::string ext = fe;
-
-  float sMin = smin;
-  float sMax = smax;
-  int nSteps = ns; 
-        
   bool objBright = true;
-  bool ScaleObj = SO;
-
-  std::stringstream osMin;
-  std::stringstream osMax;
-  std::stringstream onSteps;
-  std::stringstream tMin;
-  std::stringstream tMax;
-  osMin<<sMin;
-  osMax<<sMax;
-  onSteps<<nSteps;
-        
-  tMin<<Tmin;
-  tMax<<Tmax;
 
   // Define the dimension of the images
   const unsigned char Dim = 2;
 
   typedef float             InputPixelType;
-  typedef float            OutputPixelType;
-  typedef unsigned char          UcharPixelType;
+  typedef float             OutputPixelType;
+  typedef unsigned char     UcharPixelType;
         
-  typedef itk::Vector<InputPixelType, Dim>      VectorPixelType;
+  typedef itk::Vector<InputPixelType, Dim>       VectorPixelType;
   // Declare the types of the images
-  typedef itk::Image<InputPixelType,Dim>        InputImageType;
+  typedef itk::Image<InputPixelType,Dim>         InputImageType;
   typedef itk::Image<OutputPixelType,Dim>        OutputImageType;
-  typedef itk::Image<UcharPixelType,Dim>        UcharImageType;
-  typedef itk::Image<VectorPixelType, Dim>      VectorImageType;
+  typedef itk::Image<UcharPixelType,Dim>         UcharImageType;
+  typedef itk::Image<VectorPixelType, Dim>       VectorImageType;
 
-  typedef itk::ImageFileReader<InputImageType>    FileReaderType;
-  typedef itk::ImageFileWriter<OutputImageType>    FileWriterType;
-  typedef itk::ImageFileWriter<UcharImageType>    UcharWriterType;
-  typedef itk::ImageFileWriter<VectorImageType>    VectorWriterType;
+  typedef itk::ImageFileReader<InputImageType>   FileReaderType;
+  typedef itk::ImageFileWriter<OutputImageType>  FileWriterType;
+  typedef itk::ImageFileWriter<UcharImageType>   UcharWriterType;
+  typedef itk::ImageFileWriter<VectorImageType>  VectorWriterType;
 
   typedef itk::RescaleIntensityImageFilter<OutputImageType, UcharImageType> RescaleFilterType;      
   typedef itk::CastImageFilter< OutputImageType, UcharImageType> CastToRealFilterType;
@@ -83,7 +71,7 @@ int EigenToObjectnessMeasure2D(std::string file, std::string fe, std::string pat
         MultiScaleEnhancementFilterType;
 
   FileReaderType::Pointer imageReader = FileReaderType::New();
-  imageReader->SetFileName(folder + img+ ext);
+  imageReader->SetFileName(imageFilename.c_str());
   try
     { 
     imageReader->Update();
@@ -104,11 +92,11 @@ int EigenToObjectnessMeasure2D(std::string file, std::string fe, std::string pat
   objectnessFilter->SetObjectDimension( 1 );
 
   multiScaleEnhancementFilter->SetSigmaMin(sMin);
-  multiScaleEnhancementFilter->SetSigmaMax( sMax);
+  multiScaleEnhancementFilter->SetSigmaMax(sMax);
   multiScaleEnhancementFilter->SetNumberOfSigmaSteps(nSteps);
   
-  multiScaleEnhancementFilter->SetUpperThreshold( Tmax );
-  multiScaleEnhancementFilter->SetLowerThreshold( Tmin );
+  multiScaleEnhancementFilter->SetUpperThreshold( tMax );
+  multiScaleEnhancementFilter->SetLowerThreshold( tMin );
 
   try
     {
@@ -134,8 +122,16 @@ int EigenToObjectnessMeasure2D(std::string file, std::string fe, std::string pat
   rescale->SetOutputMaximum(255);
 
   UcharWriterType::Pointer ewriter = UcharWriterType::New();
-  ewriter->SetFileName(folder + img + "_" + osMin.str() + "-" + osMax.str() + "_" + onSteps.str() + ".mhd");
+  
+
+  std::string fwe = itksys::SystemTools::GetFilenameWithoutExtension(imageFilename);
+  
+  std::stringstream filename;
+  filename << fwe << "_" << sMin << "-" << sMax << "_" << nSteps << ".mha";
+
+  ewriter->SetFileName(filename.str().c_str());
   ewriter->SetInput(rescale->GetOutput());
+  ewriter->SetUseCompression(true);
   try
     {
     ewriter->Update();
@@ -145,13 +141,17 @@ int EigenToObjectnessMeasure2D(std::string file, std::string fe, std::string pat
     std::cerr <<"Writing vesselness "<< e << std::endl;
     }
         
-  if(Tmin && Tmax)
+  if(tMin && tMax)
     {
     OutputImageType::Pointer  thresholdResult = multiScaleEnhancementFilter->GetHystheresisThresholdOutput();
        
     FileWriterType::Pointer twriter = FileWriterType::New();
-    twriter->SetFileName(folder + img + "_" + osMin.str() + "-" + osMax.str() + "_" + onSteps.str() + "_T_" + tMin.str() + "-" + tMax.str() + ".mhd");
+    
+    std::stringstream tfilename;
+    tfilename << fwe << "_" << sMin << "-" << sMax << "_" << nSteps << "_T_" << tMin << "-" << tMax << ".mha";
+    twriter->SetFileName(tfilename.str().c_str());
     twriter->SetInput(thresholdResult);
+    twriter->SetUseCompression(true);
     try
       {
       twriter->Update();
@@ -163,7 +163,9 @@ int EigenToObjectnessMeasure2D(std::string file, std::string fe, std::string pat
     }
 
   FileWriterType::Pointer ewriter1 = FileWriterType::New();
-  ewriter1->SetFileName(folder + img + "_" + osMin.str() + "-" + osMax.str() + "_" + onSteps.str() + "_E1" + ".mhd");
+  std::stringstream filename1;
+  filename1 << fwe << "_" << sMin << "-" << sMax << "_" << nSteps << "_E1.mha";
+  ewriter1->SetFileName(filename1.str().c_str());
   ewriter1->SetInput(vec1Result);
   try
     {
@@ -175,8 +177,11 @@ int EigenToObjectnessMeasure2D(std::string file, std::string fe, std::string pat
     }
 
   FileWriterType::Pointer ewriter2 = FileWriterType::New();
-  ewriter2->SetFileName(folder + img + "_" + osMin.str() + "-" + osMax.str() + "_"+ onSteps.str() + "_E2" + ".mhd");
+  std::stringstream filename2;
+  filename2 << fwe << "_" << sMin << "-" << sMax << "_" << nSteps << "_E2.mha";
+  ewriter2->SetFileName(filename1.str().c_str());
   ewriter2->SetInput(vec2Result);
+  ewriter2->SetUseCompression(true);
   try
     {
     ewriter2->Update();
@@ -188,7 +193,9 @@ int EigenToObjectnessMeasure2D(std::string file, std::string fe, std::string pat
 
   // Write the image containing the best response scales
   FileWriterType::Pointer writerScales = FileWriterType::New();
-  writerScales->SetFileName(folder + img + "_" + osMin.str() + "-" + osMax.str() + "_"+ onSteps.str() + "_Scales" + ".mhd");
+  std::stringstream filenamescales;
+  filenamescales << fwe << "_" << sMin << "-" << sMax << "_" << nSteps << "_Scales.mha";
+  writerScales->SetFileName(filenamescales.str().c_str());
   writerScales->SetInput(scaleResult);
   try
     {
@@ -200,8 +207,11 @@ int EigenToObjectnessMeasure2D(std::string file, std::string fe, std::string pat
     }
 
   FileWriterType::Pointer writerRB = FileWriterType::New();
-  writerRB->SetFileName(folder + img + "_" + osMin.str() + "-" + osMax.str() + "_" + onSteps.str() + "_RB"+ ".mhd");
+  std::stringstream filenameRB;
+  filenameRB << fwe << "_" << sMin << "-" << sMax << "_" << nSteps << "_RB.mha";
+  writerRB->SetFileName(filenameRB.str().c_str());
   writerRB->SetInput(RBResult);
+  writerRB->SetUseCompression(true);
   try
     {
     writerRB->Update();
@@ -211,8 +221,11 @@ int EigenToObjectnessMeasure2D(std::string file, std::string fe, std::string pat
     std::cerr <<"Writing RB "<< e << std::endl;
     }
   FileWriterType::Pointer writerRC = FileWriterType::New();
-  writerRC->SetFileName(folder + img + "_" + osMin.str() + "-" + osMax.str() + "_" + onSteps.str() + "_RC" + ".mhd");
+  std::stringstream filenameRC;
+  filenameRC << fwe << "_" << sMin << "-" << sMax << "_" << nSteps << "_RC.mha";
+  writerRC->SetFileName(filenameRC.str().c_str());
   writerRC->SetInput(RCResult);
+  writerRC->SetUseCompression(true);
   try
     {
     writerRC->Update();
@@ -225,36 +238,16 @@ int EigenToObjectnessMeasure2D(std::string file, std::string fe, std::string pat
   return 0;
 };
 
-int EigenToObjectnessMeasure3D(std::string file, std::string fe, std::string path, float smin, float smax, int ns, int gamma, float Tmin, float Tmax, bool SO)
+int EigenToObjectnessMeasure3D(std::string imageFilename, float sMin, float sMax, int nSteps, int gamma, float tMin, float tMax, bool ScaleObj)
 {
-  std::string  img = file;
-  std::string   folder = path;
-  std::string ext = fe;
-
-  float sMin = smin;
-  float sMax = smax;
-  int nSteps = ns; 
-        
-  bool objBright = true;
-  bool ScaleObj = SO;
-
-  std::stringstream osMin;
-  std::stringstream osMax;
-  std::stringstream onSteps;
-  std::stringstream tMin;
-  std::stringstream tMax;
-  osMin<<sMin;
-  osMax<<sMax;
-  onSteps<<nSteps;
-  tMin<<Tmin;
-  tMax<<Tmax;
-
   // Define the dimension of the images
   const unsigned char Dim = 3;
+  bool objBright = true;
 
   typedef float             InputPixelType;
-  typedef float            OutputPixelType;
-  typedef unsigned char          UcharPixelType;
+  typedef float             OutputPixelType;
+  typedef unsigned char     UcharPixelType;
+
   typedef itk::Vector<InputPixelType, Dim>    VectorPixelType;
   typedef itk::Image<InputPixelType,Dim>      InputImageType;  
   typedef itk::Image<OutputPixelType,Dim>     OutputImageType;
@@ -277,7 +270,7 @@ int EigenToObjectnessMeasure3D(std::string file, std::string fe, std::string pat
   typedef itk::MultiScaleEigenObjectnessFilter3D< InputImageType, ObjectnessFilterType, OutputImageType >  MultiScaleEnhancementFilterType;
 
   FileReaderType::Pointer imageReader = FileReaderType::New();
-  imageReader->SetFileName(folder + img+ ext);
+  imageReader->SetFileName(imageFilename.c_str());
   try
     { 
     imageReader->Update();
@@ -299,10 +292,10 @@ int EigenToObjectnessMeasure3D(std::string file, std::string fe, std::string pat
   objectnessFilter->SetObjectDimension( 1 );
 
   multiScaleEnhancementFilter->SetSigmaMin(sMin);
-  multiScaleEnhancementFilter->SetSigmaMax( sMax);
+  multiScaleEnhancementFilter->SetSigmaMax(sMax);
   multiScaleEnhancementFilter->SetNumberOfSigmaSteps(nSteps);
-  multiScaleEnhancementFilter->SetUpperThreshold( Tmax);
-  multiScaleEnhancementFilter->SetLowerThreshold( Tmin );  
+  multiScaleEnhancementFilter->SetUpperThreshold(tMax);
+  multiScaleEnhancementFilter->SetLowerThreshold(tMin);  
 
   try
     {
@@ -333,8 +326,16 @@ int EigenToObjectnessMeasure3D(std::string file, std::string fe, std::string pat
   rescale->SetOutputMaximum(255);
 
   UcharWriterType::Pointer ewriter = UcharWriterType::New();
-  ewriter->SetFileName(folder + img + "_" + osMin.str() + "-" + osMax.str() + "_" + onSteps.str() + ".mhd");
+
+  std::string fwe = itksys::SystemTools::GetFilenameWithoutExtension(imageFilename);
+  std::string path = itksys::SystemTools::GetFilenamePath(imageFilename);
+  
+  std::stringstream filename;
+  filename << fwe << "_" << sMin << "-" << sMax << "_" << nSteps << ".mha";
+
+  ewriter->SetFileName(filename.str().c_str());
   ewriter->SetInput(rescale->GetOutput());
+  ewriter->SetUseCompression(true);
   try
     {
     ewriter->Update();
@@ -344,10 +345,12 @@ int EigenToObjectnessMeasure3D(std::string file, std::string fe, std::string pat
     std::cerr <<"Writing vesselness "<< e << std::endl;
     }
         
-  if(Tmin && Tmax)
+  if(tMin && tMax)
     {
     FileWriterType::Pointer twriter = FileWriterType::New();
-    twriter->SetFileName(folder + img + "_" + osMin.str() + "-" + osMax.str() + "_" + onSteps.str() + "_T_" + tMin.str() + "-" + tMax.str() + ".mhd");
+    std::stringstream tfilename;
+    tfilename << fwe << "_" << sMin << "-" << sMax << "_" << nSteps << "_T_" << tMin << "-" << tMax << ".mha";
+    twriter->SetFileName(tfilename.str().c_str());
     twriter->SetInput(thresholdResult);
     try
       {
@@ -360,8 +363,11 @@ int EigenToObjectnessMeasure3D(std::string file, std::string fe, std::string pat
     }
 
   FileWriterType::Pointer ewriter1 = FileWriterType::New();
-  ewriter1->SetFileName(folder + img + "_" + osMin.str() + "-" + osMax.str() + "_" + onSteps.str() + "_E1" + ".mhd");
+  std::stringstream filename1;
+  filename1 << fwe << "_" << sMin << "-" << sMax << "_" << nSteps << "_E1.mha";
+  ewriter1->SetFileName(filename1.str().c_str());
   ewriter1->SetInput(vec1Result);
+  ewriter1->SetUseCompression(true);
   try
     {
     ewriter1->Update();
@@ -372,8 +378,11 @@ int EigenToObjectnessMeasure3D(std::string file, std::string fe, std::string pat
     }
 
   FileWriterType::Pointer ewriter2 = FileWriterType::New();
-  ewriter2->SetFileName(folder + img + "_" + osMin.str() + "-" + osMax.str() + "_" + onSteps.str() + "_E2" + ".mhd");
+  std::stringstream filename2;
+  filename2 << fwe << "_" << sMin << "-" << sMax << "_" << nSteps << "_E2.mha";
+  ewriter2->SetFileName(filename2.str().c_str());
   ewriter2->SetInput(vec2Result);
+  ewriter2->SetUseCompression(true);
   try
     {
     ewriter2->Update();
@@ -384,8 +393,11 @@ int EigenToObjectnessMeasure3D(std::string file, std::string fe, std::string pat
     }
 
   FileWriterType::Pointer ewriter3 = FileWriterType::New();
-  ewriter3->SetFileName(folder + img + "_" + osMin.str() + "-" + osMax.str() + "_" + onSteps.str() + "_E3" + ".mhd");
+  std::stringstream filename3;
+  filename3 << fwe << "_" << sMin << "-" << sMax << "_" << nSteps << "_E3.mha";
+  ewriter3->SetFileName(filename3.str().c_str());
   ewriter3->SetInput(vec3Result);
+  ewriter3->SetUseCompression(true);
   try
     {
     ewriter3->Update();
@@ -397,8 +409,11 @@ int EigenToObjectnessMeasure3D(std::string file, std::string fe, std::string pat
 
   // Write the image containing the best response scales
   FileWriterType::Pointer writerScales = FileWriterType::New();
-  writerScales->SetFileName(folder + img + "_" + osMin.str() + "-" + osMax.str() + "_" + onSteps.str() + "_Scales" + ".mhd");
+  std::stringstream filenameScales;
+  filenameScales << fwe << "_" << sMin << "-" << sMax << "_" << nSteps << "_Scales.mha";
+  writerScales->SetFileName(filenameScales.str().c_str());
   writerScales->SetInput(scaleResult);
+  writerScales->SetUseCompression(true);
   try
     {
     writerScales->Update();
@@ -409,8 +424,11 @@ int EigenToObjectnessMeasure3D(std::string file, std::string fe, std::string pat
     }
 
   FileWriterType::Pointer writerRA = FileWriterType::New();
-  writerRA->SetFileName(folder + img + "_" + osMin.str() + "-" + osMax.str() + "_" + onSteps.str() + "_RA"+ ".mhd");
+  std::stringstream filenameRA;
+  filenameRA << fwe << "_" << sMin << "-" << sMax << "_" << nSteps << "_RA.mha";
+  writerRA->SetFileName(filenameRA.str().c_str());
   writerRA->SetInput(RAResult);
+  writerRA->SetUseCompression(true);
   try
     {
     writerRA->Update();
@@ -421,8 +439,11 @@ int EigenToObjectnessMeasure3D(std::string file, std::string fe, std::string pat
     }
 
   FileWriterType::Pointer writerRB = FileWriterType::New();
-  writerRB->SetFileName(folder + img + "_" + osMin.str() + "-" + osMax.str() + "_" + onSteps.str() + "_RB" + ".mhd");
+  std::stringstream filenameRB;
+  filenameRB << fwe << "_" << sMin << "-" << sMax << "_" << nSteps << "_RB.mha";
+  writerRB->SetFileName(filenameRB.str().c_str());
   writerRB->SetInput(RBResult);
+  writerRB->SetUseCompression(true);
   try
     {
     writerRB->Update();
@@ -432,8 +453,11 @@ int EigenToObjectnessMeasure3D(std::string file, std::string fe, std::string pat
     std::cerr << e << std::endl;
     }
   FileWriterType::Pointer writerRC = FileWriterType::New();
-  writerRC->SetFileName(folder + img + "_" + osMin.str() + "-" + osMax.str() + "_" + onSteps.str() + "_RC" + ".mhd");
+  std::stringstream filenameRC;
+  filenameRC << fwe << "_" << sMin << "-" << sMax << "_" << nSteps << "_RC.mha";
+  writerRC->SetFileName(filenameRC.str().c_str());
   writerRC->SetInput(RCResult);
+  writerRC->SetUseCompression(true);
   try
     {
     writerRC->Update();
@@ -461,42 +485,40 @@ int EigenToObjectnessMeasure3D(std::string file, std::string fe, std::string pat
     filter->Update();
             
     thresh->SetInput(filter->GetOutput());
-            
-    std::stringstream os;
-    std::stringstream osNew;
-    os<<s;
-    osNew<<sNew;
-    std::cout<<"s "<< s<<" sNew "<<sNew<<" sMin "<<sMin<<" sMax "<<sMax<<std::endl;
-    thresh->SetFileName( folder + img + "_s_" + os.str() + "-" + osNew.str() + ".mhd");
+    
+    std::cout << "s "<< s << " sNew " << sNew << " sMin " << sMin << " sMax " << sMax << std::endl;
+     
+    std::stringstream filenameThresh;
+    filenameThresh << fwe << "_s_" << s << "-" << sNew << ".mha";
+    thresh->SetFileName(filenameThresh.str().c_str());
+    thresh->SetUseCompression(true);
     thresh->Update();
     }
   return 0;
 };
 
 /** Main test function */
-int main(int argc, char* argv[])
+int MultiScaleEigenObjectnessMeasureFilter(int argc, char* argv[])
 {
   if(argc < 9)
     {
-    std::cerr<<"Missing parameters: "<<argv[0]<<" folder image ext dimension(2/3) sMin sMax nSteps gamma [Tmin Tmax ScaleObjectness]"<<std::endl;
+    std::cerr << "Missing parameters: " << argv[0] << " image dimension(2/3) sMin sMax nSteps gamma [Tmin Tmax ScaleObjectness]" << std::endl;
     return EXIT_FAILURE;
     }  
   
-  std::string folder = argv[1];
-  std::string  img = argv[2];
-  std::string ext = argv[3];  
-  int dimension = atoi(argv[4]);
-  float sMin = atof(argv[5]);
-  float sMax = atof(argv[6]);
-  int nSteps = atoi(argv[7]);
-  int gamma = atoi(argv[8]);
+  std::string img = argv[1]; 
+  int dimension = atoi(argv[2]);
+  float sMin = atof(argv[3]);
+  float sMax = atof(argv[4]);
+  int nSteps = atoi(argv[5]);
+  int gamma = atoi(argv[6]);
   float Tmin, Tmax;     
   bool SO=false;
         
-  if(argv[9] && argv[10])
+  if(argv[7] && argv[8])
     {
-    Tmin = atof(argv[9]);
-    Tmax = atof(argv[10]);
+    Tmin = atof(argv[7]);
+    Tmax = atof(argv[8]);
     }
   else
     {
@@ -504,7 +526,7 @@ int main(int argc, char* argv[])
     Tmax = 0;
     }
         
-  if(strcmp(argv[11],"1"))
+  if(strcmp(argv[9],"1"))
     {
     SO=true;
     }
@@ -516,11 +538,11 @@ int main(int argc, char* argv[])
 
   if(dimension == 2)
     {
-    r = EigenToObjectnessMeasure2D(img, ext, folder, sMin, sMax, nSteps, gamma, Tmin, Tmax, SO);
+    r = EigenToObjectnessMeasure2D(img, sMin, sMax, nSteps, gamma, Tmin, Tmax, SO);
     }
   else if(dimension == 3)
     {
-    r = EigenToObjectnessMeasure3D(img, ext, folder, sMin, sMax, nSteps, gamma, Tmin, Tmax, SO);
+    r = EigenToObjectnessMeasure3D(img, sMin, sMax, nSteps, gamma, Tmin, Tmax, SO);
     }
   else
     {

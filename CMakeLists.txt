@@ -12,7 +12,12 @@ INCLUDE(CTest)
 #=========================================================
 
 IF(BUILD_TESTING)
- ENABLE_TESTING()
+  ENABLE_TESTING()
+  INCLUDE(cmake/AngioTkExternalData.cmake)
+  
+  # Sets the data root
+  set(AngiotTk_DATA_ROOT ${AngioTk_SOURCE_DIR}/Testing/Data)
+  mark_as_advanced(AngiotTk_DATA_ROOT)
 ENDIF(BUILD_TESTING)
 #=========================================================
 
@@ -35,6 +40,7 @@ MARK_AS_ADVANCED(LIBRARY_OUTPUT_PATH EXECUTABLE_OUTPUT_PATH)
 
 SET(AngioTk_LIBRARY_PATH "${LIBRARY_OUTPUT_PATH}")
 SET(AngioTk_EXECUTABLE_PATH "${EXECUTABLE_OUTPUT_PATH}")
+set(AngioTk_TEST_OUTPUT_DIR "${AngioTk_BINARY_DIR}/Testing/Temporary")
 SET(CXX_TEST_PATH ${EXECUTABLE_OUTPUT_PATH})
 
 #=========================================================
@@ -104,3 +110,5 @@ endif()
 INCLUDE_DIRECTORIES(${AngioTK_INCLUDE_DIRS})
 
 ADD_SUBDIRECTORY(Modules)
+
+ExternalData_Add_Target(angioTkData)
