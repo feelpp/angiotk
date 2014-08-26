@@ -13,7 +13,7 @@ INCLUDE(CTest)
 
 IF(BUILD_TESTING)
   ENABLE_TESTING()
-  INCLUDE(cmake/AngioTkExternalData.cmake)
+  INCLUDE(CMake/AngioTkExternalData.cmake)
   
   # Sets the data root
   set(AngiotTk_DATA_ROOT ${AngioTk_SOURCE_DIR}/Testing/Data)
