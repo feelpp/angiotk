@@ -14,5 +14,5 @@
 <EmptyLines>2</EmptyLines>
 <Template>[TNV]</Template>
 <Operator>1,1</Operator>
-<Header>@AngioTK_SOURCE_DIR@/cmake/KWStyle/AngioTkHeader.h,false,true</Header>
+<Header>@AngioTK_SOURCE_DIR@/CMake/KWStyle/AngioTkHeader.h,false,true</Header>
 </Description>
