@@ -55,7 +55,6 @@ EigenToObjectnessFilter< TInputPixel, TOutputPixel, VDimension >
   this->SetNthOutput( 0, this->MakeOutput( 0 ) );
   this->SetNthOutput( 1, this->MakeOutput( 1 ) );
   this->SetNthOutput( 2, this->MakeOutput( 2 ) );
-  this->SetNthOutput( 5, this->MakeOutput( 5 ) );
 }
 
 template < typename TInputPixel, typename TOutputPixel, unsigned int VDimension >
@@ -88,18 +87,19 @@ EigenToObjectnessFilter< TInputPixel, TOutputPixel, VDimension >
 ::MakeOutput(unsigned int idx)
 {
   DataObject::Pointer output;
-  switch (idx)
-  {
-  case 0:
-  output = (OutputImageType::New()).GetPointer();
-  break;
-  case 1:
-  output = (ArrayOutputImageType::New()).GetPointer();
-  break;
-  case 2:
-  output = (ROutputImageType::New()).GetPointer();
-  break;
-  }
+
+  switch ( idx )
+    {
+    case 0:
+      output = ( OutputImageType::New() ).GetPointer();
+      break;
+    case 1:
+      output = ( ArrayOutputImageType::New() ).GetPointer();
+      break;
+    case 2:
+      output = ( ROutputImageType::New() ).GetPointer();
+      break;
+    }
   return output.GetPointer();
 }
 
@@ -121,8 +121,8 @@ EigenToObjectnessFilter< TInputPixel, TOutputPixel, VDimension >
 
   m_EigenVectorAnalysisFilter->SetInput( this->GetInput() );//Eigen vector analysis
   m_EigenVectorAnalysisFilter->Update();
-  const typename AnalysisMatrixImageType::ConstPointer eigenVectorMatrixImage = m_EigenVectorAnalysisFilter->GetOutput();
 
+  const typename AnalysisMatrixImageType::ConstPointer eigenVectorMatrixImage = m_EigenVectorAnalysisFilter->GetOutput();
   // walk the region of eigen values and get the objectness measure
   EigenValueArrayType eigenValues;
   ImageRegionConstIterator<EigenValueImageType> it;

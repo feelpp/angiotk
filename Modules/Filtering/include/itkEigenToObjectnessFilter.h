@@ -61,8 +61,8 @@ namespace itk
 template < typename TInputPixel, typename TOutputPixel, unsigned int VDimension > 
 class ITK_EXPORT EigenToObjectnessFilter : public
    ImageToImageFilter< 
-   Image < SymmetricSecondRankTensor< typename NumericTraits<TInputPixel>::RealType, VDimension>, VDimension>, 
-   Image< FixedArray<TOutputPixel, VDimension>, VDimension > >
+     Image < SymmetricSecondRankTensor< typename NumericTraits<TInputPixel>::RealType, VDimension>, VDimension>, 
+     Image<TOutputPixel, VDimension>  >
 {
 public:
   /** Standard class typedefs. */
@@ -70,15 +70,16 @@ public:
 
   typedef ImageToImageFilter< Image< SymmetricSecondRankTensor
               < typename NumericTraits<TInputPixel>::RealType, VDimension>, VDimension>,
-        Image< FixedArray<TOutputPixel, VDimension>, VDimension > > Superclass;
+        Image<TOutputPixel, VDimension> > Superclass;
 
   typedef SmartPointer< Self >                       Pointer;
   typedef SmartPointer< const Self >                 ConstPointer;
 
   typedef typename Superclass::InputImageType        InputImageType;
-  typedef typename Superclass::OutputImageType       ArrayOutputImageType;
+  typedef typename Image< FixedArray<TOutputPixel, VDimension>, VDimension >     ArrayOutputImageType;
   typedef typename InputImageType::RegionType        InputImageRegionType;
   typedef typename InputImageRegionType::IndexType   InputIndexType;
+  typedef typename Superclass::OutputImageType       OutputImageType;
 
   typedef typename ArrayOutputImageType::PixelType   OutputArrayPixelType;
   typedef typename InputImageType::PixelType         InputPixelType;
@@ -96,7 +97,7 @@ public:
   typedef Image< RArrayType, InputImageType::ImageDimension >   ROutputImageType;
   typedef Vector< float, InputPixelType::Dimension >            EigenVectorType;
   typedef Image< EigenVectorType, ImageDimension >              EigenVectorImageType;
-  typedef Image<OutputPixelType, ImageDimension>                OutputImageType;
+
   typedef Matrix<float, ImageDimension, ImageDimension>         AnalysisMatrixType; 
   typedef Image< AnalysisMatrixType, ImageDimension>            AnalysisMatrixImageType;
   typedef SymmetricSecondRankTensor< double, ImageDimension >   HessianTensorType;
