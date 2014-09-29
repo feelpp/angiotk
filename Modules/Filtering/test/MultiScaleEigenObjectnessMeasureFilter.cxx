@@ -58,10 +58,8 @@ int EigenToObjectnessMeasure2D(std::string imageFilename, float sMin, float sMax
   typedef itk::ImageFileReader<InputImageType>   FileReaderType;
   typedef itk::ImageFileWriter<OutputImageType>  FileWriterType;
   typedef itk::ImageFileWriter<UcharImageType>   UcharWriterType;
-  typedef itk::ImageFileWriter<VectorImageType>  VectorWriterType;
 
   typedef itk::RescaleIntensityImageFilter<OutputImageType, UcharImageType> RescaleFilterType;      
-  typedef itk::CastImageFilter< OutputImageType, UcharImageType> CastToRealFilterType;
 
   // Declare the type of enhancement filter
   typedef itk:: EigenToObjectnessFilter <InputPixelType, OutputPixelType, Dim>   ObjectnessFilterType;
@@ -257,11 +255,8 @@ int EigenToObjectnessMeasure3D(std::string imageFilename, float sMin, float sMax
   typedef itk::ImageFileReader <InputImageType>   FileReaderType;
   typedef itk::ImageFileWriter<OutputImageType>   FileWriterType;
   typedef itk::ImageFileWriter<UcharImageType>    UcharWriterType;
-  typedef itk::ImageFileWriter<VectorImageType>   VectorWriterType;
   
   typedef itk::RescaleIntensityImageFilter<OutputImageType, UcharImageType> RescaleFilterType;
-        
-  typedef itk::CastImageFilter< OutputImageType, UcharImageType> CastToRealFilterType;
         
   // Declare the type of enhancement filter        
   typedef itk::EigenToObjectnessFilter <InputPixelType, OutputPixelType, Dim>   ObjectnessFilterType;

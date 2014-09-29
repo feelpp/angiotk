@@ -75,11 +75,11 @@ public:
   typedef SmartPointer< Self >                       Pointer;
   typedef SmartPointer< const Self >                 ConstPointer;
 
-  typedef typename Superclass::InputImageType        InputImageType;
-  typedef typename Image< FixedArray<TOutputPixel, VDimension>, VDimension >     ArrayOutputImageType;
-  typedef typename InputImageType::RegionType        InputImageRegionType;
-  typedef typename InputImageRegionType::IndexType   InputIndexType;
-  typedef typename Superclass::OutputImageType       OutputImageType;
+  typedef typename Superclass::InputImageType                         InputImageType;
+  typedef Image< FixedArray<TOutputPixel, VDimension>, VDimension >   ArrayOutputImageType;
+  typedef typename InputImageType::RegionType                         InputImageRegionType;
+  typedef typename InputImageRegionType::IndexType                    InputIndexType;
+  typedef typename Superclass::OutputImageType                        OutputImageType;
 
   typedef typename ArrayOutputImageType::PixelType   OutputArrayPixelType;
   typedef typename InputImageType::PixelType         InputPixelType;
