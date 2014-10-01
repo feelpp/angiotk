@@ -14,7 +14,6 @@ compiler:
 #- BUILDTYPE=Release TARGET=tutorial
 
 before_install:
-- echo ${TRAVIS_BUILD_DIR}
 - sudo apt-get -qq update
 # Only ITK 3 is available in Ubuntu 12.04
 # v4 is required -> install from git
@@ -22,10 +21,11 @@ before_install:
 - mkdir -p /tmp/ITK/build
 - cd /tmp/ITK/build
 - cmake .. -DBUILD_EXAMPLES=OFF -DBUILD_TESTING=OFF
-- make -j 4 install
-- cd ${TRAVIS_BUILD_DIR}
+- make -j 4 
+- sudo make install
 
 install:
+- cd ${TRAVIS_BUILD_DIR}
 - mkdir build && cd build && cmake ..
 
 script:
