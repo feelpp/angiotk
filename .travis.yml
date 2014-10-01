@@ -14,14 +14,22 @@ compiler:
 #- BUILDTYPE=Release TARGET=tutorial
 
 before_install:
+- echo ${TRAVIS_BUILD_DIR}
 - sudo apt-get -qq update
-- sudo apt-get install -qq libinsighttoolkit4-dev clang-3.5 
+# Only ITK 3 is available in Ubuntu 12.04
+# v4 is required -> install from git
+- git clone git://itk.org/ITK.git /tmp/ITK
+- mkdir -p /tmp/ITK/build
+- cd /tmp/ITK/build
+- cmake .. -DBUILD_EXAMPLES=OFF -DBUILD_TESTING=OFF
+- make -j 4 install
+- cd ${TRAVIS_BUILD_DIR}
 
 install:
 - mkdir build && cd build && cmake ..
 
 script:
-- make -j2
+- make -j 4
 
 branches:
   only:
