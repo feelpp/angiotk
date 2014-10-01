@@ -14,10 +14,8 @@ compiler:
 #- BUILDTYPE=Release TARGET=tutorial
 
 before_install:
-- echo $TRAVIS_OS_NAME
-- if test "x$TRAVIS_OS_NAME" = "xlinux"; then sudo apt-get -qq update; fi
-#- if test "x$TRAVIS_OS_NAME" = "xlinux"; then sudo apt-get install -qq libinsighttoolkit4-dev clang-3.5 ; fi
-- if test "x$TRAVIS_OS_NAME" = "xlinux"; then sudo apt-get install libinsighttoolkit4-dev clang-3.5 ; fi
+- sudo apt-get -qq update
+- sudo apt-get install -qq libinsighttoolkit4-dev clang-3.5 
 
 install:
 - mkdir build && cd build && cmake ..
