@@ -1,0 +1,40 @@
+os:
+  - linux
+
+git:
+  depth: 1
+  submodules: false
+
+language: cpp
+
+compiler:
+- clang
+
+#env:
+#- BUILDTYPE=Release TARGET=tutorial
+
+before_install:
+- echo $TRAVIS_OS_NAME
+- if test "x$TRAVIS_OS_NAME" = "xlinux"; then sudo apt-get -qq update; fi
+- if test "x$TRAVIS_OS_NAME" = "xlinux"; then sudo apt-get install -qq libinsighttoolkit4-dev clang-3.5 ; fi
+
+install:
+- mkdir build && cd build && cmake ..
+
+script:
+- make -j2
+
+branches:
+  only:
+  - develop
+  - master
+  - feature/explicit
+  - merging-with-explicit
+cache:
+- apt
+notifications:
+  email:
+    recipients:
+    - angiotk-commits@cemosis.fr
+    on_success: change
+    on_failure: change
