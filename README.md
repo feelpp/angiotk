@@ -15,6 +15,10 @@ Travis-CI Build Status :
 
   - master branch : [![Build Status](https://magnum.travis-ci.com/feelpp/angiotk.svg?token=bYtmwPh98RexKnPLongV&branch=master)](https://magnum.travis-ci.com/feelpp/angiotk)
 
+### Dashboard
+
+  - [http://open.cdash.org/index.php?project=AngioTk](http://open.cdash.org/index.php?project=AngioTk)
+
 ### Cloning AngioTk
 
 Then issue the following commands in order to clone the angiotk repository in feelpp/ research
