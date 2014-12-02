@@ -124,6 +124,17 @@ public :
 
     }
 
+    static
+    po::options_description
+    options() const
+    {
+        po::options_description myCenterlinesOptions( "Centerlines from STL for blood flow mesh options" );
+        myCenterlinesOptions.add_options()
+            ( "centerlines.stl.filename", po::value<std::string>()->default_value( "" ), "coeff" )
+            ;
+        return myCenterlinesOptions;
+    }
+
 private :
     std::string M_stlFileName, M_outputFileName;
     std::set<int> M_targetids, M_sourceids;
