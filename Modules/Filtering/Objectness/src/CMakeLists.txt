@@ -1,2 +1,2 @@
-ADD_EXECUTABLE( ObjectnessFilter ObjectnessFilter.cxx )
+angiotk_add_component( ObjectnessFilter ObjectnessFilter.cxx )
 

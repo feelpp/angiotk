@@ -109,6 +109,7 @@ endif()
 
 INCLUDE_DIRECTORIES(${AngioTK_INCLUDE_DIRS})
 
+INCLUDE("${AngioTk_SOURCE_DIR}/CMake/AngioTkMacros.cmake")
 INCLUDE("${AngioTk_SOURCE_DIR}/CMake/AngioTkModules.cmake")
 
 ExternalData_Add_Target(angioTkData)
