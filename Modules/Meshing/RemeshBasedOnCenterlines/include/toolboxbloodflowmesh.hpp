@@ -3,6 +3,8 @@
 #ifndef __toolboxbloodflowmesh_H
 #define __toolboxbloodflowmesh_H 1
 
+#include <angiotkMeshingConfig.h>
+
 #include <feel/feelfilters/gmsh.hpp>
 #if defined( FEELPP_HAS_GMSH_H )
 
@@ -14,7 +16,7 @@
 #include <Context.h>
 #endif
 
-#define MY_PYTHON_EXECUTABLE /opt/local/bin/python2.7
+//#define MY_PYTHON_EXECUTABLE /opt/local/bin/python2.7
 
 namespace Feel
 {
@@ -94,7 +96,7 @@ public :
 
         // source ~/packages/vmtk/vmtk.build2/Install/vmtk_env.sh
         //std::string pythonExecutable="/opt/local/bin/python2.7";
-        std::string pythonExecutable = BOOST_PP_STRINGIZE( MY_PYTHON_EXECUTABLE );
+        std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
 
         __str << pythonExecutable << " ";
         //std::string dirBaseVmtk = "/Users/vincentchabannes/packages/vmtk/new/vmtk.build/Install/bin/";
@@ -115,9 +117,9 @@ public :
               << "-ofile " << name << ".vtk "
               << " -mode ascii ";
 
-        //std::cout << "---------------------------------------\n"
-        //          << "run in system : \n" << __str.str() << "\n"
-        //          << "---------------------------------------\n";
+        std::cout << "---------------------------------------\n"
+                  << "run in system : \n" << __str.str() << "\n"
+                  << "---------------------------------------\n";
         auto err = ::system( __str.str().c_str() );
 
         std::cout << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n";
@@ -126,11 +128,11 @@ public :
 
     static
     po::options_description
-    options() const
+    options()
     {
         po::options_description myCenterlinesOptions( "Centerlines from STL for blood flow mesh options" );
         myCenterlinesOptions.add_options()
-            ( "centerlines.stl.filename", po::value<std::string>()->default_value( "" ), "coeff" )
+            ( "centerlines.stl.filename", po::value<std::string>()->default_value( "" ), "stl.filename" )
             ;
         return myCenterlinesOptions;
     }
@@ -277,7 +279,7 @@ public :
 
         std::ostringstream __str;
         // source ~/packages/vmtk/vmtk.build2/Install/vmtk_env.sh
-        std::string pythonExecutable = BOOST_PP_STRINGIZE( MY_PYTHON_EXECUTABLE );
+        std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
         __str << pythonExecutable << " ";
         std::string dirBaseVmtk = "/Users/vincentchabannes/packages/vmtk/vmtk.build2/Install/bin/";
         __str << dirBaseVmtk << "vmtk " << dirBaseVmtk << "vmtksurfaceremeshing ";

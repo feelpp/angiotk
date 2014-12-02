@@ -1,8 +1,8 @@
 # Module Meshing
 # Label volume to Mesh for CFD
 
-ExternalData_expand_arguments( angioTkData testArgs DATA{${Meshing_SOURCE_DIR}/simpleTbifurcation.stl} )
-ExternalData_expand_arguments( angioTkData testArgs DATA{${Meshing_SOURCE_DIR}/simpleTbifurcation.inletoutlet.desc} )
+ExternalData_expand_arguments( angioTkData testArgs DATA{${RemeshBasedOnCenterlines_SOURCE_DIR}/simpleTbifurcation.stl} )
+ExternalData_expand_arguments( angioTkData testArgs DATA{${RemeshBasedOnCenterlines_SOURCE_DIR}/simpleTbifurcation.inletoutlet.desc} )
 
 add_executable(bloodflowmeshfromSTL bloodflowmeshfromSTL.cpp )
 target_link_libraries(bloodflowmeshfromSTL ${FEELPP_LIBRARY} ${FEELPP_APP_LINK_LIBRARIES} ${FEELPP_LIBRARIES})
