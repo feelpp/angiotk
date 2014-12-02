@@ -1,5 +1,5 @@
 #=========================================================
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.3 FATAL_ERROR)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8.11 FATAL_ERROR)
 
 #=========================================================
 #AngioTk = Virtual Angiography Toolkit
@@ -109,6 +109,6 @@ endif()
 
 INCLUDE_DIRECTORIES(${AngioTK_INCLUDE_DIRS})
 
-ADD_SUBDIRECTORY(Modules)
+INCLUDE("${AngioTk_SOURCE_DIR}/CMake/AngioTkModules.cmake")
 
 ExternalData_Add_Target(angioTkData)
