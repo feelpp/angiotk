@@ -7,31 +7,6 @@
 int main( int argc, char** argv )
 {
     using namespace Feel;
-#if 0
-    po::options_description myCenterlinesOptions( "Centerlines from STL for blood flow mesh options" );
-    myCenterlinesOptions.add_options()
-      ( "centerlines.stl.filename", po::value<std::string>()->default_value( "" ), "coeff" )
-      ;
-#endif
-    po::options_description myMeshSurfaceOptions( "Mesh surface blood flow from STL and Centerlines options" );
-    myMeshSurfaceOptions.add_options()
-      ( "mesh-surface.force-remesh", po::value<bool>()->default_value( false ), "force-remesh" )
-      ( "mesh-surface.nb-points-in-circle", po::value<int>()->default_value( 15 ), "nb-points-in-circle" )
-      ( "mesh-surface.area", po::value<double>()->default_value( 0.5 ), "area" )
-      ( "mesh-surface.stl.filename", po::value<std::string>()->default_value( "" ), "stl.filename" )
-      ( "mesh-surface.centerlines.filename", po::value<std::string>()->default_value( "" ), "centerlines.filename" )
-      ;
-
-    po::options_description myMeshVolumeOptions( "Mesh volume blood flow from STL and Centerlines options" );
-    myMeshVolumeOptions.add_options()
-      ( "mesh-volume.stl.filename", po::value<std::string>()->default_value( "" ), "stl.filename" )
-      ( "mesh-volume.centerlines.filename", po::value<std::string>()->default_value( "" ), "centerlines.filename" )
-      ( "mesh-volume.inletoutlet-desc.filename", po::value<std::string>()->default_value( "" ), "inletoutlet-desc.filename" )
-      ( "mesh-volume.nb-points-in-circle", po::value<int>()->default_value( 15 ), "nb-points-in-circle" )
-      ( "mesh-volume.extrude-wall",po::value<bool>()->default_value( true ), "extrude-wall" )
-      ( "mesh-volume.extrude-wall.nb-elt-layer", po::value<int>()->default_value( 2 ), "nb-elt-layer" )
-      ( "mesh-volume.extrude-wall.h-layer", po::value<double>()->default_value( 0.2 ), "h-layer" )
-      ;
 
     po::options_description myoptions( "blood flow mesh from STL options" );
     myoptions.add_options()
@@ -41,7 +16,9 @@ int main( int argc, char** argv )
       ( "mesh-volume", po::value<bool>()->default_value( true ), "mesh-volume" )
       ;
 
-    myoptions.add( ToolBoxCenterlines::options() /*myCenterlinesOptions*/ ).add( myMeshSurfaceOptions ).add( myMeshVolumeOptions );
+    myoptions.add( ToolBoxCenterlines::options() )
+      .add( ToolBoxBloodFlowReMeshSTL::options() )
+      .add( ToolBoxBloodFlowMesh::options() );
 
     Environment env( _argc=argc, _argv=argv,
                      _desc=myoptions,
