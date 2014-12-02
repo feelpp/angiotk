@@ -16,8 +16,19 @@ endif()
 
 if ( Feel++_FOUND )
 
+##################################################
+# Python
 FIND_PACKAGE(PythonLibs)
 FIND_PACKAGE(PythonInterp)
+
+##################################################
+# VMTK
+#set(ENV{VMTK_DIR} /Users/vincentchabannes/packages/vmtk/vmtk.build2/Install/bin/)
+FIND_PATH(VMTK_BINARY_DIR NAMES vmtkcenterlines PATH $ENV{VMTK_DIR}/bin )
+if ( NOT VMTK_BINARY_DIR )
+  message(FATAL_ERROR "VMTK_BINARY_DIR not find")
+endif()
+
 configure_file(angiotkMeshingConfig.h.in angiotkMeshingConfig.h)
 include_directories(${RemeshBasedOnCenterlines_BINARY_DIR})
 

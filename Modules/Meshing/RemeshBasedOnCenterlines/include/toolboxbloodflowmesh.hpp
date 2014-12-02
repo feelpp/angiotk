@@ -100,8 +100,9 @@ public :
 
         __str << pythonExecutable << " ";
         //std::string dirBaseVmtk = "/Users/vincentchabannes/packages/vmtk/new/vmtk.build/Install/bin/";
-        std::string dirBaseVmtk = "/Users/vincentchabannes/packages/vmtk/vmtk.build2/Install/bin/";
-        __str << dirBaseVmtk << "vmtk " << dirBaseVmtk << "vmtkcenterlines "
+        //std::string dirBaseVmtk = "/Users/vincentchabannes/packages/vmtk/vmtk.build2/Install/bin/";
+        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+        __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkcenterlines "
               <<"-seedselector profileidlist ";
         __str << "-targetids ";
         for ( int id : this->targetids() )
@@ -112,7 +113,7 @@ public :
 
         __str << "-ifile " << this->stlFileName() << " ";
         __str << "-ofile " << name << ".vtp "
-              << "--pipe " << dirBaseVmtk << "vmtksurfacewriter "
+              << "--pipe " << dirBaseVmtk << "/vmtksurfacewriter "
               << "-ifile " << name << ".vtp "
               << "-ofile " << name << ".vtk "
               << " -mode ascii ";
@@ -281,8 +282,9 @@ public :
         // source ~/packages/vmtk/vmtk.build2/Install/vmtk_env.sh
         std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
         __str << pythonExecutable << " ";
-        std::string dirBaseVmtk = "/Users/vincentchabannes/packages/vmtk/vmtk.build2/Install/bin/";
-        __str << dirBaseVmtk << "vmtk " << dirBaseVmtk << "vmtksurfaceremeshing ";
+        //std::string dirBaseVmtk = "/Users/vincentchabannes/packages/vmtk/vmtk.build2/Install/bin/";
+        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+        __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtksurfaceremeshing ";
         __str << "-ifile " << this->stlFileName() << " ";
         __str << "-ofile " << this->outputFileName() << " ";
         __str << "-area " << this->area() << " ";
@@ -324,6 +326,22 @@ public :
         //std::cout << " this->outputFileName() " << this->outputFileName() << "\n";
         detail::generateMeshFromGeo(geoname/*remeshGeoFileName*/,this->outputFileName()/*remeshMshFileName*/,2);
     }
+
+    static
+    po::options_description
+    options()
+    {
+        po::options_description myMeshSurfaceOptions( "Mesh surface blood flow from STL and Centerlines options" );
+        myMeshSurfaceOptions.add_options()
+            ( "mesh-surface.force-remesh", po::value<bool>()->default_value( false ), "force-remesh" )
+            ( "mesh-surface.nb-points-in-circle", po::value<int>()->default_value( 15 ), "nb-points-in-circle" )
+            ( "mesh-surface.area", po::value<double>()->default_value( 0.5 ), "area" )
+            ( "mesh-surface.stl.filename", po::value<std::string>()->default_value( "" ), "stl.filename" )
+            ( "mesh-surface.centerlines.filename", po::value<std::string>()->default_value( "" ), "centerlines.filename" )
+            ;
+        return myMeshSurfaceOptions;
+    }
+
 private :
     std::string M_packageType;
     std::string M_stlFileName;
@@ -548,6 +566,23 @@ public :
         std::ofstream geofile( geoname.c_str() );
         geofile << geodesc.str();
         geofile.close();
+    }
+
+    static
+    po::options_description
+    options()
+    {
+        po::options_description myMeshVolumeOptions( "Mesh volume blood flow from STL and Centerlines options" );
+        myMeshVolumeOptions.add_options()
+            ( "mesh-volume.stl.filename", po::value<std::string>()->default_value( "" ), "stl.filename" )
+            ( "mesh-volume.centerlines.filename", po::value<std::string>()->default_value( "" ), "centerlines.filename" )
+            ( "mesh-volume.inletoutlet-desc.filename", po::value<std::string>()->default_value( "" ), "inletoutlet-desc.filename" )
+            ( "mesh-volume.nb-points-in-circle", po::value<int>()->default_value( 15 ), "nb-points-in-circle" )
+            ( "mesh-volume.extrude-wall",po::value<bool>()->default_value( true ), "extrude-wall" )
+            ( "mesh-volume.extrude-wall.nb-elt-layer", po::value<int>()->default_value( 2 ), "nb-elt-layer" )
+            ( "mesh-volume.extrude-wall.h-layer", po::value<double>()->default_value( 0.2 ), "h-layer" )
+            ;
+        return myMeshVolumeOptions;
     }
 
 private :
