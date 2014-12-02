@@ -1,6 +1,6 @@
-project(Filtering)
+project(Objectness)
 
-include_directories(${Filtering_SOURCE_DIR}/include)
+include_directories(${Objectness_SOURCE_DIR}/include)
 
 add_subdirectory( src )
 
