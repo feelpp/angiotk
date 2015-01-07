@@ -18,8 +18,8 @@ int main( int argc, char** argv )
       ;
 
     myoptions.add( CenterlinesFromSTL::options("centerlines") )
-      .add( ToolBoxBloodFlowReMeshSTL::options("mesh-surface") )
-      .add( ToolBoxBloodFlowMesh::options("mesh-volume") );
+      .add( RemeshSTL::options("mesh-surface") )
+      .add( VolumeMeshing::options("mesh-volume") );
 
     Environment env( _argc=argc, _argv=argv,
                      _desc=myoptions,
@@ -41,7 +41,7 @@ int main( int argc, char** argv )
     {
         if ( doRemeshSTLForCenterlines )
         {
-	    ToolBoxBloodFlowReMeshSTL remshVMTK("mesh-surface");
+	    RemeshSTL remshVMTK("mesh-surface");
 	    if ( doForceRebuild )
 	      remshVMTK.setForceRebuild(true);
 	    remshVMTK.setPackageType("vmtk");
@@ -54,7 +54,7 @@ int main( int argc, char** argv )
         centerlines.run();
     }
 
-    ToolBoxBloodFlowReMeshSTL remshGMSH("mesh-surface");
+    RemeshSTL remshGMSH("mesh-surface");
     if ( doForceRebuild )
       remshGMSH.setForceRebuild(true);
     remshGMSH.setPackageType("gmsh");
@@ -69,7 +69,7 @@ int main( int argc, char** argv )
         remshGMSH.run();
     }
 
-    ToolBoxBloodFlowMesh meshVolume("mesh-volume");
+    VolumeMeshing meshVolume("mesh-volume");
     if ( doForceRebuild )
       meshVolume.setForceRebuild(true);
     if ( doMeshVolume )

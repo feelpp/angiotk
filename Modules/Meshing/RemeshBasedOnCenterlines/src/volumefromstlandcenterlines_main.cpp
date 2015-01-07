@@ -7,7 +7,7 @@ int main( int argc, char** argv )
 {
     using namespace Feel;
 
-    po::options_description myoptions = ToolBoxBloodFlowMesh::options("");
+    po::options_description myoptions = VolumeMeshing::options("");
 
     Environment env( _argc=argc, _argv=argv,
                      _desc=myoptions,
@@ -16,7 +16,7 @@ int main( int argc, char** argv )
 				  _email="feelpp-devel@feelpp.org"));
 
 
-    ToolBoxBloodFlowMesh myMeshingVolume("");
+    VolumeMeshing myMeshingVolume("");
     myMeshingVolume.run();
 
     return 0;

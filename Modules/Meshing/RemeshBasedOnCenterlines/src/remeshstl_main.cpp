@@ -7,7 +7,7 @@ int main( int argc, char** argv )
 {
     using namespace Feel;
 
-    po::options_description myoptions = ToolBoxBloodFlowReMeshSTL::options("");
+    po::options_description myoptions = RemeshSTL::options("");
 
     Environment env( _argc=argc, _argv=argv,
                      _desc=myoptions,
@@ -15,7 +15,7 @@ int main( int argc, char** argv )
 				  _author="Feel++ Consortium",
 				  _email="feelpp-devel@feelpp.org"));
 
-    ToolBoxBloodFlowReMeshSTL myRemeshSTL("");
+    RemeshSTL myRemeshSTL("");
     myRemeshSTL.run();
 
     return 0;
