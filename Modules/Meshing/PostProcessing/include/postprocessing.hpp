@@ -20,28 +20,32 @@ public :
     std::string prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }
     std::string inputPath() const { return M_inputPath; }
-    std::string outputPath() const { return M_outputPath; }
+    std::vector<std::string> const& outputPath() const { return M_outputPath; }
+    std::string const& outputPath(int k) const { return M_outputPath[k]; }
     bool forceRebuild() const { return M_forceRebuild; }
-    int nPartitions() const { return M_nPartitions; }
+    std::vector<int> const& nPartitions() const { return M_nPartitions; }
+    int nPartitions(int k) const { return M_nPartitions[k]; }
     int partitioner() const { return M_partitioner; }
 
     void setInputPath( std::string s ) { M_inputPath=s; }
-    void setOutputPath( std::string s ) { M_outputPath=s; }
-    void setNumberOfPartitions(int p) { M_nPartitions=p; }
+    void setOutputPath( std::string s ) { M_outputPath[0]=s; }
+    void setNumberOfPartitions(int p) { M_nPartitions.resize(1);M_nPartitions[0]=p; }
     void setPartitioner(int p) { M_partitioner=p; }
 
     void updateOutputPathFromInputPath();
     void updateOutputPathFromInputFileName();
+    void updateOutputPathFromPath( std::string path );
 
     void run();
 
     static po::options_description options( std::string const& prefix );
 private :
     std::string M_prefix;
-    std::string M_inputPath,M_outputPath;
+    std::string M_inputPath;//,M_outputPath;
+    std::vector<std::string> M_outputPath;
     std::string M_outputDirectory;
     bool M_forceRebuild;
-    int M_nPartitions;
+    std::vector<int> M_nPartitions;
     int M_partitioner;
 };
 

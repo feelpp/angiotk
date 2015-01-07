@@ -12,23 +12,28 @@ MeshPartitioner::MeshPartitioner( std::string prefix )
   :
   M_prefix( prefix ),
   M_inputPath( soption(_name="input.filename",_prefix=this->prefix()) ),
-  M_outputPath( soption(_name="output.filename",_prefix=this->prefix()) ),
+  M_outputPath( 1,soption(_name="output.filename",_prefix=this->prefix()) ),
   M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
   M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
-  M_nPartitions( ioption(_name="npartitions",_prefix=this->prefix()) ),
+  //M_nPartitions( ioption(_name="npartitions",_prefix=this->prefix()) ),
+  M_nPartitions( Environment::vm()[prefixvm(prefix,"npartitions").c_str()].as<std::vector<int> >() ),
   M_partitioner( ioption(_name="partitioner",_prefix=this->prefix()) )
 {
-  if ( M_nPartitions<=0 )
-    M_nPartitions = this->worldComm().size();
+  if ( M_nPartitions.size()==0 )
+    M_nPartitions.resize(1,this->worldComm().size());
 
   // todo M_inputPath is relative
 
-  if ( !M_inputPath.empty() && M_outputPath.empty() )
+  if ( !M_inputPath.empty() && M_outputPath[0].empty() )
   {
     if ( M_outputDirectory.empty() )
       this->updateOutputPathFromInputPath();
     else
       this->updateOutputPathFromInputFileName();
+  }
+  else if ( !M_outputPath[0].empty() )
+  {
+      this->updateOutputPathFromPath( M_outputPath[0] );
   }
 
 }
@@ -51,9 +56,13 @@ MeshPartitioner::updateOutputPathFromInputPath()
   fs::path gp = M_inputPath;
   std::string nameMeshFile = gp.stem().string();
   fs::path directory = gp.parent_path();
-  std::string newFileName = (boost::format("%1%_p%2%.msh")%nameMeshFile%this->nPartitions()).str();
-  fs::path outputPath = directory / fs::path(newFileName);
-  M_outputPath = outputPath.string();
+  M_outputPath.resize( M_nPartitions.size() );
+  for ( int k=0;k<M_nPartitions.size();++k)
+  {
+    std::string newFileName = (boost::format("%1%_p%2%.msh")%nameMeshFile%this->nPartitions(k)).str();
+    fs::path outputPath = directory / fs::path(newFileName);
+    M_outputPath[k] = outputPath.string();
+  }
 }
 
 void
@@ -72,10 +81,48 @@ MeshPartitioner::updateOutputPathFromInputFileName()
   // get filename without extension
   fs::path gp = M_inputPath;
   std::string nameMeshFile = gp.stem().string();
-  std::string newFileName = (boost::format("%1%_p%2%.msh")%nameMeshFile%this->nPartitions()).str();
 
-  fs::path outputPath = meshesdirectories / fs::path(newFileName);
-  M_outputPath = outputPath.string();
+  M_outputPath.resize( M_nPartitions.size() );
+  for ( int k=0;k<M_nPartitions.size();++k)
+  {
+    std::string newFileName = (boost::format("%1%_p%2%.msh")%nameMeshFile%this->nPartitions(k)).str();
+    fs::path outputPath = meshesdirectories / fs::path(newFileName);
+    M_outputPath[k] = outputPath.string();
+  }
+}
+
+void
+MeshPartitioner::updateOutputPathFromPath( std::string outputpathbase )
+{
+  //CHECK(false) << "TODO";
+  fs::path meshesdirectories;
+  if ( fs::path(outputpathbase).is_relative() )
+  {
+    // define output directory
+    meshesdirectories = Environment::rootRepository();
+    if ( M_outputDirectory.empty() )
+    {
+      meshesdirectories /= fs::path("/angiotk/meshing/meshfile-garbage/" + this->prefix() );
+    }
+    else meshesdirectories /= fs::path(M_outputDirectory);
+  }
+  else
+  {
+    meshesdirectories = fs::path(outputpathbase).parent_path();
+  }
+
+  // get filename without extension
+  fs::path gp = outputpathbase;
+  std::string nameOutputBase = gp.stem().string();
+
+  M_outputPath.resize( M_nPartitions.size() );
+  for ( int k=0;k<M_nPartitions.size();++k)
+  {
+    std::string newFileName = (boost::format("%1%_p%2%.msh")%nameOutputBase%this->nPartitions(k)).str();
+    fs::path outputPath = meshesdirectories / fs::path(newFileName);
+    M_outputPath[k] = outputPath.string();
+  }
+
 }
 
 void
@@ -88,65 +135,67 @@ MeshPartitioner::run()
     return;
   }
 
-  if ( M_outputPath.empty() )
+  for ( int k=0;k<M_nPartitions.size();++k)
   {
-    if ( this->worldComm().isMasterRank() )
-      std::cout << "WARNING : partitioning not done because the output path is empty\n";
-    return;  
-  }
-
-
-  if ( this->worldComm().isMasterRank() )
-  {
-    std::ostringstream coutStr;
-
-    coutStr << "\n"
-	    << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
-	    << "---------------------------------------\n"
-	    << "[MeshPartitioner] : run (start) \n"
-	    << "---------------------------------------\n";
-    coutStr << "input path                          : " << this->inputPath() << "\n"
-	    << "number of partition                 : " << this->nPartitions() << "\n"
-	    << "Gmsh partitioner (1=CHACO, 2=METIS) : " << this->partitioner() << "\n"
-	    << "output path                         : " << this->outputPath() << "\n"
-	    << "---------------------------------------\n"
-	    << "---------------------------------------\n";
-    std::cout << coutStr.str();
-  }
-
-
-  if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
-  {
-    // wait all process to be sure that previous test on file existance is idem for all proc
-    this->worldComm().globalComm().barrier();
-    CHECK( this->inputPath() != this->outputPath() ) << "not allow to use same name";
-
-    // build directories if necessary
-    if ( !this->outputPath().empty() && this->worldComm().isMasterRank() )
+    if ( M_outputPath[k].empty() )
     {
-      fs::path directory = fs::path(this->outputPath()).parent_path();
-      if ( !fs::exists( directory ) )
-	fs::create_directories( directory );
+      if ( this->worldComm().isMasterRank() )
+	std::cout << "WARNING : partitioning not done because the output path is empty\n";
+      return;  
     }
-    // // wait all process
-    this->worldComm().globalComm().barrier();
 
-    // partioning mesh
-    Gmsh gmsh( 3,//mesh_fluid_type::nDim,
-	       1,//mesh_fluid_type::nOrder,
-	       this->worldComm() );
-    gmsh.setNumberOfPartitions( this->nPartitions() );
-    gmsh.setPartitioner( (GMSH_PARTITIONER)this->partitioner() );
 
-    gmsh.rebuildPartitionMsh( this->inputPath(), this->outputPath() );
-  }
-  else
-  {
     if ( this->worldComm().isMasterRank() )
-      std::cout << "[MeshPartitioner] : partitioning already done : skip this step\n";
-  }
+    {
+      std::ostringstream coutStr;
 
-  if ( this->worldComm().isMasterRank() )
+      coutStr << "\n"
+	      << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
+	      << "---------------------------------------\n"
+	      << "[MeshPartitioner] : run (start) \n"
+	      << "---------------------------------------\n";
+      coutStr << "input path                          : " << this->inputPath() << "\n"
+	      << "number of partition                 : " << this->nPartitions(k) << "\n"
+	      << "Gmsh partitioner (1=CHACO, 2=METIS) : " << this->partitioner() << "\n"
+	      << "output path                         : " << this->outputPath(k) << "\n"
+	      << "---------------------------------------\n"
+	      << "---------------------------------------\n";
+      std::cout << coutStr.str();
+    }
+
+
+    if ( !fs::exists( this->outputPath(k) ) || this->forceRebuild() )
+    {
+      // wait all process to be sure that previous test on file existance is idem for all proc
+      this->worldComm().globalComm().barrier();
+      CHECK( this->inputPath() != this->outputPath(k) ) << "not allow to use same name";
+
+      // build directories if necessary
+      if ( !this->outputPath(k).empty() && this->worldComm().isMasterRank() )
+      {
+	fs::path directory = fs::path(this->outputPath(k)).parent_path();
+	if ( !fs::exists( directory ) )
+	  fs::create_directories( directory );
+      }
+      // // wait all process
+      this->worldComm().globalComm().barrier();
+
+      // partioning mesh
+      Gmsh gmsh( 3,//mesh_fluid_type::nDim,
+		 1,//mesh_fluid_type::nOrder,
+		 this->worldComm() );
+      gmsh.setNumberOfPartitions( this->nPartitions(k) );
+      gmsh.setPartitioner( (GMSH_PARTITIONER)this->partitioner() );
+
+      gmsh.rebuildPartitionMsh( this->inputPath(), this->outputPath(k) );
+    }
+    else
+    {
+      if ( this->worldComm().isMasterRank() )
+	std::cout << "[MeshPartitioner] : partitioning already done : skip this step\n";
+    }
+
+    if ( this->worldComm().isMasterRank() )
     {
       std::ostringstream coutStr;
       coutStr << "---------------------------------------\n"
@@ -157,6 +206,7 @@ MeshPartitioner::run()
       std::cout << coutStr.str();
     }
 
+  }
 }
 
 
@@ -169,7 +219,8 @@ MeshPartitioner::options( std::string const& prefix )
     (prefixvm(prefix,"output.filename").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) path of output file")
     (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
     (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
-    (prefixvm(prefix,"npartitions").c_str(), Feel::po::value<int>()->default_value(-1), "(int) number of partition")
+    //(prefixvm(prefix,"npartitions").c_str(), Feel::po::value<int>()->default_value(-1), "(int) number of partition")
+    (prefixvm(prefix,"npartitions").c_str(), po::value<std::vector<int> >()->multitoken(), "number of partition" )
     (prefixvm(prefix,"partitioner").c_str(), Feel::po::value<int>()->default_value(GMSH_PARTITIONER_DEFAULT), "(int) Gmsh partitioner (1=CHACO, 2=METIS)")
     ;
 
