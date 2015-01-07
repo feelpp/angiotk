@@ -1,7 +1,7 @@
 # Module Meshing
 # Label volume to Mesh for CFD
 
-project(RemeshBasedOnCenterlines)
+project(VolumeFromSTL)
 
 #set(ENV{FEELPP_DIR} /Users/vincentchabannes/github-experimental/feelpp-install/)
 FIND_PATH(FEELPP_CMAKE_MODULES FindFeel++.cmake PATH $ENV{FEELPP_DIR}/share/feel/cmake/modules/   /usr/share/feel/cmake/modules/ /usr/local/share/feel/cmake/modules/ )
@@ -30,9 +30,9 @@ if ( NOT VMTK_BINARY_DIR )
 endif()
 
 configure_file(angiotkMeshingConfig.h.in angiotkMeshingConfig.h)
-include_directories(${RemeshBasedOnCenterlines_BINARY_DIR})
+include_directories(${VolumeFromSTL_BINARY_DIR})
 
-include_directories(${RemeshBasedOnCenterlines_SOURCE_DIR}/include)
+include_directories(${VolumeFromSTL_SOURCE_DIR}/include)
 
 
 add_subdirectory(src)
