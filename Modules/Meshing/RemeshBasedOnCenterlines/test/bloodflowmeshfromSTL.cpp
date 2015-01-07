@@ -16,9 +16,9 @@ int main( int argc, char** argv )
       ( "mesh-volume", po::value<bool>()->default_value( true ), "mesh-volume" )
       ;
 
-    myoptions.add( ToolBoxCenterlines::options() )
-      .add( ToolBoxBloodFlowReMeshSTL::options() )
-      .add( ToolBoxBloodFlowMesh::options() );
+    myoptions.add( ToolBoxCenterlines::options("centerlines") )
+      .add( ToolBoxBloodFlowReMeshSTL::options("mesh-surface") )
+      .add( ToolBoxBloodFlowMesh::options("mesh-volume") );
 
     Environment env( _argc=argc, _argv=argv,
                      _desc=myoptions,
@@ -27,8 +27,8 @@ int main( int argc, char** argv )
 				  _email="feelpp-devel@feelpp.org"));
 
 
-#if 1
-    ToolBoxCenterlines centerlines;
+
+    ToolBoxCenterlines centerlines("centerlines");
 
     bool remeshSTLForCenterlines=boption(_name="remesh-stl-for-centerlines");
     bool doComputeCenterlines = boption(_name="compute-centerlines");
@@ -39,43 +39,39 @@ int main( int argc, char** argv )
     {
         if ( remeshSTLForCenterlines )
         {
-            ToolBoxBloodFlowReMeshSTL remshVMTK("vmtk");
-            remshVMTK.setStlFileName( centerlines.stlFileName() );
+	    ToolBoxBloodFlowReMeshSTL remshVMTK("mesh-surface");
+	    remshVMTK.setPackageType("vmtk");
+            remshVMTK.setInputPath( centerlines.inputPath() );
+	    remshVMTK.updateOutputPathFromInputFileName();
             remshVMTK.run();
-            centerlines.setStlFileName( remshVMTK.outputFileName() );
-        }
-        if ( false )
-        {
-            // for cut3
-            centerlines.setTargetids( { 0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12 } );
-            centerlines.setSourceids( { 9 } );
-        }
-        else
-        {
-            centerlines.setTargetids( { 1, 2 } );
-            centerlines.setSourceids( { 0 } );
-
+            centerlines.setStlFileName( remshVMTK.outputPath() );
+	    centerlines.updateOutputPathFromInputFileName();
         }
         centerlines.run();
     }
 
-    ToolBoxBloodFlowReMeshSTL remshGMSH("gmsh");
+    ToolBoxBloodFlowReMeshSTL remshGMSH("mesh-surface");
+    remshGMSH.setPackageType("gmsh");
+
     if ( doRemeshSurface )
     {
-        if ( remshGMSH.stlFileName().empty() )
-            remshGMSH.setStlFileName( centerlines.stlFileName() );
-        remshGMSH.setCenterlinesFileName( centerlines.outputFileName() );
+        if ( remshGMSH.inputPath().empty() )
+	{
+            remshGMSH.setInputPath( centerlines.inputPath() );
+	    remshGMSH.updateOutputPathFromInputFileName();
+	}
+        remshGMSH.setCenterlinesFileName( centerlines.outputPath() );
         remshGMSH.run();
     }
 
-    ToolBoxBloodFlowMesh meshVolume;
+    ToolBoxBloodFlowMesh meshVolume("mesh-volume");
     if ( doMeshVolume )
     {
-        meshVolume.setStlFileName( remshGMSH.outputFileName() );
-        //if ( doComputeCenterlines )
-        meshVolume.setCenterlinesFileName( centerlines.outputFileName() );
+        meshVolume.setInputSTLPath( remshGMSH.outputPath() );
+        meshVolume.setInputCenterlinesPath( centerlines.outputPath() );
+	meshVolume.updateOutputPathFromInputFileName();
         meshVolume.run();
     }
-#endif
+
     return 0;
 }

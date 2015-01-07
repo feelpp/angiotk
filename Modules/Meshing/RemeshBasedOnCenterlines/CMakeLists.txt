@@ -35,6 +35,7 @@ include_directories(${RemeshBasedOnCenterlines_BINARY_DIR})
 include_directories(${RemeshBasedOnCenterlines_SOURCE_DIR}/include)
 
 
+add_subdirectory(src)
 
 if(BUILD_TESTING)
   add_subdirectory(test)
