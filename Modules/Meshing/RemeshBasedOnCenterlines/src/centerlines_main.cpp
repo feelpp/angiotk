@@ -1,13 +1,13 @@
 #include <feel/feelcore/environment.hpp>
 
-#include <toolboxbloodflowmesh.hpp>
+#include <volumefromstl.hpp>
 
 
 int main( int argc, char** argv )
 {
     using namespace Feel;
 
-    po::options_description myoptions = ToolBoxCenterlines::options("");
+    po::options_description myoptions = CenterlinesFromSTL::options("");
 
     Environment env( _argc=argc, _argv=argv,
                      _desc=myoptions,
@@ -16,7 +16,7 @@ int main( int argc, char** argv )
 				  _email="feelpp-devel@feelpp.org"));
 
 
-    ToolBoxCenterlines centerlines("");
+    CenterlinesFromSTL centerlines("");
     centerlines.run();
 
     return 0;

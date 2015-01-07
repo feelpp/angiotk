@@ -21,54 +21,19 @@
 namespace Feel
 {
 
-class ToolBoxCenterlines
+class CenterlinesFromSTL
 {
 public :
-    ToolBoxCenterlines( std::string prefix )
-        :
-        M_prefix( prefix ),
-        M_inputPath( soption(_name="input.filename",_prefix=this->prefix()) ),
-        M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
-        M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
-        {
-            std::vector<int> sids,tids;
-            if ( Environment::vm().count(prefixvm(this->prefix(),"source-ids").c_str()) )
-                 sids = Environment::vm()[prefixvm(this->prefix(),"source-ids").c_str()].as<std::vector<int> >();
-            if ( Environment::vm().count(prefixvm(this->prefix(),"target-ids").c_str() ) )
-                 tids = Environment::vm()[prefixvm(this->prefix(),"target-ids").c_str()].as<std::vector<int> >();
-            for ( int id : sids )
-                M_sourceids.insert( id );
-            for ( int id : tids )
-                M_targetids.insert( id );
 
-            if ( !M_inputPath.empty() && M_outputPath.empty() )
-            {
-                this->updateOutputPathFromInputFileName();
-                //this->updateOutputFileName();
-                /*if ( M_outputDirectory.empty() )
-                    this->updateOutputPathFromInputPath();
-                else
-                this->updateOutputPathFromInputFileName();*/
-            }
-        }
-
-    ToolBoxCenterlines( ToolBoxCenterlines const& e )
-        :
-        M_prefix( e.M_prefix ),
-        M_inputPath( e.M_inputPath ),
-        M_outputPath( e.M_outputPath ),
-        M_outputDirectory( e.M_outputDirectory ),
-        M_targetids( e.M_targetids ),
-        M_sourceids( e.M_sourceids ),
-        M_forceRebuild( e.M_forceRebuild )
-        {}
+    CenterlinesFromSTL( std::string prefix );
+    CenterlinesFromSTL( CenterlinesFromSTL const& e );
 
     std::string prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }
 
     std::string inputPath() const { return M_inputPath; }
     //std::string setFileNameSTL(std::string s) { return M_inputPath=s;this->updateOutputFileName(); }
-    void setStlFileName(std::string s) { M_inputPath=s; this->updateOutputFileName(); }
+    void setStlFileName(std::string s) { M_inputPath=s; /* this->updateOutputFileName();*/ }
 
     std::string outputPath() const { return M_outputPath; }
 
@@ -78,6 +43,7 @@ public :
     void setSourceids( std::set<int> const& s ) { M_sourceids=s; }
 
     bool forceRebuild() const { return M_forceRebuild; }
+    void setForceRebuild( bool b ) { M_forceRebuild=b; }
 
     void updateOutputFileName()
     {
@@ -130,7 +96,7 @@ public :
         coutStr << "\n"
                   << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
                   << "---------------------------------------\n"
-                  << "run ToolBoxCenterlines \n"
+                  << "run CenterlinesFromSTL \n"
                   << "---------------------------------------\n";
         coutStr << "inputPath          : " << this->inputPath() << "\n";
         coutStr << "targetids : ";
@@ -224,7 +190,7 @@ private :
     std::string M_outputDirectory;
     std::set<int> M_targetids, M_sourceids;
     bool M_forceRebuild;
-}; // class ToolBoxCenterlines
+}; // class CenterlinesFromSTL
 
 namespace detail
 {
@@ -315,6 +281,7 @@ public :
     void setCenterlinesFileName(std::string s) { M_centerlinesFileName=s; }
 
     bool forceRebuild() const { return M_forceRebuild; }
+    void setForceRebuild( bool b ) { M_forceRebuild=b; }
 
 
 #if 0
@@ -554,6 +521,10 @@ public :
     double extrudeWall_hLayer() const { return M_extrudeWallhLayer; }
 
     std::string outputPath() const { return M_outputPath; }
+
+    bool forceRebuild() const { return M_forceRebuild; }
+    void setForceRebuild( bool b ) { M_forceRebuild=b; }
+
 #if 0
     void updateOutputFileName()
     {
@@ -625,7 +596,7 @@ public :
         CHECK( !this->inputCenterlinesPath().empty() ) << "centerlinesFileName is empty";
         CHECK( !this->inputInletOutletDescPath().empty() ) << "inletOutletDescFileName is empty";
 
-        if ( fs::exists( this->outputPath() ) )
+        if ( fs::exists( this->outputPath() ) && !this->forceRebuild() )
         {
             std::cout << "already file exist, ignore meshVolume\n"
                       << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n";
