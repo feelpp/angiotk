@@ -11,7 +11,7 @@ int main( int argc, char** argv )
 
     Environment env( _argc=argc, _argv=argv,
                      _desc=myoptions,
-		     _about=about(_name="centerlines",
+		     _about=about(_name="meshing_centerlines",
 				  _author="Feel++ Consortium",
 				  _email="feelpp-devel@feelpp.org"));
 

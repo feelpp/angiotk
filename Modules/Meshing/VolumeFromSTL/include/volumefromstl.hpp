@@ -16,8 +16,53 @@
 #include <Context.h>
 #endif
 
+/*#include "boost/tuple/tuple.hpp"
+#include "boost/tuple/tuple_comparison.hpp"
+#include "boost/tuple/tuple_io.hpp"*/
 namespace Feel
 {
+
+class InletOutletData : public boost::tuple<std::string,std::string,std::vector<double> >
+{
+    typedef boost::tuple<std::string,std::string,std::vector<double> > super_type;
+public :
+    InletOutletData( std::string markerLumen,std::string markerArterialWall,double x, double y, double z)
+        :
+        super_type(markerLumen,markerArterialWall,{x,y,z} )
+    {}
+    InletOutletData( InletOutletData const& e )
+        :
+        super_type( e )
+    {}
+public :
+    std::string markerLumen() const { return this->get<0>(); }
+    std::string markerArterialWall() const { return this->get<1>(); }
+    std::vector<double> const& node() const { return this->get<2>(); }
+    double nodeX() const { return this->node()[0]; }
+    double nodeY() const { return this->node()[1]; }
+    double nodeZ() const { return this->node()[2]; }
+
+};
+
+class InletOutletDesc : public std::vector<InletOutletData>
+{
+    typedef std::vector<InletOutletData> super_type;
+public :
+
+    InletOutletDesc( std::string const& path );
+
+    InletOutletDesc( InletOutletDesc const& e )
+        :
+        super_type( e ),
+        M_path( e.M_path )
+    {}
+
+    void add( InletOutletData const& data );
+
+ private :
+    std::string M_path;
+
+};
 
 class CenterlinesFromSTL
 {
@@ -30,6 +75,7 @@ public :
     WorldComm const& worldComm() const { return Environment::worldComm(); }
 
     std::string inputPath() const { return M_inputPath; }
+    std::string inputInletOutletDescPath() const { return M_inputInletOutletDescPath; }
     std::string outputPath() const { return M_outputPath; }
     std::set<int> const& targetids() const { return M_targetids; }
     std::set<int> const& sourceids() const { return M_sourceids; }
@@ -48,10 +94,11 @@ public :
 
 private :
     std::string M_prefix;
-    std::string M_inputPath, M_outputPath;
+    std::string M_inputPath, M_inputInletOutletDescPath, M_outputPath;
     std::string M_outputDirectory;
     std::set<int> M_targetids, M_sourceids;
     bool M_forceRebuild;
+    bool M_viewResults,M_viewResultsWithSurface;
 };
 
 namespace detail

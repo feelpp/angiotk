@@ -2,16 +2,42 @@
 
 #include <volumefromstl.hpp>
 
-
 namespace Feel
 {
+
+InletOutletDesc::InletOutletDesc( std::string const& path )
+{
+    std::ifstream fileloaded(path.c_str(), std::ios::in);  // load file
+    if( fileloaded ) // if open sucess
+    {
+        std::string markerLumen,markerArterialWall;
+        double ptx,pty,ptz;
+        while ( !fileloaded.eof() )
+        {
+            fileloaded >> markerLumen >> markerArterialWall >> ptx >> pty >> ptz;
+            this->add( InletOutletData( markerLumen,markerArterialWall,ptx,pty,ptz ) );
+	    }
+        fileloaded.close();
+    }
+}
+
+void
+InletOutletDesc::add( InletOutletData const& data )
+{
+    this->push_back( data );
+}
+
+
 
 CenterlinesFromSTL::CenterlinesFromSTL( std::string prefix )
     :
     M_prefix( prefix ),
     M_inputPath( soption(_name="input.filename",_prefix=this->prefix()) ),
+    M_inputInletOutletDescPath( soption(_name="input.desc.filename",_prefix=this->prefix()) ),
     M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
-    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
+    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
+    M_viewResults( boption(_name="view-results",_prefix=this->prefix() ) ),
+    M_viewResultsWithSurface( boption(_name="view-results.with-surface",_prefix=this->prefix() ) )
 {
     std::vector<int> sids,tids;
     if ( Environment::vm().count(prefixvm(this->prefix(),"source-ids").c_str()) )
@@ -33,11 +59,13 @@ CenterlinesFromSTL::CenterlinesFromSTL( CenterlinesFromSTL const& e )
     :
     M_prefix( e.M_prefix ),
     M_inputPath( e.M_inputPath ),
+    M_inputInletOutletDescPath( e.M_inputInletOutletDescPath ),
     M_outputPath( e.M_outputPath ),
     M_outputDirectory( e.M_outputDirectory ),
     M_targetids( e.M_targetids ),
     M_sourceids( e.M_sourceids ),
-    M_forceRebuild( e.M_forceRebuild )
+    M_forceRebuild( e.M_forceRebuild ),
+    M_viewResults( e.M_viewResults )
 {}
 
 void
@@ -99,14 +127,14 @@ CenterlinesFromSTL::run()
             << "---------------------------------------\n"
             << "---------------------------------------\n";
     std::cout << coutStr.str();
-
+#if 0
     if ( fs::exists( this->outputPath() ) && !this->forceRebuild() )
     {
         std::cout << "already file exist, ignore centerline\n"
                   << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n";
         return;
     }
-
+#endif
     fs::path directory;
     // build directories if necessary
     if ( !this->outputPath().empty() && this->worldComm().isMasterRank() )
@@ -122,37 +150,89 @@ CenterlinesFromSTL::run()
     //fs::path stlNamePath = fs::path(this->inputPath());
     fs::path outputFileNamePath = fs::path(this->outputPath());
     std::string name = outputFileNamePath.stem().string();
-
     std::string pathVTP = (directory/fs::path(name+".vtp")).string();
-
-    std::ostringstream __str;
 
     // source ~/packages/vmtk/vmtk.build2/Install/vmtk_env.sh
     std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
-
-    __str << pythonExecutable << " ";
     std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
-    __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkcenterlines "
-          <<"-seedselector profileidlist ";
-    __str << "-targetids ";
-    for ( int id : this->targetids() )
-        __str << id << " ";
-    __str << "-sourceids ";
-    for ( int id : this->sourceids() )
-        __str << id << " ";
 
-    __str << "-ifile " << this->inputPath() << " ";
-    __str << "-ofile " << pathVTP << " " //name << ".vtp "
-          << "--pipe " << dirBaseVmtk << "/vmtksurfacewriter "
-          << "-ifile " << pathVTP << " " //name << ".vtp "
-          << "-ofile " << this->outputPath() << " " //name << ".vtk "
-          << " -mode ascii ";
+    if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
+    {
+        std::ostringstream __str;
+        __str << pythonExecutable << " ";
+        __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkcenterlines ";
 
-    std::cout << "---------------------------------------\n"
-              << "run in system : \n" << __str.str() << "\n"
-              << "---------------------------------------\n";
-    auto err = ::system( __str.str().c_str() );
+        if ( !this->inputInletOutletDescPath().empty() )
+        {
+            InletOutletDesc iodesc( this->inputInletOutletDescPath() );
 
+            __str <<"-seedselector pointlist ";
+            __str << "-sourcepoints ";
+            for ( int id : this->sourceids() )
+            {
+                CHECK( id < iodesc.size() ) << "id : " << id << "not valid! must be < " << iodesc.size();
+                auto iodata = iodesc[id];
+                __str << iodata.nodeX() << " " << iodata.nodeY() << " " << iodata.nodeZ() << " ";;
+            }
+            __str << "-targetpoints ";
+            for ( int id : this->targetids() )
+            {
+                CHECK( id < iodesc.size() ) << "id : " << id << "not valid! must be < " << iodesc.size();
+                auto iodata = iodesc[id];
+                __str << iodata.nodeX() << " " << iodata.nodeY() << " " << iodata.nodeZ() << " ";;
+            }
+        }
+        else
+        {
+            __str <<"-seedselector profileidlist ";
+            __str << "-targetids ";
+            for ( int id : this->targetids() )
+                __str << id << " ";
+            __str << "-sourceids ";
+            for ( int id : this->sourceids() )
+                __str << id << " ";
+        }
+
+        __str << " -ifile " << this->inputPath() << " ";
+        __str << " -ofile " << pathVTP << " " //name << ".vtp "
+              << " --pipe " << dirBaseVmtk << "/vmtksurfacewriter "
+              << " -ifile " << pathVTP << " " //name << ".vtp "
+              << " -ofile " << this->outputPath() << " " //name << ".vtk "
+              << " -mode ascii ";
+
+        std::cout << "---------------------------------------\n"
+                  << "run in system : \n" << __str.str() << "\n"
+                  << "---------------------------------------\n";
+        auto err = ::system( __str.str().c_str() );
+    }
+    else
+    {
+        std::cout << "already file exist, ignore centerline\n";
+    }
+
+
+    if ( M_viewResults )
+    {
+        std::ostringstream ostrView;
+        ostrView << pythonExecutable << " ";// << dirBaseVmtk << "/vmtk "
+        if ( M_viewResultsWithSurface )
+        {
+            ostrView << dirBaseVmtk << "/vmtksurfacereader -ifile " << this->inputPath() << " --pipe "
+                     << dirBaseVmtk << "/vmtkrenderer" << " --pipe "
+                     << dirBaseVmtk << "/vmtksurfaceviewer -opacity 0.25 " << " --pipe "
+                     << dirBaseVmtk << "/vmtksurfaceviewer -ifile " << this->outputPath() << " -array MaximumInscribedSphereRadius ";
+        }
+        else
+        {
+            ostrView << dirBaseVmtk << "/vmtkcenterlineviewer -ifile " << this->outputPath() << " -pointarray MaximumInscribedSphereRadius";
+        }
+
+
+        std::cout << "---------------------------------------\n"
+                  << "run in system : \n" << ostrView.str() << "\n"
+                  << "---------------------------------------\n";
+        auto errView = ::system( ostrView.str().c_str() );
+    }
     std::cout << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n";
 }
 
@@ -163,10 +243,14 @@ CenterlinesFromSTL::options( std::string const& prefix )
     po::options_description myCenterlinesOptions( "Centerlines from STL for blood flow mesh options" );
     myCenterlinesOptions.add_options()
         (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input filename" )
+        (prefixvm(prefix,"input.desc.filename").c_str(), po::value<std::string>()->default_value( "" ), "inletoutlet-desc.filename" )
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
         (prefixvm(prefix,"source-ids").c_str(), po::value<std::vector<int> >()->multitoken(), "(vector of int) source ids" )
         (prefixvm(prefix,"target-ids").c_str(), po::value<std::vector<int> >()->multitoken(), "(vector of int) target ids" )
         (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
+        (prefixvm(prefix,"view-results").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) view-results")
+        (prefixvm(prefix,"view-results.with-surface").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) view-results with surface")
+
         ;
     return myCenterlinesOptions;
 }
@@ -313,6 +397,8 @@ RemeshSTL::runGMSH()
     geodesc << "Merge \""<< this->inputPath() <<"\";\n";
 
     geodesc << "Field[1] = Centerline;\n";
+
+
     //geodesc << "Field[1].FileName = \"../centerlines/fluidskin3.vtk\"\n";
     geodesc << "Field[1].FileName = \"" << this->centerlinesFileName() << "\";\n";
     geodesc << "Field[1].nbPoints = "<< this->remeshNbPointsInCircle() << ";//15//25 //number of mesh elements in a circle\n";
@@ -369,6 +455,7 @@ generateMeshFromGeo( std::string inputGeoName,std::string outputMeshName,int dim
     GmshInitialize();
 
     GModel * M_gmodel = new GModel();
+
     M_gmodel->setName( _name );
 #if !defined( __APPLE__ )
     M_gmodel->setFileName( _name );
@@ -386,6 +473,7 @@ generateMeshFromGeo( std::string inputGeoName,std::string outputMeshName,int dim
     else
         CHECK( false ) << "error \n";
 
+
     delete M_gmodel;
 }
 
@@ -398,7 +486,7 @@ VolumeMeshing::VolumeMeshing( std::string prefix )
     M_prefix( prefix ),
     M_inputSTLPath(soption(_name="input.stl.filename",_prefix=this->prefix()) ),
     M_inputCenterlinesPath(soption(_name="input.centerlines.filename",_prefix=this->prefix())),
-    M_inputInletOutletDescPath(soption(_name="input.inletoutlet-desc.filename",_prefix=this->prefix())),
+    M_inputInletOutletDescPath(soption(_name="input.desc.filename",_prefix=this->prefix())),
     M_remeshNbPointsInCircle( ioption(_name="nb-points-in-circle",_prefix=this->prefix() ) ),
     M_extrudeWall( boption(_name="extrude-wall",_prefix=this->prefix() ) ),
     M_extrudeWallNbElemLayer( ioption(_name="extrude-wall.nb-elt-layer",_prefix=this->prefix() ) ),
@@ -560,7 +648,7 @@ VolumeMeshing::options( std::string const& prefix )
     myMeshVolumeOptions.add_options()
         ( prefixvm(prefix,"input.stl.filename").c_str(), po::value<std::string>()->default_value( "" ), "stl.filename" )
         ( prefixvm(prefix,"input.centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "centerlines.filename" )
-        ( prefixvm(prefix,"input.inletoutlet-desc.filename").c_str(), po::value<std::string>()->default_value( "" ), "inletoutlet-desc.filename" )
+        ( prefixvm(prefix,"input.desc.filename").c_str(), po::value<std::string>()->default_value( "" ), "inletoutlet-desc.filename" )
         ( prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
         ( prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         ( prefixvm(prefix,"nb-points-in-circle").c_str(), po::value<int>()->default_value( 15 ), "nb-points-in-circle" )
