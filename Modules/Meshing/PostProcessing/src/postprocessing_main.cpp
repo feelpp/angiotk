@@ -14,7 +14,7 @@ int main( int argc, char** argv )
 
     Environment env( _argc=argc, _argv=argv,
                      _desc=myoptions,
-		     _about=about(_name="postprocessing",
+		     _about=about(_name="meshing_postprocessing",
 				  _author="Feel++ Consortium",
 				  _email="feelpp-devel@feelpp.org"));
 
@@ -25,10 +25,12 @@ int main( int argc, char** argv )
     // partitioning
     MeshPartitioner myPartitioner("mesh-partitioner");
     myPartitioner.setInputPath( myExtract.outputPathLumen() );
-    myPartitioner.updateOutputPathFromInputPath();
+    //myPartitioner.updateOutputPathFromInputPath();
+    myPartitioner.updateOutputPathFromInputFileName();
     myPartitioner.run();
     myPartitioner.setInputPath( myExtract.outputPathArterialWall() );
-    myPartitioner.updateOutputPathFromInputPath();
+    //myPartitioner.updateOutputPathFromInputPath();
+    myPartitioner.updateOutputPathFromInputFileName();
     myPartitioner.run();
 
     return 0;

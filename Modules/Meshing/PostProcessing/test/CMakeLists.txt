@@ -1,10 +1,9 @@
 
-add_test(NAME test_meshing_postprocessing COMMAND meshing_postprocessing 
-  --extract-submesh.input.filename=@ExternalData_BINARY_ROOT@/Modules/Meshing/PostProcessing/simpleTbifurcationFSI.msh
-  --extract-submesh.output.directory=angiotk/meshing/postprocessing/test/simpleTbifurcation/postprocessing
-  --extract-submesh.force-rebuild=true
-  --mesh-partitioner.npartitions=2
-  --mesh-partitioner.npartitions=4
-  --mesh-partitioner.npartitions=8
-  --mesh-partitioner.force-rebuild=true )
+add_test(NAME test_meshing_extractsubmesh COMMAND meshing_extractsubmesh
+  --config-file=${AngioTk_BINARY_DIR}/cfg/meshing/test_extractsubmesh.cfg )
 
+add_test(NAME test_meshing_meshpartitioner COMMAND meshing_meshpartitioner
+  --config-file=${AngioTk_BINARY_DIR}/cfg/meshing/test_meshpartitioner.cfg )
+
+add_test(NAME test_meshing_postprocessing COMMAND meshing_postprocessing 
+  --config-file=${AngioTk_BINARY_DIR}/cfg/meshing/test_postprocessing.cfg )

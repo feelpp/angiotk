@@ -277,8 +277,10 @@ ExtractSubMeshFromFSIMesh<MeshType>::updateOutputPathFromInputFileName()
   std::string nameMeshFile = gp.stem().string();
 
   // define lumen and arterial wall filename
-  std::string lumenFileName = nameMeshFile + "_fluid_" + shape_type::name() + ".msh";
-  std::string arterialWallFileName = nameMeshFile + "_wall_" + shape_type::name() + ".msh";
+  //std::string lumenFileName = nameMeshFile + "_fluid_" + shape_type::name() + ".msh";
+  //std::string arterialWallFileName = nameMeshFile + "_wall_" + shape_type::name() + ".msh";
+  std::string lumenFileName = nameMeshFile + "_lumen.msh";
+  std::string arterialWallFileName = nameMeshFile + "_wall.msh";
   M_outputPathLumen = ( meshesdirectories / fs::path(lumenFileName) ).string();
   M_outputPathArterialWall = ( meshesdirectories / fs::path(arterialWallFileName) ).string();
 }
