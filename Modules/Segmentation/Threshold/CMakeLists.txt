@@ -1,6 +1,6 @@
-project(Objectness)
+project(Threshold)
 
-include_directories(${Objectness_SOURCE_DIR}/include)
+include_directories(${Threshold_SOURCE_DIR}/include)
 
 add_subdirectory( src )
 

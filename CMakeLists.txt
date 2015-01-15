@@ -1,5 +1,5 @@
 #=========================================================
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.11 FATAL_ERROR)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8.7 FATAL_ERROR)
 
 #=========================================================
 #AngioTk = Virtual Angiography Toolkit
@@ -89,6 +89,14 @@ ENDIF(BUILD_DOXYGEN)
 #=========================================================
 
 #=========================================================
+# If choose to build examples, then look into Examples folder.
+OPTION(BUILD_EXAMPLES "Build examples" OFF)
+IF(BUILD_EXAMPLES)
+  ADD_SUBDIRECTORY(Examples/Python)
+ENDIF(BUILD_EXAMPLES)
+#=========================================================
+
+#=========================================================
 # Installation variables
 if(NOT AngioTK_INSTALL_RUNTIME_DIR)
   set(AngioTK_INSTALL_RUNTIME_DIR bin)
@@ -109,6 +117,11 @@ endif()
 
 INCLUDE_DIRECTORIES(${AngioTK_INCLUDE_DIRS})
 
+# Useful generic macros for modules configuration  
+INCLUDE("${AngioTk_SOURCE_DIR}/CMake/AngioTkMacros.cmake")
+
+# Initiate modules configuration
 INCLUDE("${AngioTk_SOURCE_DIR}/CMake/AngioTkModules.cmake")
 
 ExternalData_Add_Target(angioTkData)
+

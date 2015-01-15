@@ -1,0 +1,8 @@
+import sys
+sys.path.append("@AngioTk_EXECUTABLE_PATH@")
+
+import Filtering, Segmentation
+
+Filtering.ObjectnessFilter( sys.argv[1], "temp.mha", "2 1 1 1 5 0.3 0.4 0 ")
+Segmentation.ThresholdFilter( "temp.mha", sys.argv[2])
+
