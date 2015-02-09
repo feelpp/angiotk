@@ -1,6 +1,7 @@
 /* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim:fenc=utf-8:ft=tcl:et:sw=4:ts=4:sts=4*/
 
 #include <volumefromstl.hpp>
+#include <AngioTkCenterlineField.h>
 
 namespace Feel
 {
@@ -471,7 +472,8 @@ RemeshSTL::runGMSH()
     //geodesc << "Merge \"stl_remesh_vmtk/fluidskin3.stl\"\n";
     geodesc << "Merge \""<< this->inputPath() <<"\";\n";
 
-    geodesc << "Field[1] = Centerline;\n";
+    //geodesc << "Field[1] = Centerline;\n";
+    geodesc << "Field[1] = AngioTkCenterline;\n";
 
 
     //geodesc << "Field[1].FileName = \"../centerlines/fluidskin3.vtk\"\n";
@@ -527,7 +529,23 @@ generateMeshFromGeo( std::string inputGeoName,std::string outputMeshName,int dim
     //std::cout << "\n _name " << _name << "\n";
     //std::cout << " _ext " << outputMeshNamePath.extension() << "\n";
 
+#if 0
+    char * cmd2[3];// = new char("-v 2");
+    cmd2[0] = new char[4];cmd2[0][0]='h';cmd2[0][1]='o';cmd2[0][2]='l';cmd2[0][3]='a';
+    cmd2[1] = new char[2];cmd2[1][0]='-';cmd2[1][1]='v';
+    cmd2[2] = new char[1];cmd2[2][0]='5';
+    for (int i = 0; i < 3; ++i) std::cout << cmd2[i] << std::endl;
+    GmshInitialize(3,cmd2 );
+#else
     GmshInitialize();
+#endif
+
+    // if(!Msg::GetGmshClient())
+    CTX::instance()->terminal = 1;
+    //GmshBatch();
+
+    int verbosityLevel = 5;
+    Msg::SetVerbosity( verbosityLevel );
 
     GModel * M_gmodel = new GModel();
 
@@ -535,6 +553,9 @@ generateMeshFromGeo( std::string inputGeoName,std::string outputMeshName,int dim
 #if !defined( __APPLE__ )
     M_gmodel->setFileName( _name );
 #endif
+
+    GModel::current()->getFields()->map_type_name["AngioTkCenterline"] = new FieldFactoryT<AngioTkCenterline>();
+
     M_gmodel->readGEO( inputGeoName );
     M_gmodel->mesh( dim );
 
