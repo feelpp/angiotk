@@ -27,6 +27,81 @@ InletOutletDesc::add( InletOutletData const& data )
     this->push_back( data );
 }
 
+void
+InletOutletDesc::loadFromSTL( std::string inputPath )
+{
+
+    std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
+    std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+
+    //if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
+
+    //fs::path gp = M_inputPath;
+    std::string nameWithoutExt = fs::path(inputPath).stem().string();
+
+    std::string outputPath = (fs::path(inputPath).parent_path()/fs::path(nameWithoutExt+".dat")).string();
+
+    std::ostringstream __str;
+    __str << pythonExecutable << " ";
+    //vmtkboundaryreferencesystems -ifile myinput.stl -ofile myoutput.dat
+    __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkboundaryreferencesystems ";
+    __str << "-ifile " << inputPath << " -ofile " << outputPath;
+
+    std::cout << "---------------------------------------\n"
+              << "run in system : \n" << __str.str() << "\n"
+              << "---------------------------------------\n";
+    auto err = ::system( __str.str().c_str() );
+
+    if ( !fs::exists(inputPath) )
+    {
+        std::cout << "WARNING!, outputPath does not exist : " << outputPath <<"\n";
+        return;
+    }
+
+    std::ifstream fileDat(outputPath.c_str(), std::ios::in); // load file .dat
+    int ncol = 13;
+    std::vector<std::string> detailCol(ncol);
+    for (int k=0;k<ncol;++k)
+        fileDat >> detailCol[k];
+
+
+    while ( !fileDat.eof() )
+    {
+        std::vector<double> valueOnCurrentRow( ncol );
+        fileDat >> valueOnCurrentRow[0];
+        if ( fileDat.eof() ) break;
+        for (int k=1;k<ncol;++k)
+            fileDat >> valueOnCurrentRow[k];
+
+        int descId = this->size();
+        InletOutletData thedat( (boost::format("markerLumen%1%")%descId).str(),
+                                (boost::format("markerArterialWall%1%")%descId).str(),
+                                valueOnCurrentRow[0],valueOnCurrentRow[1],valueOnCurrentRow[2] );
+        this->add( thedat );
+    }
+
+    fileDat.close();
+    //std::cout << "number of inlet-outlet " << this->size() << "\n";
+}
+void
+InletOutletDesc::save( std::string outputPath )
+{
+    std::cout << "save desc in : " << outputPath << "\n";
+    std::ofstream fileWrited( outputPath, std::ios::out | std::ios::trunc);
+    if( fileWrited )
+    {
+        for ( auto const& desc : *this )
+            fileWrited << desc.markerLumen() << " "
+                       << desc.markerArterialWall() << " "
+                       << desc.nodeX() << " "
+                       << desc.nodeY() << " "
+                       << desc.nodeZ() << "\n";
+        fileWrited.close();
+    }
+    else
+        std::cout << "writing save desc fail\n";
+
+}
 
 
 CenterlinesFromSTL::CenterlinesFromSTL( std::string prefix )
@@ -74,13 +149,13 @@ CenterlinesFromSTL::updateOutputPathFromInputFileName()
     CHECK( !M_inputPath.empty() ) << "input path is empty";
 
     // define output directory
-    fs::path meshesdirectories = Environment::rootRepository();
+    fs::path meshesdirectories;
     if ( M_outputDirectory.empty() )
-    {
-        //meshesdirectories /= fs::path("/angiotk/meshing/centerlines-garbage/" + this->prefix() );
         meshesdirectories = fs::current_path();
-    }
-    else meshesdirectories /= fs::path(M_outputDirectory);
+    else if ( fs::path(M_outputDirectory).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(M_outputDirectory);
+    else
+        meshesdirectories = fs::path(M_outputDirectory);
 
     // get filename without extension
     fs::path gp = M_inputPath;
@@ -296,13 +371,13 @@ RemeshSTL::updateOutputPathFromInputFileName()
     CHECK( !M_inputPath.empty() ) << "input path is empty";
 
     // define output directory
-    fs::path meshesdirectories = Environment::rootRepository();
+    fs::path meshesdirectories;
     if ( M_outputDirectory.empty() )
-    {
-        //meshesdirectories /= fs::path("/angiotk/meshing/remesh-garbage/" + this->prefix() );
         meshesdirectories = fs::current_path();
-    }
-    else meshesdirectories /= fs::path(M_outputDirectory);
+    else if ( fs::path(M_outputDirectory).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(M_outputDirectory);
+    else
+        meshesdirectories = fs::path(M_outputDirectory);
 
     // get filename without extension
     fs::path gp = M_inputPath;
@@ -523,13 +598,13 @@ VolumeMeshing::updateOutputPathFromInputFileName()
     CHECK( !this->inputSTLPath().empty() ) << "input path is empty";
 
     // define output directory
-    fs::path meshesdirectories = Environment::rootRepository();
+    fs::path meshesdirectories;
     if ( M_outputDirectory.empty() )
-    {
-        //meshesdirectories /= fs::path("/angiotk/meshing/centerlines-garbage/" + this->prefix() );
         meshesdirectories = fs::current_path();
-    }
-    else meshesdirectories /= fs::path(M_outputDirectory);
+    else if ( fs::path(M_outputDirectory).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(M_outputDirectory);
+    else
+        meshesdirectories = fs::path(M_outputDirectory);
 
     // get filename without extension
     fs::path gp = M_inputSTLPath;

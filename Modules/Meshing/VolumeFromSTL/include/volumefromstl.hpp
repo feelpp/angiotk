@@ -48,19 +48,25 @@ class InletOutletDesc : public std::vector<InletOutletData>
 {
     typedef std::vector<InletOutletData> super_type;
 public :
-
+    InletOutletDesc()
+        :
+        super_type()
+    {}
     InletOutletDesc( std::string const& path );
 
     InletOutletDesc( InletOutletDesc const& e )
         :
-        super_type( e ),
-        M_path( e.M_path )
+        super_type( e )
+        //M_path( e.M_path )
     {}
 
     void add( InletOutletData const& data );
 
+    void loadFromSTL( std::string inputPath );
+    void save( std::string outputPath );
+
  private :
-    std::string M_path;
+//std::string M_path;
 
 };
 

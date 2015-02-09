@@ -6,6 +6,9 @@ add_library( angiotk_meshing_volumefromstl
 target_link_libraries( angiotk_meshing_volumefromstl ${FEELPP_LIBRARY} ${FEELPP_APP_LINK_LIBRARIES} ${FEELPP_LIBRARIES} )
 
 
+angiotk_add_component( meshing_createinletoutletdesc createinletoutletdesc_main.cpp )
+target_link_libraries( meshing_createinletoutletdesc ${FEELPP_LIBRARY} ${FEELPP_APP_LINK_LIBRARIES} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
+
 angiotk_add_component( meshing_centerlines centerlines_main.cpp )
 target_link_libraries( meshing_centerlines ${FEELPP_LIBRARY} ${FEELPP_APP_LINK_LIBRARIES} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
 configure_file( centerlines.cfg ${AngioTk_BINARY_DIR}/cfg/meshing/test_centerlines.cfg )
