@@ -69,6 +69,32 @@ ELSE(ITK_FOUND)
 ENDIF(ITK_FOUND)
 
 #=========================================================
+# Find Feel++
+FIND_PATH(FEELPP_CMAKE_MODULES FindFeel++.cmake PATH $ENV{FEELPP_DIR}/share/feel/cmake/modules/   /usr/share/feel/cmake/modules/ /usr/local/share/feel/cmake/modules/ )
+if ( FEELPP_CMAKE_MODULES )
+  set(CMAKE_MODULE_PATH ${FEELPP_CMAKE_MODULES})
+  Find_Package(Feel++)
+  set(Feel++_FOUND 1)
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g0 -O3 -DNDEBUG  -finline-functions -pedantic  -ftemplate-depth-256 -Wno-inline" )
+else()
+  #message(FATAL_ERROR "Feel++ does not seem to have been installed on this platform")
+endif()
+
+#=========================================================
+# Find Python
+FIND_PACKAGE(PythonLibs)
+FIND_PACKAGE(PythonInterp)
+
+#=========================================================
+# Find VMTK
+FIND_PATH(VMTK_BINARY_DIR NAMES vmtkcenterlines PATH $ENV{VMTK_DIR}/bin )
+# if ( NOT VMTK_BINARY_DIR )
+#   message(FATAL_ERROR "VMTK_BINARY_DIR not find")
+# endif()
+
+
+
+#=========================================================
 # Shared libraries option
 OPTION(BUILD_SHARED_LIBS "Build AngioTk with shared libraries." ${ITK_BUILD_SHARED})
 SET(AngioTk_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
