@@ -3,6 +3,12 @@
 #include <volumefromstl.hpp>
 #include <AngioTkCenterlineField.h>
 
+namespace detail
+{
+Feel::fs::path AngioTkEnvironment::S_pathInitial;
+boost::shared_ptr<Feel::Environment> AngioTkEnvironment::S_feelEnvironment;
+}
+
 namespace Feel
 {
 
@@ -330,6 +336,295 @@ CenterlinesFromSTL::options( std::string const& prefix )
         ;
     return myCenterlinesOptions;
 }
+
+
+
+ImageFromCenterlines::ImageFromCenterlines( std::string prefix )
+    :
+    M_prefix( prefix ),
+    M_inputPath( soption(_name="input.filename",_prefix=this->prefix()) ),
+    M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+    M_dimX( doption(_name="dim.x",_prefix=this->prefix() ) ),
+    M_dimY( doption(_name="dim.y",_prefix=this->prefix() ) ),
+    M_dimZ( doption(_name="dim.z",_prefix=this->prefix() ) ),
+    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
+{
+    if ( !M_inputPath.empty() && M_outputPath.empty() )
+    {
+        this->updateOutputPathFromInputFileName();
+    }
+}
+ImageFromCenterlines::ImageFromCenterlines( ImageFromCenterlines const& e )
+    :
+    M_prefix( e.M_prefix ),
+    M_inputPath( e.M_inputPath ),
+    M_outputDirectory( e.M_outputDirectory ), M_outputPath( e.M_outputPath ),
+    M_dimX( e.M_dimX ), M_dimY( e.M_dimY ), M_dimZ( e.M_dimZ ),
+    M_forceRebuild( e.M_forceRebuild )
+{}
+
+void
+ImageFromCenterlines::updateOutputPathFromInputFileName()
+{
+    CHECK( !M_inputPath.empty() ) << "input path is empty";
+
+    // define output directory
+    fs::path meshesdirectories;
+    if ( M_outputDirectory.empty() )
+        meshesdirectories = fs::current_path();
+    else if ( fs::path(M_outputDirectory).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(M_outputDirectory);
+    else
+        meshesdirectories = fs::path(M_outputDirectory);
+
+    // get filename without extension
+    fs::path gp = M_inputPath;
+    std::string nameMeshFile = gp.stem().string();
+
+    std::string newFileName = (boost::format("%1%_%2%-%3%-%4%.mha")%nameMeshFile %M_dimX %M_dimY %M_dimZ ).str();
+    fs::path outputPath = meshesdirectories / fs::path(newFileName);
+    M_outputPath = outputPath.string();
+}
+
+void
+ImageFromCenterlines::run()
+{
+    if ( !fs::exists( this->inputPath() ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : image building not done because this input path not exist :" << this->inputPath() << "\n";
+        return;
+    }
+
+    std::ostringstream coutStr;
+    coutStr << "\n"
+            << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
+            << "---------------------------------------\n"
+            << "run ImageFromCenterlines \n"
+            << "---------------------------------------\n";
+    coutStr << "inputPath          : " << this->inputPath() << "\n";
+    coutStr << "dimensions : [" << M_dimX << "," << M_dimY << "," << M_dimZ << "]\n";
+    coutStr << "output path       : " << this->outputPath() << "\n"
+            << "---------------------------------------\n"
+            << "---------------------------------------\n";
+    std::cout << coutStr.str();
+
+
+    fs::path directory;
+    // build directories if necessary
+    if ( !this->outputPath().empty() && this->worldComm().isMasterRank() )
+    {
+        directory = fs::path(this->outputPath()).parent_path();
+        if ( !fs::exists( directory ) )
+            fs::create_directories( directory );
+    }
+    // // wait all process
+    this->worldComm().globalComm().barrier();
+
+
+    if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
+    {
+        std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
+        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+
+        std::ostringstream __str;
+        __str << pythonExecutable << " ";
+        __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkcenterlinemodeller ";
+        __str << "-ifile " << this->inputPath() << " -radiusarray MaximumInscribedSphereRadius "
+              << "-negate 1 -dimensions " << M_dimX << " " << M_dimY << " " << M_dimZ << " ";
+        __str << "-ofile " << this->outputPath();
+
+        std::cout << "---------------------------------------\n"
+                  << "run in system : \n" << __str.str() << "\n"
+                  << "---------------------------------------\n";
+        auto err = ::system( __str.str().c_str() );
+    }
+}
+
+po::options_description
+ImageFromCenterlines::options( std::string const& prefix )
+{
+    po::options_description myImageFromCenterlinesOptions( "Create Image from Centerlines options" );
+
+    myImageFromCenterlinesOptions.add_options()
+        (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
+        (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
+        (prefixvm(prefix,"dim.x").c_str(), Feel::po::value<double>()->default_value(64), "(bool) force-rebuild")
+        (prefixvm(prefix,"dim.y").c_str(), Feel::po::value<double>()->default_value(64), "(bool) force-rebuild")
+        (prefixvm(prefix,"dim.z").c_str(), Feel::po::value<double>()->default_value(64), "(bool) force-rebuild")
+        (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
+        ;
+    return myImageFromCenterlinesOptions;
+}
+
+SurfaceFromImage::SurfaceFromImage( std::string prefix )
+    :
+    M_prefix( prefix ),
+    M_inputPath( soption(_name="input.filename",_prefix=this->prefix()) ),
+    M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+    M_hasThresholdLower(false), M_hasThresholdUpper(false),
+    M_thresholdLower(0.0),M_thresholdUpper(0.0),
+    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
+{
+
+    if ( !M_inputPath.empty() && fs::path(M_inputPath).is_relative() )
+        M_inputPath = (AngioTkEnvironment::pathInitial()/fs::path(M_inputPath) ).string();
+
+    if ( Environment::vm().count(prefixvm(this->prefix(),"threshold.lower").c_str()) )
+    {
+        M_hasThresholdLower = true;
+        M_thresholdLower = doption(_name="threshold.lower",_prefix=this->prefix());
+    }
+    if ( Environment::vm().count(prefixvm(this->prefix(),"threshold.upper").c_str()) )
+    {
+        M_hasThresholdUpper = true;
+        M_thresholdUpper = doption(_name="threshold.upper",_prefix=this->prefix());
+    }
+
+
+    if ( !M_inputPath.empty() && M_outputPath.empty() )
+    {
+        this->updateOutputPathFromInputFileName();
+    }
+}
+SurfaceFromImage::SurfaceFromImage( SurfaceFromImage const& e )
+    :
+    M_prefix( e.M_prefix ),
+    M_inputPath( e.M_inputPath ),
+    M_outputDirectory( e.M_outputDirectory ), M_outputPath( e.M_outputPath ),
+    M_thresholdLower( e.M_thresholdLower ), M_thresholdUpper( e.M_thresholdUpper ),
+    M_hasThresholdLower( e.M_hasThresholdLower), M_hasThresholdUpper( e.M_hasThresholdUpper),
+    M_forceRebuild( e.M_forceRebuild )
+{}
+
+void
+SurfaceFromImage::updateOutputPathFromInputFileName()
+{
+    CHECK( !M_inputPath.empty() ) << "input path is empty";
+
+    // define output directory
+    fs::path meshesdirectories;
+    if ( M_outputDirectory.empty() )
+        meshesdirectories = fs::current_path();
+    else if ( fs::path(M_outputDirectory).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(M_outputDirectory);
+    else
+        meshesdirectories = fs::path(M_outputDirectory);
+
+    // get filename without extension
+    fs::path gp = M_inputPath;
+    std::string nameMeshFile = gp.stem().string();
+
+    std::string newFileName = (boost::format("%1%.stl")%nameMeshFile ).str();
+    fs::path outputPath = meshesdirectories / fs::path(newFileName);
+    M_outputPath = outputPath.string();
+}
+
+void
+SurfaceFromImage::run()
+{
+    if ( !fs::exists( this->inputPath() ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : surface segmentation not done because this input path not exist :" << this->inputPath() << "\n";
+        return;
+    }
+
+    if ( !M_hasThresholdLower && !M_hasThresholdUpper )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : surface segmentation not done because no threshold has been given\n";
+        return;
+    }
+
+    std::ostringstream coutStr;
+    coutStr << "\n"
+            << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
+            << "---------------------------------------\n"
+            << "run ImageFromCenterlines \n"
+            << "---------------------------------------\n";
+    coutStr << "inputPath         : " << this->inputPath() << "\n";
+    if ( M_hasThresholdLower )
+        coutStr << "threshold lower   : " << M_thresholdLower << "\n";
+    if ( M_hasThresholdUpper )
+        coutStr << "threshold upper   : " << M_thresholdUpper << "\n";
+    coutStr << "output path       : " << this->outputPath() << "\n"
+            << "---------------------------------------\n"
+            << "---------------------------------------\n";
+    std::cout << coutStr.str();
+
+
+    fs::path directory;
+    // build directories if necessary
+    if ( !this->outputPath().empty() && this->worldComm().isMasterRank() )
+    {
+        directory = fs::path(this->outputPath()).parent_path();
+        if ( !fs::exists( directory ) )
+            fs::create_directories( directory );
+    }
+    // // wait all process
+    this->worldComm().globalComm().barrier();
+
+    if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
+    {
+        std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
+        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+
+        std::string nameImageInit = fs::path(this->outputPath()).stem().string()+"_levelsetInit.vti";
+        std::string outputPathImageInit = (fs::path(this->outputPath()).parent_path()/fs::path(nameImageInit)).string();
+
+        std::ostringstream __str;
+        __str << pythonExecutable << " ";
+        __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkimageinitialization ";
+        __str << "-ifile " << this->inputPath() << " -interactive 0 -method threshold ";
+        if ( M_hasThresholdLower )
+            __str << " -lowerthreshold " << M_thresholdLower << " ";
+        if ( M_hasThresholdUpper )
+            __str << " -upperthreshold " << M_thresholdUpper << " ";
+
+        __str << "-olevelsetsfile " << outputPathImageInit;
+
+        std::cout << "---------------------------------------\n"
+                  << "run in system : \n" << __str.str() << "\n"
+                  << "---------------------------------------\n";
+        auto err = ::system( __str.str().c_str() );
+
+        std::ostringstream __str2;
+        __str2 << pythonExecutable << " ";
+        __str2 << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtklevelsetsegmentation ";
+        __str2 << "-ifile " << this->inputPath() << " -initiallevelsetsfile " << outputPathImageInit << " -iterations 1 ";
+        __str2 << "--pipe vmtkmarchingcubes -i @.o -ofile " << this->outputPath();
+
+        std::cout << "---------------------------------------\n"
+                  << "run in system : \n" << __str2.str() << "\n"
+                  << "---------------------------------------\n";
+        auto err2 = ::system( __str2.str().c_str() );
+    }
+
+    //vmtkimageinitialization -ifile hh32.mha -method threshold -lowerthreshold -1 -interactive 0 -osurfacefile imginit.stl -olevelsetsfile levelsetinit.vti
+    //vmtklevelsetsegmentation -ifile hh32.mha -initiallevelsetsfile levelsetinit2.vti -iterations 1  --pipe vmtkmarchingcubes -i @.o -ofile bid.stl
+}
+
+po::options_description
+SurfaceFromImage::options( std::string const& prefix )
+{
+    po::options_description mySurfaceFromImageOptions( "Create Surface from Image options" );
+
+    mySurfaceFromImageOptions.add_options()
+        (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
+        (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
+        (prefixvm(prefix,"threshold.lower").c_str(), Feel::po::value<double>(), "(double) threshold lower")
+        (prefixvm(prefix,"threshold.upper").c_str(), Feel::po::value<double>(), "(double) threshold upper")
+        (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
+        ;
+    return mySurfaceFromImageOptions;
+}
+
+
+
+
+
+
 
 
 

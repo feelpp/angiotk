@@ -27,6 +27,11 @@ angiotk_add_component( meshing_volumefromstl volumefromstl_main.cpp )
 target_link_libraries( meshing_volumefromstl ${FEELPP_LIBRARY} ${FEELPP_APP_LINK_LIBRARIES} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
 configure_file( volumefromstl.cfg ${AngioTk_BINARY_DIR}/cfg/meshing/test_volumefromstl.cfg )
 
+angiotk_add_component( meshing_imagefromcenterlines imagefromcenterlines_main.cpp )
+target_link_libraries( meshing_imagefromcenterlines ${FEELPP_LIBRARY} ${FEELPP_APP_LINK_LIBRARIES} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
+
+angiotk_add_component( meshing_surfacefromimage surfacefromimage_main.cpp )
+target_link_libraries( meshing_surfacefromimage ${FEELPP_LIBRARY} ${FEELPP_APP_LINK_LIBRARIES} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
 
 
 ExternalData_expand_arguments( angioTkData testArgs DATA{${VolumeFromSTL_SOURCE_DIR}/simpleTbifurcation.stl} )

@@ -8,6 +8,9 @@ int main( int argc, char** argv )
 {
     using namespace Feel;
 
+    //std::cout << "fs::current_path() " << fs::current_path() << "\n";
+    fs::path initialPath = fs::current_path();
+
     po::options_description myoptions;// = CenterlinesFromSTL::options("");
     myoptions.add_options()
       ( "input.filename", po::value<std::string>()->default_value( "" ), "stl filename" );
@@ -18,11 +21,16 @@ int main( int argc, char** argv )
 				  _author="Feel++ Consortium",
 				  _email="feelpp-devel@feelpp.org"));
 
+    //std::cout << "fs::current_path() " << fs::current_path() << "\n";
     std::string inputPath = soption(_name="input.filename");
     if ( inputPath.empty() )
     {
         std::cout <<  "not done because inputPath is empty\n";
 	return 0;
+    }
+    else if ( fs::path( inputPath ).is_relative() )
+    {
+        inputPath = ( initialPath/fs::path(inputPath) ).string();
     }
     if ( !fs::exists(inputPath) )
     {

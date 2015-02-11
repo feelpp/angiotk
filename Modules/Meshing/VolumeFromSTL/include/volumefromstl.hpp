@@ -3,6 +3,8 @@
 #ifndef __VOLUMEFROMSTL_H
 #define __VOLUMEFROMSTL_H 1
 
+#include <feel/feelcore/environment.hpp>
+
 #include <angiotkMeshingConfig.h>
 
 #include <feel/feelfilters/gmsh.hpp>
@@ -19,8 +21,49 @@
 /*#include "boost/tuple/tuple.hpp"
 #include "boost/tuple/tuple_comparison.hpp"
 #include "boost/tuple/tuple_io.hpp"*/
+
+
+namespace detail
+{
+class AngioTkEnvironment
+{
+public :
+    template <class ArgumentPack>
+    AngioTkEnvironment( ArgumentPack const& args )
+    {
+        S_pathInitial = Feel::fs::current_path();
+        S_feelEnvironment.reset(new Feel::Environment( Feel::_argc=args[Feel::_argc], Feel::_argv=args[Feel::_argv],
+                                                       Feel::_desc=args[Feel::_desc|Feel::feel_nooptions()],
+                                                       Feel::_about=args[Feel::_about| Feel::detail::makeAbout( args[Feel::_argv][0] )] ) );
+    }
+    static Feel::fs::path pathInitial() { return S_pathInitial; }
+    static Feel::Environment const& feelEnvironment() { return *S_feelEnvironment; }
+
+private :
+    static Feel::fs::path S_pathInitial;
+    static boost::shared_ptr<Feel::Environment> S_feelEnvironment;
+};
+} // namespace detail
+
+class AngioTkEnvironment : public detail::AngioTkEnvironment
+{
+public:
+    BOOST_PARAMETER_CONSTRUCTOR(
+    AngioTkEnvironment, ( detail::AngioTkEnvironment ), Feel::tag,
+        ( required
+          ( argc,* )
+          ( argv,* ) )
+        ( optional
+          ( desc,* )
+          //( desc_lib,* )
+          ( about,* )
+          //( directory,( std::string ) )
+        ) ) // no semicolon
+    //{}
+};
 namespace Feel
 {
+
 
 class InletOutletData : public boost::tuple<std::string,std::string,std::vector<double> >
 {
@@ -105,6 +148,59 @@ private :
     std::set<int> M_targetids, M_sourceids;
     bool M_forceRebuild;
     bool M_viewResults,M_viewResultsWithSurface;
+};
+
+class ImageFromCenterlines
+{
+public :
+
+    ImageFromCenterlines( std::string prefix );
+    ImageFromCenterlines( ImageFromCenterlines const& e );
+
+    void updateOutputPathFromInputFileName();
+
+    void run();
+
+    static po::options_description options( std::string const& prefix );
+
+    std::string prefix() const { return M_prefix; }
+    WorldComm const& worldComm() const { return Environment::worldComm(); }
+    std::string inputPath() const { return M_inputPath; }
+    std::string outputPath() const { return M_outputPath; }
+    bool forceRebuild() const { return M_forceRebuild; }
+
+private :
+    std::string M_prefix;
+    std::string M_inputPath, M_outputDirectory,M_outputPath;
+    double M_dimX,M_dimY,M_dimZ;
+    bool M_forceRebuild;
+};
+
+class SurfaceFromImage
+{
+public :
+
+    SurfaceFromImage( std::string prefix );
+    SurfaceFromImage( SurfaceFromImage const& e );
+
+    void updateOutputPathFromInputFileName();
+
+    void run();
+
+    static po::options_description options( std::string const& prefix );
+
+    std::string prefix() const { return M_prefix; }
+    WorldComm const& worldComm() const { return Environment::worldComm(); }
+    std::string inputPath() const { return M_inputPath; }
+    std::string outputPath() const { return M_outputPath; }
+    bool forceRebuild() const { return M_forceRebuild; }
+
+private :
+    std::string M_prefix;
+    std::string M_inputPath, M_outputDirectory,M_outputPath;
+    double M_thresholdLower,M_thresholdUpper;
+    bool M_hasThresholdLower,M_hasThresholdUpper;
+    bool M_forceRebuild;
 };
 
 namespace detail
