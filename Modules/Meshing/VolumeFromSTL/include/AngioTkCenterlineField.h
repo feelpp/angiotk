@@ -95,6 +95,8 @@ class AngioTkCenterline : public Field{
   std::vector<discreteEdge*> discEdges;
   std::vector<discreteFace*> discFaces;
 
+  std::map<std::string,std::vector<std::vector<double> > >  centerlinesFieldsPointData;
+
  public:
   AngioTkCenterline(std::string fileName);
   AngioTkCenterline();
@@ -122,8 +124,10 @@ class AngioTkCenterline : public Field{
   void computeCrossField(double x,double y,double z,
 			 SVector3 &d1, SVector3 &d2,  SVector3 &d3);
 
-  void convertCenterlinesFile(std::string fileName, std::string outputFileName);
-  void writeCenterlines(std::string fileName);
+  //void convertCenterlinesFile(std::string fileName, std::string outputFileName);
+  void updateCenterlinesFromFile( std::string fileName );
+  void addBranchIdsField();
+  void writeCenterlinesVTK( std::string fileName );
 
   //import the 1D mesh of the centerlines (in vtk format)
   //and fill the vector of lines

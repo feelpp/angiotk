@@ -431,12 +431,9 @@ CenterlinesManager::run()
         Msg::SetVerbosity( verbosityLevel );
 
         AngioTkCenterline centerlinesTool;
-#if 0
-        centerlinesTool.importFile( this->inputPath() );
-        centerlinesTool.writeCenterlines( this->outputPath() );
-#else
-        centerlinesTool.convertCenterlinesFile( this->inputPath(),this->outputPath() );
-#endif
+        centerlinesTool.updateCenterlinesFromFile( this->inputPath() );
+        centerlinesTool.addBranchIdsField();
+        centerlinesTool.writeCenterlinesVTK( this->outputPath() );
     }
 }
 po::options_description
@@ -708,7 +705,11 @@ SurfaceFromImage::run()
         __str2 << pythonExecutable << " ";
         __str2 << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtklevelsetsegmentation ";
         __str2 << "-ifile " << this->inputPath() << " -initiallevelsetsfile " << outputPathImageInit << " -iterations 1 ";
-        __str2 << "--pipe vmtkmarchingcubes -i @.o -ofile " << this->outputPath();
+        //__str2 << "--pipe vmtkmarchingcubes -i @.o -ofile " << this->outputPath();
+        __str2 << "--pipe vmtkmarchingcubes -i @.o ";
+        if ( true )
+            __str2 << "--pipe " << dirBaseVmtk << "/vmtksurfaceconnectivity ";
+        __str2 << "-ofile " << this->outputPath();
 
         std::cout << "---------------------------------------\n"
                   << "run in system : \n" << __str2.str() << "\n"

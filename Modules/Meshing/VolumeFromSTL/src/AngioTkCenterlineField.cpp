@@ -1879,7 +1879,7 @@ int readVTKPolyDataFields( const std::string &name, std::map<std::string,std::ve
 
 
 }
-int writeVTKPolyData2( GModel * gmodel,std::vector<Branch> const& edges,
+int writeVTKPolyData( GModel * gmodel,std::vector<Branch> const& edges,
 		       const std::string &name,
 		       std::map<std::string,std::vector<std::vector<double> > > const& fieldsPointData,
 		       bool binary=false,
@@ -1968,23 +1968,18 @@ int writeVTKPolyData2( GModel * gmodel,std::vector<Branch> const& edges,
 	  fprintf(fp, "\n" );
     }
 
-
-
-
   fclose(fp);
   return 1;
 
 }
 
-void AngioTkCenterline::writeCenterlines(std::string fileName)
+void AngioTkCenterline::writeCenterlinesVTK(std::string fileName)
 {
-  //writeVTKPolyData2(mod,edges,"myVTKCenterlines.vtk");
-  std::map<std::string,std::vector<std::vector<double> > > fieldsPointData;
-  writeVTKPolyData2(mod,edges,fileName,fieldsPointData);
+  writeVTKPolyData(mod,edges,fileName,centerlinesFieldsPointData);
 }
 
 #include <gmshHeadersMissing/MVertexPositionSet.h>
-void AngioTkCenterline::convertCenterlinesFile(std::string fileName, std::string outputFileName)
+void AngioTkCenterline::updateCenterlinesFromFile(std::string fileName)
 {
   this->importFile( fileName );
 
@@ -2023,7 +2018,6 @@ void AngioTkCenterline::convertCenterlinesFile(std::string fileName, std::string
   std::vector<GEntity*> entitiesInitial;
   modInitial->getEntities(entitiesInitial);
 
-
   // compute vertices relation between initial mesh and clean mesh
   std::map<int,int> initialVertexIdToCleanVertexId;
   for(unsigned int i = 0; i < entitiesInitial.size(); i++)
@@ -2057,15 +2051,16 @@ void AngioTkCenterline::convertCenterlinesFile(std::string fileName, std::string
 #endif
 
   // load vtk Point Data and store
-  std::map<std::string,std::vector<std::vector<double> > >  fieldsPointData;
-  readVTKPolyDataFields( fileName, fieldsPointData );
+  std::map<std::string,std::vector<std::vector<double> > >  fieldsPointDataInput;
+  readVTKPolyDataFields( fileName, fieldsPointDataInput );
 
   // tranfert into clean centerlines the Point Data Value
-  std::map<std::string,std::vector<std::vector<double> > >  fieldsPointDataClean;
-  for ( auto const& thefield : fieldsPointData )
+  //std::map<std::string,std::vector<std::vector<double> > >  fieldsPointDataClean;
+  centerlinesFieldsPointData.clear();
+  for ( auto const& thefield : fieldsPointDataInput )
     {
-      fieldsPointDataClean[thefield.first].resize(numVertices);
-      for ( auto & thefieldClean : fieldsPointDataClean[thefield.first] )
+      centerlinesFieldsPointData[thefield.first].resize(numVertices);
+      for ( auto & thefieldClean : centerlinesFieldsPointData[thefield.first] )
 	thefieldClean.resize(thefield.second[0].size());
     }
 
@@ -2078,18 +2073,44 @@ void AngioTkCenterline::convertCenterlinesFile(std::string fileName, std::string
       int localIdClean = vertexIdToEntityIdAndLocalId[vertexIdClean].second;
       MVertex * myvertexClean = entities[entityIdClean]->mesh_vertices[localIdClean];
 
-      for ( auto const& thefield : fieldsPointData )
+      for ( auto const& thefield : fieldsPointDataInput )
 	for ( int comp=0;comp< thefield.second[0].size();++comp )
 	{
-	  fieldsPointDataClean[thefield.first][myvertexClean->getIndex()-1][comp] = thefield.second[myvertexInitial->getIndex()-1][comp];
+	  centerlinesFieldsPointData[thefield.first][myvertexClean->getIndex()-1][comp] = thefield.second[myvertexInitial->getIndex()-1][comp];
 	}
     }
-
-  // write Clean Centerlines mesh files with PointData in VTK format
-  writeVTKPolyData2(mod,edges,outputFileName,fieldsPointDataClean);
-
 }
 
+void AngioTkCenterline::addBranchIdsField()
+{
+
+  if ( centerlinesFieldsPointData.find("BranchIds") != centerlinesFieldsPointData.end() )
+    return;
+
+  std::vector<GEntity*> entities;
+  mod->getEntities(entities);
+
+  bool saveAll = false;
+  int numVertices = mod->indexMeshVertices(saveAll);
+  centerlinesFieldsPointData["BranchIds"].resize( numVertices );
+
+  unsigned int nBranch = edges.size();
+  for(unsigned int i = 0; i < nBranch; ++i){
+    std::vector<MLine*> lines = edges[i].lines;
+    bool firstPtDone = false;
+    for(unsigned int k = 0; k < lines.size(); ++k){
+      MLine *l = lines[k];
+      if ( !firstPtDone )
+	{
+	  MVertex * myvertex0 = l->getVertex(0);
+	  centerlinesFieldsPointData["BranchIds"][myvertex0->getIndex()-1] = { (double)i };
+	  firstPtDone = true;
+	}
+      MVertex * myvertex1 = l->getVertex(1);
+      centerlinesFieldsPointData["BranchIds"][myvertex1->getIndex()-1] = { (double)i };
+    }
+  }
+}
 
 void AngioTkCenterline::printSplit() const
 {
