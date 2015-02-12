@@ -33,6 +33,18 @@ target_link_libraries( meshing_imagefromcenterlines ${FEELPP_LIBRARY} ${FEELPP_A
 angiotk_add_component( meshing_surfacefromimage surfacefromimage_main.cpp )
 target_link_libraries( meshing_surfacefromimage ${FEELPP_LIBRARY} ${FEELPP_APP_LINK_LIBRARIES} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
 
+angiotk_add_component( meshing_opensurface opensurface_main.cpp )
+target_link_libraries( meshing_opensurface ${FEELPP_LIBRARY} ${FEELPP_APP_LINK_LIBRARIES} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
+
+angiotk_add_component( meshing_smoothsurface smoothsurface_main.cpp )
+target_link_libraries( meshing_smoothsurface ${FEELPP_LIBRARY} ${FEELPP_APP_LINK_LIBRARIES} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
+
+angiotk_add_component( meshing_subdividesurface subdividesurface_main.cpp )
+target_link_libraries( meshing_subdividesurface ${FEELPP_LIBRARY} ${FEELPP_APP_LINK_LIBRARIES} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
+
+angiotk_add_component( meshing_centerlinesmanager centerlinesmanager_main.cpp )
+target_link_libraries( meshing_centerlinesmanager ${FEELPP_LIBRARY} ${FEELPP_APP_LINK_LIBRARIES} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
+
 
 ExternalData_expand_arguments( angioTkData testArgs DATA{${VolumeFromSTL_SOURCE_DIR}/simpleTbifurcation.stl} )
 ExternalData_expand_arguments( angioTkData testArgs DATA{${VolumeFromSTL_SOURCE_DIR}/simpleTbifurcation_remeshVMTKarea0.005.stl} )

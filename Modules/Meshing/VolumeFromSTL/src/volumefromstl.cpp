@@ -137,6 +137,8 @@ CenterlinesFromSTL::CenterlinesFromSTL( std::string prefix )
     }
 }
 
+
+
 CenterlinesFromSTL::CenterlinesFromSTL( CenterlinesFromSTL const& e )
     :
     M_prefix( e.M_prefix ),
@@ -332,9 +334,122 @@ CenterlinesFromSTL::options( std::string const& prefix )
         (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         (prefixvm(prefix,"view-results").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) view-results")
         (prefixvm(prefix,"view-results.with-surface").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) view-results with surface")
-
         ;
     return myCenterlinesOptions;
+}
+
+
+CenterlinesManager::CenterlinesManager( std::string prefix )
+    :
+    M_prefix( prefix ),
+    M_inputPath( soption(_name="input.filename",_prefix=this->prefix()) ),
+    M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
+{
+    if ( !M_inputPath.empty() && fs::path(M_inputPath).is_relative() )
+        M_inputPath = (AngioTkEnvironment::pathInitial()/fs::path(M_inputPath) ).string();
+
+    if ( !M_inputPath.empty() && M_outputPath.empty() )
+    {
+        this->updateOutputPathFromInputFileName();
+    }
+}
+CenterlinesManager::CenterlinesManager( CenterlinesManager const& e )
+    :
+    M_prefix( e.M_prefix ),
+    M_inputPath( e.M_inputPath ),
+    M_outputDirectory( e.M_outputDirectory ), M_outputPath( e.M_outputPath ),
+    M_forceRebuild( e.M_forceRebuild )
+{}
+
+void
+CenterlinesManager::updateOutputPathFromInputFileName()
+{
+    CHECK( !M_inputPath.empty() ) << "input path is empty";
+
+    // define output directory
+    fs::path meshesdirectories;
+    if ( M_outputDirectory.empty() )
+        meshesdirectories = fs::current_path();
+    else if ( fs::path(M_outputDirectory).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(M_outputDirectory);
+    else
+        meshesdirectories = fs::path(M_outputDirectory);
+
+    // get filename without extension
+    fs::path gp = M_inputPath;
+    std::string nameMeshFile = gp.stem().string();
+
+    std::string newFileName = (boost::format("%1%_up.vtk")%nameMeshFile ).str();
+    fs::path outputPath = meshesdirectories / fs::path(newFileName);
+    M_outputPath = outputPath.string();
+}
+
+void
+CenterlinesManager::run()
+{
+    if ( !fs::exists( this->inputPath() ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : Centerlines Manager not run because this input path not exist :" << this->inputPath() << "\n";
+        return;
+    }
+
+    std::ostringstream coutStr;
+    coutStr << "\n"
+            << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
+            << "---------------------------------------\n"
+            << "run CenterlinesManager \n"
+            << "---------------------------------------\n";
+    coutStr << "inputPath          : " << this->inputPath() << "\n";
+    coutStr << "output path       : " << this->outputPath() << "\n"
+            << "---------------------------------------\n"
+            << "---------------------------------------\n";
+    std::cout << coutStr.str();
+
+
+    fs::path directory;
+    // build directories if necessary
+    if ( !this->outputPath().empty() && this->worldComm().isMasterRank() )
+    {
+        directory = fs::path(this->outputPath()).parent_path();
+        if ( !fs::exists( directory ) )
+            fs::create_directories( directory );
+    }
+    // // wait all process
+    this->worldComm().globalComm().barrier();
+
+
+    if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
+    {
+        GmshInitialize();
+        // if(!Msg::GetGmshClient())
+        CTX::instance()->terminal = 1;
+        //GmshBatch();
+
+        int verbosityLevel = 5;
+        Msg::SetVerbosity( verbosityLevel );
+
+        AngioTkCenterline centerlinesTool;
+#if 0
+        centerlinesTool.importFile( this->inputPath() );
+        centerlinesTool.writeCenterlines( this->outputPath() );
+#else
+        centerlinesTool.convertCenterlinesFile( this->inputPath(),this->outputPath() );
+#endif
+    }
+}
+po::options_description
+CenterlinesManager::options( std::string const& prefix )
+{
+    po::options_description myCenterlinesManagerOptions( "Centerlines Manager from Image options" );
+
+    myCenterlinesManagerOptions.add_options()
+        (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
+        (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
+        (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
+        ;
+    return myCenterlinesManagerOptions;
 }
 
 
@@ -622,9 +737,397 @@ SurfaceFromImage::options( std::string const& prefix )
 
 
 
+SubdivideSurface::SubdivideSurface( std::string prefix )
+    :
+    M_prefix( prefix ),
+    M_inputPath( soption(_name="input.filename",_prefix=this->prefix()) ),
+    M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
+    M_method( soption(_name="method",_prefix=this->prefix()) ),
+    M_nSubdivisions( ioption(_name="subdivisions",_prefix=this->prefix()) )
+{
+    CHECK( M_method == "linear" || M_method == "butterfly" || M_method == "loop" ) << "invalid method " << M_method << "\n";
+    if ( !M_inputPath.empty() && M_outputPath.empty() )
+    {
+        this->updateOutputPathFromInputFileName();
+    }
+}
+
+
+SubdivideSurface::SubdivideSurface( SubdivideSurface const& e )
+    :
+    M_prefix( e.M_prefix ),
+    M_inputPath( e.M_inputPath ),
+    M_outputDirectory( e.M_outputDirectory ), M_outputPath( e.M_outputPath ),
+    M_forceRebuild( e.M_forceRebuild ),
+    M_method( e.M_method ),
+    M_nSubdivisions( e.M_nSubdivisions )
+{}
+
+void
+SubdivideSurface::updateOutputPathFromInputFileName()
+{
+    CHECK( !M_inputPath.empty() ) << "input path is empty";
+
+    // define output directory
+    fs::path meshesdirectories;
+    if ( M_outputDirectory.empty() )
+        meshesdirectories = fs::current_path();
+    else if ( fs::path(M_outputDirectory).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(M_outputDirectory);
+    else
+        meshesdirectories = fs::path(M_outputDirectory);
+
+    // get filename without extension
+    //fs::path gp = M_inputPath;
+    std::string nameMeshFile = fs::path(this->inputPath()).stem().string();
+
+    std::string newFileName = (boost::format("%1%_subdivide%2%%3%.stl")%nameMeshFile %M_nSubdivisions %M_method ).str();
+    fs::path outputPath = meshesdirectories / fs::path(newFileName);
+    M_outputPath = outputPath.string();
+}
+
+void
+SubdivideSurface::run()
+{
+    if ( !fs::exists( this->inputPath() ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : smoothing surface not done because this input surface path not exist :" << this->inputPath() << "\n";
+        return;
+    }
+
+    std::ostringstream coutStr;
+    coutStr << "\n"
+            << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
+            << "---------------------------------------\n"
+            << "run SubdivideSurface \n"
+            << "---------------------------------------\n";
+    coutStr << "inputPath     : " << this->inputPath() << "\n";
+    coutStr << "method        : " << M_method << "\n"
+            << "nSubdivisions   : " << M_nSubdivisions << "\n";
+    coutStr << "output path          : " << this->outputPath() << "\n"
+            << "---------------------------------------\n"
+            << "---------------------------------------\n";
+    std::cout << coutStr.str();
+
+
+    fs::path directory;
+    // build directories if necessary
+    if ( !this->outputPath().empty() && this->worldComm().isMasterRank() )
+    {
+        directory = fs::path(this->outputPath()).parent_path();
+        if ( !fs::exists( directory ) )
+            fs::create_directories( directory );
+    }
+    // wait all process
+    this->worldComm().globalComm().barrier();
+
+    if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
+    {
+        std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
+        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+
+        std::ostringstream __str;
+        __str << pythonExecutable << " ";
+        __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtksurfacesubdivision ";
+        __str << "-ifile " << this->inputPath() << " "
+              << "-method " << M_method << " "
+              << "-subdivisions " << M_nSubdivisions << " ";
+        __str << "-ofile " << this->outputPath();
+        std::cout << "---------------------------------------\n"
+                  << "run in system : \n" << __str.str() << "\n"
+                  << "---------------------------------------\n";
+        auto err = ::system( __str.str().c_str() );
+    }
+
+}
+
+po::options_description
+SubdivideSurface::options( std::string const& prefix )
+{
+    po::options_description mySubdivideSurfaceOptions( "Subdivide the surface options" );
+
+    mySubdivideSurfaceOptions.add_options()
+        (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
+        (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
+        (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
+        (prefixvm(prefix,"method").c_str(), Feel::po::value<std::string>()->default_value("butterfly"), "(string) linear, butterfly, loop")
+        (prefixvm(prefix,"subdivisions").c_str(), Feel::po::value<int>()->default_value(1), "(int) number of subdivisions")
+        ;
+    return mySubdivideSurfaceOptions;
+
+}
+
+SmoothSurface::SmoothSurface( std::string prefix )
+    :
+    M_prefix( prefix ),
+    M_inputPath( soption(_name="input.filename",_prefix=this->prefix()) ),
+    M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
+    M_method( soption(_name="method",_prefix=this->prefix()) ),
+    M_nIterations( ioption(_name="iterations",_prefix=this->prefix()) ),
+    M_taubinPassBand( doption(_name="taubin.passband",_prefix=this->prefix()) ),
+    M_laplaceRelaxationFactor( doption(_name="laplace.relaxation",_prefix=this->prefix()) )
+{
+    CHECK( M_method == "taubin" || M_method == "laplace" ) << "invalid method " << M_method << "\n";
+    if ( !M_inputPath.empty() && M_outputPath.empty() )
+    {
+        this->updateOutputPathFromInputFileName();
+    }
+}
+
+SmoothSurface::SmoothSurface( SmoothSurface const& e )
+    :
+    M_prefix( e.M_prefix ),
+    M_inputPath( e.M_inputPath ),
+    M_outputDirectory( e.M_outputDirectory ), M_outputPath( e.M_outputPath ),
+    M_forceRebuild( e.M_forceRebuild ),
+    M_method( e.M_method ),
+    M_nIterations( e.M_nIterations ),
+    M_taubinPassBand( e.M_taubinPassBand ),
+    M_laplaceRelaxationFactor( e.M_laplaceRelaxationFactor )
+{}
+
+void
+SmoothSurface::updateOutputPathFromInputFileName()
+{
+    CHECK( !M_inputPath.empty() ) << "input path is empty";
+
+    // define output directory
+    fs::path meshesdirectories;
+    if ( M_outputDirectory.empty() )
+        meshesdirectories = fs::current_path();
+    else if ( fs::path(M_outputDirectory).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(M_outputDirectory);
+    else
+        meshesdirectories = fs::path(M_outputDirectory);
+
+    // get filename without extension
+    fs::path gp = M_inputPath;
+    std::string nameMeshFile = gp.stem().string();
+
+    std::string newFileName;
+    if ( M_method == "taubin")
+        newFileName = (boost::format("%1%_smooth%2%Taubin%3%.stl")%nameMeshFile %M_nIterations %M_taubinPassBand ).str();
+    else
+        newFileName = (boost::format("%1%_smooth%2%Laplace%3%.stl")%nameMeshFile %M_nIterations %M_laplaceRelaxationFactor ).str();
+    fs::path outputPath = meshesdirectories / fs::path(newFileName);
+    M_outputPath = outputPath.string();
+}
+
+void
+SmoothSurface::run()
+{
+    if ( !fs::exists( this->inputPath() ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : smoothing surface not done because this input surface path not exist :" << this->inputPath() << "\n";
+        return;
+    }
+
+    std::ostringstream coutStr;
+    coutStr << "\n"
+            << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
+            << "---------------------------------------\n"
+            << "run SmoothSurface \n"
+            << "---------------------------------------\n";
+    coutStr << "inputPath     : " << this->inputPath() << "\n";
+    coutStr << "method        : " << M_method << "\n"
+            << "nIterations   : " << M_nIterations << "\n";
+    if ( M_method == "taubin" )
+        coutStr << "passband      : " << M_taubinPassBand << "\n";
+    if ( M_method == "laplace" )
+        coutStr << "relaxation factor : " << M_laplaceRelaxationFactor << "\n";
+    coutStr << "output path          : " << this->outputPath() << "\n"
+            << "---------------------------------------\n"
+            << "---------------------------------------\n";
+    std::cout << coutStr.str();
+
+
+    fs::path directory;
+    // build directories if necessary
+    if ( !this->outputPath().empty() && this->worldComm().isMasterRank() )
+    {
+        directory = fs::path(this->outputPath()).parent_path();
+        if ( !fs::exists( directory ) )
+            fs::create_directories( directory );
+    }
+    // wait all process
+    this->worldComm().globalComm().barrier();
+
+    if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
+    {
+        std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
+        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+
+        std::ostringstream __str;
+        __str << pythonExecutable << " ";
+        __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtksurfacesmoothing ";
+        __str << "-ifile " << this->inputPath() << " "
+              << "-iterations " << M_nIterations << " ";
+        if ( M_method == "taubin" )
+            __str << "-method taubin -passband " << M_taubinPassBand << " ";
+        if ( M_method == "laplace" )
+            __str << "-method laplace -relaxation " << M_laplaceRelaxationFactor << " ";
+        __str << "-ofile " << this->outputPath();
+        std::cout << "---------------------------------------\n"
+                  << "run in system : \n" << __str.str() << "\n"
+                  << "---------------------------------------\n";
+        auto err = ::system( __str.str().c_str() );
+    }
+
+}
+
+po::options_description
+SmoothSurface::options( std::string const& prefix )
+{
+    po::options_description mySmoothSurfaceOptions( "Smooth the surface options" );
+
+    mySmoothSurfaceOptions.add_options()
+        (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
+        (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
+        (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
+        (prefixvm(prefix,"method").c_str(), Feel::po::value<std::string>()->default_value("taubin"), "(string) taubin or laplace")
+        (prefixvm(prefix,"iterations").c_str(), Feel::po::value<int>()->default_value(30), "(int) number of iterations")
+        (prefixvm(prefix,"taubin.passband").c_str(), Feel::po::value<double>()->default_value(0.1), "(double) taubin passband")
+        (prefixvm(prefix,"laplace.relaxation").c_str(), Feel::po::value<double>()->default_value(0.01), "(double) laplace.relaxation")
+        ;
+    return mySmoothSurfaceOptions;
+
+}
 
 
 
+OpenSurface::OpenSurface( std::string prefix )
+    :
+    M_prefix( prefix ),
+    M_inputSurfacePath( soption(_name="input.surface.filename",_prefix=this->prefix()) ),
+    M_inputCenterlinesPath( soption(_name="input.centerlines.filename",_prefix=this->prefix()) ),
+    M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
+{
+    if ( !M_inputSurfacePath.empty() && M_outputPath.empty() )
+    {
+        this->updateOutputPathFromInputFileName();
+    }
+}
+
+OpenSurface::OpenSurface( OpenSurface const& e )
+    :
+    M_prefix( e.M_prefix ),
+    M_inputSurfacePath( e.M_inputSurfacePath ),
+    M_inputCenterlinesPath( e.M_inputCenterlinesPath ),
+    M_outputDirectory( e.M_outputDirectory ), M_outputPath( e.M_outputPath ),
+    M_forceRebuild( e.M_forceRebuild )
+{}
+
+void
+OpenSurface::updateOutputPathFromInputFileName()
+{
+    CHECK( !M_inputSurfacePath.empty() ) << "input path is empty";
+
+    // define output directory
+    fs::path meshesdirectories;
+    if ( M_outputDirectory.empty() )
+        meshesdirectories = fs::current_path();
+    else if ( fs::path(M_outputDirectory).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(M_outputDirectory);
+    else
+        meshesdirectories = fs::path(M_outputDirectory);
+
+    // get filename without extension
+    fs::path gp = M_inputSurfacePath;
+    std::string nameMeshFile = gp.stem().string();
+
+    std::string newFileName = (boost::format("%1%_open.stl")%nameMeshFile ).str();
+    fs::path outputPath = meshesdirectories / fs::path(newFileName);
+    M_outputPath = outputPath.string();
+}
+
+void
+OpenSurface::run()
+{
+    if ( !fs::exists( this->inputSurfacePath() ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : opening surface not done because this input surface path for centerlines not exist :" << this->inputSurfacePath() << "\n";
+        return;
+    }
+    if ( !fs::exists( this->inputCenterlinesPath() ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : opening surface not done because this input centerlines path for centerlines not exist :" << this->inputCenterlinesPath() << "\n";
+        return;
+    }
+
+    std::ostringstream coutStr;
+    coutStr << "\n"
+            << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
+            << "---------------------------------------\n"
+            << "run OpenSurface \n"
+            << "---------------------------------------\n";
+    coutStr << "inputSurfacePath     : " << this->inputSurfacePath() << "\n";
+    coutStr << "inputCenterlinesPath : " << this->inputCenterlinesPath() << "\n";
+    coutStr << "output path          : " << this->outputPath() << "\n"
+            << "---------------------------------------\n"
+            << "---------------------------------------\n";
+    std::cout << coutStr.str();
+
+
+    fs::path directory;
+    // build directories if necessary
+    if ( !this->outputPath().empty() && this->worldComm().isMasterRank() )
+    {
+        directory = fs::path(this->outputPath()).parent_path();
+        if ( !fs::exists( directory ) )
+            fs::create_directories( directory );
+    }
+    // wait all process
+    this->worldComm().globalComm().barrier();
+
+    if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
+    {
+        std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
+        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+
+        std::ostringstream __str;
+        __str << pythonExecutable << " ";
+        __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkendpointextractor ";
+        __str << "-ifile " << this->inputCenterlinesPath() << " "
+              << "-radiusarray MaximumInscribedSphereRadius -numberofendpointspheres 1 ";
+        __str << "--pipe ";
+        __str << dirBaseVmtk << "/vmtkbranchclipper "
+              << "-ifile " << this->inputSurfacePath() << " "
+              << "-groupidsarray TractIds -blankingarray Blanking -radiusarray MaximumInscribedSphereRadius -insideout 0 -interactive 0 ";
+        __str << "--pipe ";
+        __str << dirBaseVmtk << "/vmtksurfaceconnectivity "
+              << " -cleanoutput 1 ";
+        __str << "--pipe "
+              <<  dirBaseVmtk << "/vmtksurfacewriter "
+              << "-ofile " << this->outputPath();
+        std::cout << "---------------------------------------\n"
+                  << "run in system : \n" << __str.str() << "\n"
+                  << "---------------------------------------\n";
+        auto err = ::system( __str.str().c_str() );
+    }
+
+    // vmtkendpointextractor -ifile ~/Desktop/MaillagesOdysée/meshing2/centerlines/cut6_centerlines.vtk -radiusarray MaximumInscribedSphereRadius -numberofendpointspheres 1 --pipe vmtkbranchclipper -interactive 0 -ifile ~/feel/blabll/hh128.stl -groupidsarray TractIds -blankingarray Blanking -radiusarray MaximumInscribedSphereRadius   -insideout 0 --pipe vmtksurfaceconnectivity -cleanoutput 1 --pipe vmtksurfacewriter -ofile hola3.stl
+}
+
+po::options_description
+OpenSurface::options( std::string const& prefix )
+{
+    po::options_description myOpenSurfaceOptions( "Open the surface options" );
+
+    myOpenSurfaceOptions.add_options()
+        (prefixvm(prefix,"input.centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
+        (prefixvm(prefix,"input.surface.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
+        (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
+        (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
+        ;
+    return myOpenSurfaceOptions;
+}
 
 
 

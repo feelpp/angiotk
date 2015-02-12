@@ -150,6 +150,31 @@ private :
     bool M_viewResults,M_viewResultsWithSurface;
 };
 
+class CenterlinesManager
+{
+public :
+
+    CenterlinesManager( std::string prefix );
+    CenterlinesManager( CenterlinesManager const& e );
+
+    void updateOutputPathFromInputFileName();
+
+    void run();
+
+    static po::options_description options( std::string const& prefix );
+
+    std::string prefix() const { return M_prefix; }
+    WorldComm const& worldComm() const { return Environment::worldComm(); }
+    std::string inputPath() const { return M_inputPath; }
+    std::string outputPath() const { return M_outputPath; }
+    bool forceRebuild() const { return M_forceRebuild; }
+
+private :
+    std::string M_prefix;
+    std::string M_inputPath, M_outputDirectory, M_outputPath;
+    bool M_forceRebuild;
+};
+    
 class ImageFromCenterlines
 {
 public :
@@ -200,6 +225,88 @@ private :
     std::string M_inputPath, M_outputDirectory,M_outputPath;
     double M_thresholdLower,M_thresholdUpper;
     bool M_hasThresholdLower,M_hasThresholdUpper;
+    bool M_forceRebuild;
+};
+
+class SubdivideSurface
+{
+public :
+
+    SubdivideSurface( std::string prefix );
+    SubdivideSurface( SubdivideSurface const& e );
+
+    void updateOutputPathFromInputFileName();
+
+    void run();
+
+    std::string prefix() const { return M_prefix; }
+    WorldComm const& worldComm() const { return Environment::worldComm(); }
+    std::string inputPath() const { return M_inputPath; }
+    std::string outputPath() const { return M_outputPath; }
+    bool forceRebuild() const { return M_forceRebuild; }
+
+    static po::options_description options( std::string const& prefix );
+
+private :
+    std::string M_prefix;
+    std::string M_inputPath, M_outputDirectory, M_outputPath;
+    std::string M_method;
+    int M_nSubdivisions;
+    bool M_forceRebuild;
+};
+
+class SmoothSurface
+{
+public :
+
+    SmoothSurface( std::string prefix );
+    SmoothSurface( SmoothSurface const& e );
+
+    void updateOutputPathFromInputFileName();
+
+    void run();
+
+    std::string prefix() const { return M_prefix; }
+    WorldComm const& worldComm() const { return Environment::worldComm(); }
+    std::string inputPath() const { return M_inputPath; }
+    std::string outputPath() const { return M_outputPath; }
+    bool forceRebuild() const { return M_forceRebuild; }
+
+    static po::options_description options( std::string const& prefix );
+
+private :
+    std::string M_prefix;
+    std::string M_inputPath, M_outputDirectory, M_outputPath;
+    std::string M_method;
+    int M_nIterations;
+    double M_taubinPassBand;
+    double M_laplaceRelaxationFactor;
+    bool M_forceRebuild;
+};
+
+class OpenSurface
+{
+public :
+
+    OpenSurface( std::string prefix );
+    OpenSurface( OpenSurface const& e );
+
+    void updateOutputPathFromInputFileName();
+
+    void run();
+
+    static po::options_description options( std::string const& prefix );
+
+    std::string prefix() const { return M_prefix; }
+    WorldComm const& worldComm() const { return Environment::worldComm(); }
+    std::string inputSurfacePath() const { return M_inputSurfacePath; }
+    std::string inputCenterlinesPath() const { return M_inputCenterlinesPath; }
+    std::string outputPath() const { return M_outputPath; }
+    bool forceRebuild() const { return M_forceRebuild; }
+
+private :
+    std::string M_prefix;
+    std::string M_inputSurfacePath, M_inputCenterlinesPath, M_outputDirectory, M_outputPath;
     bool M_forceRebuild;
 };
 

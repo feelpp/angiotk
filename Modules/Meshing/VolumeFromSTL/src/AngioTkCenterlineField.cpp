@@ -387,15 +387,18 @@ void AngioTkCenterline::importFile(std::string fileName)
 	}
      }
   }
-
+#if 0
   if(triangles.empty()){
     Msg::Error("Current GModel has no triangles ...");
     return;
   }
-
+#endif
   mod = new GModel();
   mod->load(fileName);
   mod->removeDuplicateMeshVertices(1.e-8);
+  //mod->writeMSH("myCenterlines.msh", 2.2, false, false);
+  //mod->writeVTK("myCenterlines.vtk", false, false);
+
   current->setAsCurrent();
   current->setVisibility(1);
 
@@ -518,12 +521,16 @@ void AngioTkCenterline::createBranches(int maxN)
     edges[i].children = myChildren;
   }
 
-  //compute radius
-  distanceToSurface();
-  computeRadii();
+  if(!triangles.empty())
+    {
+      //compute radius
+      distanceToSurface();
 
-  //print for debug
-  printSplit();
+      computeRadii();
+
+      //print for debug
+      printSplit();
+    }
 
 }
 
@@ -1685,6 +1692,404 @@ void AngioTkCenterline::computeCrossField(double x,double y,double z,
   //   m2 = Frame_field::search(x,y,z);
 
 }
+
+int readVTKPolyDataFields( const std::string &name, std::map<std::string,std::vector< std::vector<double> > > & fieldsPointData, bool bigEndian=false )
+{
+  FILE *fp = Fopen(name.c_str(), "rb");
+  if(!fp){
+    Msg::Error("Unable to open file '%s'", name.c_str());
+    return 0;
+  }
+
+  char buffer[256], buffer2[256];
+  std::map<int, std::map<int, std::string> > physicals[4];
+
+  if(!fgets(buffer, sizeof(buffer), fp)){ fclose(fp); return 0; } // version line
+  if(!fgets(buffer, sizeof(buffer), fp)){ fclose(fp); return 0; } // title
+
+  if(fscanf(fp, "%s", buffer) != 1) // ASCII or BINARY
+    Msg::Error("Failed reading buffer");
+  bool binary = false;
+  if(!strcmp(buffer, "BINARY")) binary = true;
+
+  if(fscanf(fp, "%s %s", buffer, buffer2) != 2){ fclose(fp); return 0; }
+
+  bool unstructured = false;
+  if(!strcmp(buffer, "DATASET") && !strcmp(buffer2, "UNSTRUCTURED_GRID"))
+    unstructured = true;
+
+  if((strcmp(buffer, "DATASET") &&  strcmp(buffer2, "UNSTRUCTURED_GRID")) ||
+     (strcmp(buffer, "DATASET") &&  strcmp(buffer2, "POLYDATA"))){
+    Msg::Error("VTK reader can only read unstructured or polydata datasets");
+    fclose(fp);
+    return 0;
+  }
+
+  // read mesh vertices
+  int numVertices;
+  if(fscanf(fp, "%s %d %s\n", buffer, &numVertices, buffer2) != 3) return 0;
+  if(strcmp(buffer, "POINTS") || !numVertices){
+    Msg::Warning("No points in dataset");
+    fclose(fp);
+    return 0;
+  }
+  int datasize;
+  if(!strcmp(buffer2, "double"))
+    datasize = sizeof(double);
+  else if(!strcmp(buffer2, "float"))
+    datasize = sizeof(float);
+  else{
+    Msg::Warning("VTK reader only accepts float or double datasets");
+    fclose(fp);
+    return 0;
+  }
+  Msg::Info("Reading %d points", numVertices);
+  std::vector<MVertex*> vertices(numVertices);
+  for(int i = 0 ; i < numVertices; i++){
+    double xyz[3];
+    if(binary){
+      if(datasize == sizeof(float)){
+        float f[3];
+        if(fread(f, sizeof(float), 3, fp) != 3){ fclose(fp); return 0; }
+        if(!bigEndian) SwapBytes((char*)f, sizeof(float), 3);
+        for(int j = 0; j < 3; j++) xyz[j] = f[j];
+      }
+      else{
+        if(fread(xyz, sizeof(double), 3, fp) != 3){ fclose(fp); return 0; }
+        if(!bigEndian) SwapBytes((char*)xyz, sizeof(double), 3);
+      }
+    }
+    else{
+      if(fscanf(fp, "%lf %lf %lf", &xyz[0], &xyz[1], &xyz[2]) != 3){
+        fclose(fp);
+        return 0;
+      }
+    }
+    vertices[i] = new MVertex(xyz[0], xyz[1], xyz[2]);
+  }
+
+  // read mesh elements
+  int numElements, totalNumInt;
+  if(fscanf(fp, "%s %d %d\n", buffer, &numElements, &totalNumInt) != 3){
+    fclose(fp);
+    return 0;
+  }
+
+  bool haveCells = true;
+  bool haveLines = false;
+  if( !strcmp(buffer, "CELLS") && numElements > 0)
+    Msg::Info("Reading %d cells", numElements);
+  else if (!strcmp(buffer, "POLYGONS") && numElements > 0)
+    Msg::Info("Reading %d polygons", numElements);
+  else if (!strcmp(buffer, "LINES") && numElements > 0){
+    haveCells = false;
+    haveLines = true;
+    Msg::Info("Reading %d lines", numElements);
+  }
+  else{
+    Msg::Warning("No cells or polygons in dataset");
+    fclose(fp);
+    return 0;
+  }
+
+  if (haveCells){
+	Msg::Error("Cell not implement ");
+    }
+  else if ( haveLines )
+    {
+      if(!binary){
+	int v0, v1;
+	char line[100000], *p, *pEnd, *pEnd2;
+	int iLine = 1;
+	for (int k= 0; k < numElements; k++){
+	  physicals[1][iLine][1] = "centerline";
+	  if(!fgets(line, sizeof(line), fp)){ fclose(fp); return 0; }
+	  v0 = (int)strtol(line, &pEnd, 10); //ignore first line
+	  v0 = (int)strtol(pEnd, &pEnd2, 10);
+	  p=pEnd2;
+	  while(1){
+	    v1 = strtol(p, &pEnd, 10);
+	    if (p == pEnd )  break;
+	    //elements[1][iLine].push_back(new MLine(vertices[v0],vertices[v1]));
+	    p = pEnd;
+	    v0 = v1;
+	  }
+	  iLine++;
+	}
+      }
+      else{
+	Msg::Error("TODO: implement reading lines for binary files \n");
+      }
+    }
+
+  int numVertices2;
+  if(fscanf(fp, "%s %d\n", buffer, &numVertices2) != 2){
+    std::cout << "AIE\n";
+    fclose(fp);
+    return 0;
+  }
+  //else std::cout << "buffer "<< buffer <<"\n"
+  int numFields;
+  if(fscanf(fp, "%s %s %d\n", buffer, buffer2, &numFields) != 3){
+    std::cout << "AIE2\n";
+    fclose(fp);
+    return 0;
+  }
+
+  for ( int ff =0;ff < numFields;++ff )
+    {
+  int nComp,numVertices3;
+  if(fscanf(fp, "%s %d %d %s\n", buffer, &nComp,&numVertices3, buffer2) != 4){
+    std::cout << "AIE3\n";
+    fclose(fp);
+    return 0;
+  }
+  std::string nameField( buffer );
+  //std::cout <<  "nameField " << nameField << "\n";
+
+  int datasizeField;
+  if(!strcmp(buffer2, "double"))
+    datasizeField = sizeof(double);
+  else if(!strcmp(buffer2, "float"))
+    datasizeField = sizeof(float);
+  /*else{
+    Msg::Warning("VTK reader only accepts float or double datasets");
+    fclose(fp);
+    return 0;
+    }*/
+
+
+  fieldsPointData[nameField].resize( numVertices3 );
+  //std::vector<double> valuesInField( numVertices3 );
+  for(int i = 0 ; i < numVertices3; i++)
+    {
+      fieldsPointData[nameField]/*valuesInFiel*/[i].resize(nComp);
+      for(int comp = 0 ; comp < nComp; comp++)
+      fscanf(fp, "%lf", &fieldsPointData[nameField]/*valuesInFiel*/[i][comp] );
+      //fscanf(fp, "%lf", &valuesInField[i] );
+    }
+
+    }
+
+  fclose(fp);
+
+
+  return 1;
+
+
+
+}
+int writeVTKPolyData2( GModel * gmodel,std::vector<Branch> const& edges,
+		       const std::string &name,
+		       std::map<std::string,std::vector<std::vector<double> > > const& fieldsPointData,
+		       bool binary=false,
+		       bool saveAll=false, double scalingFactor=1.0,
+		       bool bigEndian=false)
+{
+  FILE *fp = Fopen(name.c_str(), binary ? "wb" : "w");
+  if(!fp){
+    Msg::Error("Unable to open file '%s'", name.c_str());
+    return 0;
+  }
+
+  if(gmodel->noPhysicalGroups()) saveAll = true;
+
+  // get the number of vertices and index the vertices in a continuous
+  // sequence
+  int numVertices = gmodel->indexMeshVertices(saveAll);
+
+  fprintf(fp, "# vtk DataFile Version 3.0\n");
+  fprintf(fp, "%s, Created by Gmsh\n", gmodel->getName().c_str());
+  if(binary)
+    fprintf(fp, "BINARY\n");
+  else
+    fprintf(fp, "ASCII\n");
+  fprintf(fp, "DATASET POLYDATA\n");
+
+  // get all the entities in the model
+  std::vector<GEntity*> entities;
+  gmodel->getEntities(entities);
+
+  fprintf(fp, "POINTS %d double\n", numVertices);
+  for(unsigned int i = 0; i < entities.size(); i++)
+    for(unsigned int j = 0; j < entities[i]->mesh_vertices.size(); j++)
+      entities[i]->mesh_vertices[j]->writeVTK(fp, binary, scalingFactor, bigEndian);
+  fprintf(fp, "\n");
+
+  unsigned int nBranch = edges.size();
+  unsigned int cptLines=0;
+  for(unsigned int i = 0; i < nBranch; ++i){
+    std::vector<MLine*> lines = edges[i].lines;
+    cptLines +=lines.size()+2;
+  }
+  fprintf(fp, "LINES %d %d\n", nBranch ,cptLines);
+  for(unsigned int i = 0; i < nBranch; ++i){
+    std::vector<MLine*> lines = edges[i].lines;
+    bool firstPtDone = false;
+
+    for(unsigned int k = 0; k < lines.size(); ++k){
+      MLine *l = lines[k];
+      if ( !firstPtDone )
+	{
+	  int nPointInBranch = lines.size() +1;
+	  fprintf(fp, "%d", nPointInBranch );
+	  fprintf(fp, " %d", l->getVertex(0)->getIndex() - 1);
+	  firstPtDone = true;
+	}
+
+      fprintf(fp, " %d", l->getVertex(1)->getIndex() - 1);
+    }
+    fprintf(fp, "\n");
+  }
+
+  //std::cout << "fieldsPointData.size() " << fieldsPointData.size() << "\n";
+  if ( fieldsPointData.size() > 0 )
+    {
+    fprintf(fp, "\nPOINT_DATA %d\n", numVertices);
+    fprintf(fp, "FIELD FieldData %d\n", (int)fieldsPointData.size());
+    }
+
+  for ( auto const& thefield : fieldsPointData )
+    {
+      int nComp = thefield.second[0].size();
+      fprintf(fp, "%s %d %d double\n", thefield.first.c_str(), nComp, numVertices);
+
+      int cptVal=0;
+      for ( auto const& valAllComp : thefield.second )
+	for ( double val : valAllComp )
+	//for ( double val : thefield.second )
+	{
+	  fprintf(fp, "%.16g ", val );
+	  if ( cptVal%6==5 ) 
+	    fprintf(fp, "\n" );
+	  ++cptVal;
+	}
+
+	  fprintf(fp, "\n" );
+    }
+
+
+
+
+  fclose(fp);
+  return 1;
+
+}
+
+void AngioTkCenterline::writeCenterlines(std::string fileName)
+{
+  //writeVTKPolyData2(mod,edges,"myVTKCenterlines.vtk");
+  std::map<std::string,std::vector<std::vector<double> > > fieldsPointData;
+  writeVTKPolyData2(mod,edges,fileName,fieldsPointData);
+}
+
+#include <gmshHeadersMissing/MVertexPositionSet.h>
+void AngioTkCenterline::convertCenterlinesFile(std::string fileName, std::string outputFileName)
+{
+  this->importFile( fileName );
+
+
+  bool saveAll=false;
+  int numVertices = mod->indexMeshVertices(saveAll);
+
+  std::vector<MVertex*> verticesPosition;
+
+  //std::cout << "numVertices " << numVertices << "\n";
+  std::vector<GEntity*> entities;
+  mod->getEntities(entities);
+
+  std::map<int,std::pair<int,int> > vertexIdToEntityIdAndLocalId;
+  for(unsigned int i = 0; i < entities.size(); i++)
+    for(unsigned int j = 0; j < entities[i]->mesh_vertices.size(); j++)
+    {
+      MVertex * myvertex = entities[i]->mesh_vertices[j];
+      //std::cout << myvertex->x() << " " << myvertex->y() << " "<< myvertex->z() << "\n";
+      verticesPosition.push_back(new MVertex(myvertex->x(), myvertex->y(), myvertex->z(), NULL, myvertex->getIndex() ));
+      vertexIdToEntityIdAndLocalId[myvertex->getIndex()]=std::make_pair(i,j);
+    }
+
+  // init localisation tool
+  MVertexPositionSet pos(verticesPosition);
+  double tolerance = 1.0e-8;
+  SBoundingBox3d bbox = mod->bounds();
+  double lc = bbox.empty() ? 1. : norm(SVector3(bbox.max(), bbox.min()));
+  double eps = lc * tolerance;
+
+  // load initial centerlines with duplicate vertices/lines
+  GModel * modInitial = new GModel();
+  modInitial->load(fileName);
+  int numVerticesInitial = modInitial->indexMeshVertices(saveAll);
+  //std::cout << "numVerticesInitial " << numVerticesInitial << "\n";
+  std::vector<GEntity*> entitiesInitial;
+  modInitial->getEntities(entitiesInitial);
+
+
+  // compute vertices relation between initial mesh and clean mesh
+  std::map<int,int> initialVertexIdToCleanVertexId;
+  for(unsigned int i = 0; i < entitiesInitial.size(); i++)
+    for(unsigned int j = 0; j < entitiesInitial[i]->mesh_vertices.size(); j++)
+    {
+      MVertex * myvertex = entitiesInitial[i]->mesh_vertices[j];
+
+      MVertex *vertexFind = pos.find(myvertex->x(), myvertex->y(), myvertex->z(), eps);
+
+      if ( !vertexFind )
+	Msg::Error("vertexFind not find ");
+
+      initialVertexIdToCleanVertexId[myvertex->getIndex()] = vertexFind->getNum();
+      //std::cout << "get correspondance "<< myvertex->getIndex() << " vs " << vertexFind->getNum() << " in " << i << "\n";
+    }
+
+#if 0
+  for(unsigned int i = 0; i < entitiesInitial.size(); i++)
+    for(unsigned int j = 0; j < entitiesInitial[i]->mesh_vertices.size(); j++)
+    {
+      MVertex * myvertexInitial = entitiesInitial[i]->mesh_vertices[j];
+      int vertexIdClean = initialVertexIdToCleanVertexId[myvertexInitial->getIndex()];
+      int entityIdClean = vertexIdToEntityIdAndLocalId[vertexIdClean].first;
+      int localIdClean = vertexIdToEntityIdAndLocalId[vertexIdClean].second;
+      MVertex * myvertexClean = entities[entityIdClean]->mesh_vertices[localIdClean];
+      std::cout << myvertexInitial->x() << " " << myvertexInitial->y() << " "<< myvertexInitial->z()
+		<< " VS "
+		<< myvertexClean->x() << " " << myvertexClean->y() << " "<< myvertexClean->z()
+		<< "\n";
+    }
+#endif
+
+  // load vtk Point Data and store
+  std::map<std::string,std::vector<std::vector<double> > >  fieldsPointData;
+  readVTKPolyDataFields( fileName, fieldsPointData );
+
+  // tranfert into clean centerlines the Point Data Value
+  std::map<std::string,std::vector<std::vector<double> > >  fieldsPointDataClean;
+  for ( auto const& thefield : fieldsPointData )
+    {
+      fieldsPointDataClean[thefield.first].resize(numVertices);
+      for ( auto & thefieldClean : fieldsPointDataClean[thefield.first] )
+	thefieldClean.resize(thefield.second[0].size());
+    }
+
+  for(unsigned int i = 0; i < entitiesInitial.size(); i++)
+    for(unsigned int j = 0; j < entitiesInitial[i]->mesh_vertices.size(); j++)
+    {
+      MVertex * myvertexInitial = entitiesInitial[i]->mesh_vertices[j];
+      int vertexIdClean = initialVertexIdToCleanVertexId[myvertexInitial->getIndex()];
+      int entityIdClean = vertexIdToEntityIdAndLocalId[vertexIdClean].first;
+      int localIdClean = vertexIdToEntityIdAndLocalId[vertexIdClean].second;
+      MVertex * myvertexClean = entities[entityIdClean]->mesh_vertices[localIdClean];
+
+      for ( auto const& thefield : fieldsPointData )
+	for ( int comp=0;comp< thefield.second[0].size();++comp )
+	{
+	  fieldsPointDataClean[thefield.first][myvertexClean->getIndex()-1][comp] = thefield.second[myvertexInitial->getIndex()-1][comp];
+	}
+    }
+
+  // write Clean Centerlines mesh files with PointData in VTK format
+  writeVTKPolyData2(mod,edges,outputFileName,fieldsPointDataClean);
+
+}
+
 
 void AngioTkCenterline::printSplit() const
 {
