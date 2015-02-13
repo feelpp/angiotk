@@ -346,6 +346,12 @@ CenterlinesManager::CenterlinesManager( std::string prefix )
     M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
 {
+    std::vector<int> removeids;
+    if ( Environment::vm().count(prefixvm(this->prefix(),"remove-branch-ids").c_str()) )
+        removeids = Environment::vm()[prefixvm(this->prefix(),"remove-branch-ids").c_str()].as<std::vector<int> >();
+    for ( int id : removeids )
+        M_removeBranchIds.insert( id );
+
     if ( !M_inputPath.empty() && fs::path(M_inputPath).is_relative() )
         M_inputPath = (AngioTkEnvironment::pathInitial()/fs::path(M_inputPath) ).string();
 
@@ -402,6 +408,13 @@ CenterlinesManager::run()
             << "run CenterlinesManager \n"
             << "---------------------------------------\n";
     coutStr << "inputPath          : " << this->inputPath() << "\n";
+    if ( M_removeBranchIds.size() > 0 )
+    {
+        coutStr << "remove branch ids :";
+        for ( int id : M_removeBranchIds )
+            coutStr << " " << id;
+        coutStr << "\n";
+    }
     coutStr << "output path       : " << this->outputPath() << "\n"
             << "---------------------------------------\n"
             << "---------------------------------------\n";
@@ -432,7 +445,8 @@ CenterlinesManager::run()
 
         AngioTkCenterline centerlinesTool;
         centerlinesTool.updateCenterlinesFromFile( this->inputPath() );
-        centerlinesTool.addBranchIdsField();
+        centerlinesTool.removeBranchIds( M_removeBranchIds );
+        centerlinesTool.addFieldBranchIds();
         centerlinesTool.writeCenterlinesVTK( this->outputPath() );
     }
 }
@@ -444,6 +458,7 @@ CenterlinesManager::options( std::string const& prefix )
     myCenterlinesManagerOptions.add_options()
         (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
+        (prefixvm(prefix,"remove-branch-ids").c_str(), po::value<std::vector<int> >()->multitoken(), "(vector of int) remove branch ids" )
         (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         ;
     return myCenterlinesManagerOptions;

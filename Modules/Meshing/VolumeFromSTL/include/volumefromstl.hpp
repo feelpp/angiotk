@@ -173,8 +173,9 @@ private :
     std::string M_prefix;
     std::string M_inputPath, M_outputDirectory, M_outputPath;
     bool M_forceRebuild;
+    std::set<int> M_removeBranchIds;
 };
-    
+
 class ImageFromCenterlines
 {
 public :

@@ -396,6 +396,10 @@ void AngioTkCenterline::importFile(std::string fileName)
   mod = new GModel();
   mod->load(fileName);
   mod->removeDuplicateMeshVertices(1.e-8);
+
+  // call indexMeshVertices allow to assign id on vertices from 1
+  bool saveAll = false;
+  int numVerticesInCenterlinesGModel = mod->indexMeshVertices(saveAll);
   //mod->writeMSH("myCenterlines.msh", 2.2, false, false);
   //mod->writeVTK("myCenterlines.vtk", false, false);
 
@@ -404,8 +408,10 @@ void AngioTkCenterline::importFile(std::string fileName)
 
   int maxN = 0.0;
   std::vector<GEdge*> modEdges(mod->firstEdge(), mod->lastEdge());
+
   MVertex *vin = modEdges[0]->lines[0]->getVertex(0);
   ptin = SPoint3(vin->x(), vin->y(), vin->z());
+
   for (unsigned int i = 0; i < modEdges.size(); i++){
     GEdge *ge = modEdges[i];
     for(unsigned int j = 0; j < ge->lines.size(); j++){
@@ -427,8 +433,33 @@ void AngioTkCenterline::importFile(std::string fileName)
   createBranches(maxN);
 }
 
+int numberOfVertices( std::vector<Branch> const& edges )
+{
+  // get the number of vertices in centerlines
+  std::set<int> thePtIds;
+  unsigned int nBranch = edges.size();
+  for(unsigned int i = 0; i < nBranch; ++i)
+  {
+    std::vector<MLine*> mylines = edges[i].lines;
+    for(unsigned int k = 0; k < mylines.size(); ++k)
+    {
+      MLine *l = mylines[k];
+      MVertex *v0 = l->getVertex(0);
+      MVertex *v1 = l->getVertex(1);
+      //std::cout << "add v0->getIndex() " << v0->getIndex() <<"\n";
+      //std::cout << "add v1->getIndex() " << v1->getIndex() <<"\n";
+      thePtIds.insert(v0->getIndex());
+      thePtIds.insert(v1->getIndex());
+    }
+  }
+  //this->numVerticesInCenterlines = thePtIds.size();
+  return thePtIds.size();
+}
+
 void AngioTkCenterline::createBranches(int maxN)
 {
+  Msg::Info("AngioTkCenterline: createBranches (maxNin =%d)",maxN);
+
   //sort colored lines and create edges
   std::vector<std::vector<MLine*> > color_edges;
   color_edges.resize(maxN);
@@ -507,7 +538,7 @@ void AngioTkCenterline::createBranches(int maxN)
     }
   }
 
-  Msg::Info("AngioTkCenterline: in/outlets =%d branches =%d ",
+  Msg::Info("AngioTkCenterline: in/outlets?? =%d branches =%d ",
             (int)color_edges.size()+1, (int)edges.size());
 
   //create children
@@ -521,16 +552,17 @@ void AngioTkCenterline::createBranches(int maxN)
     edges[i].children = myChildren;
   }
 
+  // compute measures between surface and centerlibes
   if(!triangles.empty())
-    {
-      //compute radius
-      distanceToSurface();
+  {
+    //compute radius
+    distanceToSurface();
 
-      computeRadii();
+    computeRadii();
 
-      //print for debug
-      printSplit();
-    }
+    //print for debug
+    printSplit();
+  }
 
 }
 
@@ -1879,6 +1911,7 @@ int readVTKPolyDataFields( const std::string &name, std::map<std::string,std::ve
 
 
 }
+#if 0
 int writeVTKPolyData( GModel * gmodel,std::vector<Branch> const& edges,
 		       const std::string &name,
 		       std::map<std::string,std::vector<std::vector<double> > > const& fieldsPointData,
@@ -1896,7 +1929,8 @@ int writeVTKPolyData( GModel * gmodel,std::vector<Branch> const& edges,
 
   // get the number of vertices and index the vertices in a continuous
   // sequence
-  int numVertices = gmodel->indexMeshVertices(saveAll);
+  //int numVertices = gmodel->indexMeshVertices(saveAll);
+  int numVertices = gmodel->getNumMeshVertices();
 
   fprintf(fp, "# vtk DataFile Version 3.0\n");
   fprintf(fp, "%s, Created by Gmsh\n", gmodel->getName().c_str());
@@ -1972,6 +2006,131 @@ int writeVTKPolyData( GModel * gmodel,std::vector<Branch> const& edges,
   return 1;
 
 }
+#endif
+int writeVTKPolyData( GModel * gmodel,std::vector<Branch> const& edges,
+		      const std::string &name,
+		      std::map<std::string,std::vector<std::vector<double> > > const& fieldsPointData,
+		      bool binary=false,
+		      bool saveAll=false, double scalingFactor=1.0,
+		      bool bigEndian=false)
+{
+  FILE *fp = Fopen(name.c_str(), binary ? "wb" : "w");
+  if(!fp){
+    Msg::Error("Unable to open file '%s'", name.c_str());
+    return 0;
+  }
+
+  if(gmodel->noPhysicalGroups()) saveAll = true;
+
+  fprintf(fp, "# vtk DataFile Version 3.0\n");
+  fprintf(fp, "%s, Created by Gmsh\n", gmodel->getName().c_str());
+  if(binary)
+    fprintf(fp, "BINARY\n");
+  else
+    fprintf(fp, "ASCII\n");
+  fprintf(fp, "DATASET POLYDATA\n");
+
+
+  // get the number of vertices
+  unsigned int nBranch = edges.size();
+  int numVertices = numberOfVertices(edges);
+  fprintf(fp, "POINTS %d double\n", numVertices);
+
+
+  // write points
+  int cptPtId = 0;
+  std::map<int,int> mapInputIdToVtkId;
+  std::map<int,int> mapVtkIdToInputId;
+  for(unsigned int i = 0; i < nBranch; ++i)
+  {
+    std::vector<MLine*> mylines = edges[i].lines;
+    for(unsigned int k = 0; k < mylines.size(); ++k)
+    {
+      MLine *l = mylines[k];
+      MVertex *v0 = l->getVertex(0);
+      MVertex *v1 = l->getVertex(1);
+      int v0Id = v0->getIndex();
+      int v1Id = v1->getIndex();
+      auto itFind0 = mapInputIdToVtkId.find( v0Id );
+      auto itFind1 = mapInputIdToVtkId.find( v1Id );
+      if ( itFind0 == mapInputIdToVtkId.end() )
+      {
+	v0->writeVTK(fp, binary, scalingFactor, bigEndian);
+	mapInputIdToVtkId[v0Id] = cptPtId;
+	mapVtkIdToInputId[cptPtId] = v0Id;
+	++cptPtId;
+      }
+      if ( itFind1 == mapInputIdToVtkId.end() )
+      {
+	v1->writeVTK(fp, binary, scalingFactor, bigEndian);
+	mapInputIdToVtkId[v1Id] = cptPtId;
+	mapVtkIdToInputId[cptPtId] = v1Id;
+	++cptPtId;
+      }
+    }
+  }
+  fprintf(fp, "\n");
+
+  // write lines
+  unsigned int cptLines=0;
+  for(unsigned int i = 0; i < nBranch; ++i){
+    std::vector<MLine*> lines = edges[i].lines;
+    cptLines +=lines.size()+2;
+  }
+  fprintf(fp, "LINES %d %d\n", nBranch ,cptLines);
+  for(unsigned int i = 0; i < nBranch; ++i){
+    std::vector<MLine*> lines = edges[i].lines;
+    bool firstPtDone = false;
+
+    for(unsigned int k = 0; k < lines.size(); ++k){
+      MLine *l = lines[k];
+      if ( !firstPtDone )
+	{
+	  int nPointInBranch = lines.size() +1;
+	  fprintf(fp, "%d", nPointInBranch );
+	  fprintf(fp, " %d", mapInputIdToVtkId[l->getVertex(0)->getIndex()] );
+	  firstPtDone = true;
+	}
+
+      fprintf(fp, " %d", mapInputIdToVtkId[l->getVertex(1)->getIndex()] );
+    }
+    fprintf(fp, "\n");
+  }
+
+  // write fields
+  if ( fieldsPointData.size() > 0 )
+    {
+    fprintf(fp, "\nPOINT_DATA %d\n", numVertices);
+    fprintf(fp, "FIELD FieldData %d\n", (int)fieldsPointData.size());
+    }
+
+  //Msg::Info("AngioTkCenterline: writeVTKPolyData : fieldsPointData start ");
+
+  for ( auto const& thefield : fieldsPointData )
+    {
+      int nComp = thefield.second[mapVtkIdToInputId[0]-1].size();
+
+      fprintf(fp, "%s %d %d double\n", thefield.first.c_str(), nComp, numVertices);
+
+      int cptVal=0;
+      for ( int k=0 ; k< mapVtkIdToInputId.size() ; ++k )
+	{
+	  auto const& valAllComp = thefield.second[mapVtkIdToInputId[k]-1];
+	  for ( double val : valAllComp )
+	    {
+	      fprintf(fp, "%.16g ", val );
+	      if ( cptVal%6==5 ) 
+		fprintf(fp, "\n" );
+	      ++cptVal;
+	    }	  
+	}
+      fprintf(fp, "\n" );
+    }
+
+  fclose(fp);
+  return 1;
+
+}
 
 void AngioTkCenterline::writeCenterlinesVTK(std::string fileName)
 {
@@ -1983,10 +2142,9 @@ void AngioTkCenterline::updateCenterlinesFromFile(std::string fileName)
 {
   this->importFile( fileName );
 
-
   bool saveAll=false;
-  int numVertices = mod->indexMeshVertices(saveAll);
-
+  //int numVertices = mod->indexMeshVertices(saveAll);
+  int numVertices = mod->getNumMeshVertices();
   std::vector<MVertex*> verticesPosition;
 
   //std::cout << "numVertices " << numVertices << "\n";
@@ -2014,6 +2172,7 @@ void AngioTkCenterline::updateCenterlinesFromFile(std::string fileName)
   GModel * modInitial = new GModel();
   modInitial->load(fileName);
   int numVerticesInitial = modInitial->indexMeshVertices(saveAll);
+  //int numVerticesInitial = modInitial->getNumMeshVertices();
   //std::cout << "numVerticesInitial " << numVerticesInitial << "\n";
   std::vector<GEntity*> entitiesInitial;
   modInitial->getEntities(entitiesInitial);
@@ -2055,7 +2214,6 @@ void AngioTkCenterline::updateCenterlinesFromFile(std::string fileName)
   readVTKPolyDataFields( fileName, fieldsPointDataInput );
 
   // tranfert into clean centerlines the Point Data Value
-  //std::map<std::string,std::vector<std::vector<double> > >  fieldsPointDataClean;
   centerlinesFieldsPointData.clear();
   for ( auto const& thefield : fieldsPointDataInput )
     {
@@ -2081,36 +2239,79 @@ void AngioTkCenterline::updateCenterlinesFromFile(std::string fileName)
     }
 }
 
-void AngioTkCenterline::addBranchIdsField()
+void AngioTkCenterline::addFieldBranchIds()
 {
-
   if ( centerlinesFieldsPointData.find("BranchIds") != centerlinesFieldsPointData.end() )
     return;
 
-  std::vector<GEntity*> entities;
-  mod->getEntities(entities);
+  //bool saveAll = false;
+  //int numVertices = mod->indexMeshVertices(saveAll);
+  int numVertices = mod->getNumMeshVertices();
 
-  bool saveAll = false;
-  int numVertices = mod->indexMeshVertices(saveAll);
   centerlinesFieldsPointData["BranchIds"].resize( numVertices );
-
   unsigned int nBranch = edges.size();
-  for(unsigned int i = 0; i < nBranch; ++i){
-    std::vector<MLine*> lines = edges[i].lines;
+  for(unsigned int i = 0; i < nBranch; ++i)
+  {
+    std::vector<MLine*> mylines = edges[i].lines;
     bool firstPtDone = false;
-    for(unsigned int k = 0; k < lines.size(); ++k){
-      MLine *l = lines[k];
+    for(unsigned int k = 0; k < mylines.size(); ++k)
+    {
+      MLine *l = mylines[k];
       if ( !firstPtDone )
-	{
-	  MVertex * myvertex0 = l->getVertex(0);
-	  centerlinesFieldsPointData["BranchIds"][myvertex0->getIndex()-1] = { (double)i };
-	  firstPtDone = true;
-	}
+      {
+	MVertex * myvertex0 = l->getVertex(0);
+	centerlinesFieldsPointData["BranchIds"][myvertex0->getIndex()-1] = { (double)i };
+	firstPtDone = true;
+      }
       MVertex * myvertex1 = l->getVertex(1);
       centerlinesFieldsPointData["BranchIds"][myvertex1->getIndex()-1] = { (double)i };
     }
   }
+
 }
+
+
+void AngioTkCenterline::removeBranchIds( std::set<int> const& _removeBranchIds )
+{
+  if ( _removeBranchIds.empty() )
+    return;
+
+  lines.clear();
+  colorp.clear();
+  colorl.clear();
+  int maxN = 0.0;
+
+  unsigned int nBranch = edges.size();
+  for(unsigned int i = 0; i < nBranch; ++i)
+  {
+    if ( _removeBranchIds.find( i ) != _removeBranchIds.end() )
+      continue;
+    std::vector<MLine*> mylines = edges[i].lines;
+    for(unsigned int k = 0; k < mylines.size(); ++k)
+    {
+      MLine *l = mylines[k];
+      MVertex *v0 = l->getVertex(0);
+      MVertex *v1 = l->getVertex(1);
+      std::map<MVertex*, int>::iterator it0 = colorp.find(v0);
+      std::map<MVertex*, int>::iterator it1 = colorp.find(v1);
+      if (it0 == colorp.end() || it1 == colorp.end())
+      {
+	lines.push_back(l);
+	colorl.insert(std::make_pair(l, i+1/*ge->tag()*/));
+	maxN = std::max(maxN, (int)i+1/*ge->tag()*/);
+      }
+      if (it0 == colorp.end()) colorp.insert(std::make_pair(v0, i/*ge->tag()*/));
+      if (it1 == colorp.end()) colorp.insert(std::make_pair(v1, i/*ge->tag()*/));
+    }
+  }
+  edges.clear();
+  createBranches(maxN);
+
+}
+
+
+
+
 
 void AngioTkCenterline::printSplit() const
 {
