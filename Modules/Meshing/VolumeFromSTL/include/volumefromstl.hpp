@@ -34,7 +34,7 @@ public :
         S_pathInitial = Feel::fs::current_path();
         S_feelEnvironment.reset(new Feel::Environment( Feel::_argc=args[Feel::_argc], Feel::_argv=args[Feel::_argv],
                                                        Feel::_desc=args[Feel::_desc|Feel::feel_nooptions()],
-                                                       Feel::_about=args[Feel::_about| Feel::detail::makeAbout( args[Feel::_argv][0] )] ) );
+                                                       Feel::_about=args[Feel::_about| Feel::makeAboutDefault/*detail::makeAbout*/( args[Feel::_argv][0] )] ) );
     }
     static Feel::fs::path pathInitial() { return S_pathInitial; }
     static Feel::Environment const& feelEnvironment() { return *S_feelEnvironment; }
