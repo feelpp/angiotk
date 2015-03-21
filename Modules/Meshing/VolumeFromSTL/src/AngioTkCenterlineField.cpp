@@ -2284,7 +2284,7 @@ void AngioTkCenterline::removeBranchIds( std::set<int> const& _removeBranchIds )
   unsigned int nBranch = edges.size();
   for(unsigned int i = 0; i < nBranch; ++i)
   {
-    if ( _removeBranchIds.find( i ) != _removeBranchIds.end() )
+    if ( _removeBranchIds.find( i+1 ) != _removeBranchIds.end() )
       continue;
     std::vector<MLine*> mylines = edges[i].lines;
     for(unsigned int k = 0; k < mylines.size(); ++k)
