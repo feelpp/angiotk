@@ -64,23 +64,26 @@ public:
 namespace Feel
 {
 
+enum BCType { BC_INLET=0,BC_OUTLET=1 };
 
-class InletOutletData : public boost::tuple<std::string,std::string,std::vector<double> >
+class InletOutletData : public boost::tuple<BCType,std::string,std::string,std::vector<double> >
 {
-    typedef boost::tuple<std::string,std::string,std::vector<double> > super_type;
+    typedef boost::tuple<BCType,std::string,std::string,std::vector<double> > super_type;
 public :
-    InletOutletData( std::string markerLumen,std::string markerArterialWall,double x, double y, double z)
+    InletOutletData( BCType bctype,std::string markerLumen,std::string markerArterialWall,double x, double y, double z)
         :
-        super_type(markerLumen,markerArterialWall,{x,y,z} )
+        super_type(bctype,markerLumen,markerArterialWall,{x,y,z} )
     {}
     InletOutletData( InletOutletData const& e )
         :
         super_type( e )
     {}
 public :
-    std::string markerLumen() const { return this->get<0>(); }
-    std::string markerArterialWall() const { return this->get<1>(); }
-    std::vector<double> const& node() const { return this->get<2>(); }
+    BCType bcType() const { return this->get<0>(); }
+    std::string bcTypeStr() const { return ( this->bcType() == BCType::BC_INLET ) ? "INLET" : "OUTLET"; }
+    std::string markerLumen() const { return this->get<1>(); }
+    std::string markerArterialWall() const { return this->get<2>(); }
+    std::vector<double> const& node() const { return this->get<3>(); }
     double nodeX() const { return this->node()[0]; }
     double nodeY() const { return this->node()[1]; }
     double nodeZ() const { return this->node()[2]; }

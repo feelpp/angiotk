@@ -17,12 +17,16 @@ InletOutletDesc::InletOutletDesc( std::string const& path )
     std::ifstream fileloaded(path.c_str(), std::ios::in);  // load file
     if( fileloaded ) // if open sucess
     {
-        std::string markerLumen,markerArterialWall;
+        std::string bctype,markerLumen,markerArterialWall;
         double ptx,pty,ptz;
         while ( !fileloaded.eof() )
         {
+            fileloaded >> bctype;
+            if ( fileloaded.eof() ) break;
             fileloaded >> markerLumen >> markerArterialWall >> ptx >> pty >> ptz;
-            this->add( InletOutletData( markerLumen,markerArterialWall,ptx,pty,ptz ) );
+            CHECK( bctype == "INLET" || bctype == "OUTLET" ) << "invalid type " << bctype;
+            BCType mybctype = ( bctype == "INLET" )? BCType::BC_INLET : BCType::BC_OUTLET;
+            this->add( InletOutletData( mybctype,markerLumen,markerArterialWall,ptx,pty,ptz ) );
 	    }
         fileloaded.close();
     }
@@ -81,7 +85,8 @@ InletOutletDesc::loadFromSTL( std::string inputPath )
             fileDat >> valueOnCurrentRow[k];
 
         int descId = this->size();
-        InletOutletData thedat( (boost::format("markerLumen%1%")%descId).str(),
+        InletOutletData thedat( BCType::BC_INLET,
+                                (boost::format("markerLumen%1%")%descId).str(),
                                 (boost::format("markerArterialWall%1%")%descId).str(),
                                 valueOnCurrentRow[0],valueOnCurrentRow[1],valueOnCurrentRow[2] );
         this->add( thedat );
@@ -98,7 +103,8 @@ InletOutletDesc::save( std::string outputPath )
     if( fileWrited )
     {
         for ( auto const& desc : *this )
-            fileWrited << desc.markerLumen() << " "
+            fileWrited << desc.bcTypeStr() << " "
+                       << desc.markerLumen() << " "
                        << desc.markerArterialWall() << " "
                        << desc.nodeX() << " "
                        << desc.nodeY() << " "
@@ -1521,7 +1527,9 @@ VolumeMeshing::generateGeoFor3dVolumeFromSTLAndCenterlines(std::string geoname)
     //Merge "stl_remesh_gmsh/fluidskin_P15.stl";
     geodesc << "Merge \""<< this->inputSTLPath() <<"\";\n";
 
-    geodesc << "Field[1] = Centerline;\n";
+    //geodesc << "Field[1] = Centerline;\n";
+    geodesc << "Field[1] = AngioTkCenterline;\n";
+
     // centerline file in vtk format
     geodesc << "Field[1].FileName = \"" << this->inputCenterlinesPath() << "\";\n";
 

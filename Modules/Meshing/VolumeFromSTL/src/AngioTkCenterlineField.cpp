@@ -862,9 +862,11 @@ void AngioTkCenterline::initPhysicalMarkerFromDescFile( std::vector<GEdge*> boun
       if(fichier)  // si l'ouverture a réussi
         {       
 	  // instructions
-	  std::string physicalMarkerLumen,physicalMarkerArterialWall;double ptx,pty,ptz;
+	  std::string bcType,physicalMarkerLumen,physicalMarkerArterialWall;double ptx,pty,ptz;
 	  while ( !fichier.eof() )
 	    {
+	      fichier >> bcType;
+	      if ( fichier.eof() ) break;
 	      fichier >> physicalMarkerLumen >> physicalMarkerArterialWall >> ptx >> pty >> ptz;
 	      //std::cout << "load physicalMarker " << physicalMarkerLumen << "," << physicalMarkerArterialWall << " :" << ptx << " " << pty << " " << ptz << "\n";
 	      //mapPhysicalMarkerToPointLoc[std::make_pair(physicalMarkerLumen,physicalMarkerLumen+"ring")] = SPoint3( ptx, pty, ptz );
