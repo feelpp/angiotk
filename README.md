@@ -3,6 +3,10 @@ AngioTK Project
 
 This is the AngioTk project: a collaboration within the ANR MN Vivabrain.
 
+
+[![Join the chat at https://gitter.im/vivabrain/angiotk](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vivabrain/angiotk?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
+
 ## Mailing lists
 
  - angiotk@cemosis.fr (discussions)
@@ -29,3 +33,4 @@ git clone http://github.com/feelpp/angiotk.git
 ### Compiling AngioTk
 
 You need the ITK library at least at version 4 (http://www.itk.org)
+
