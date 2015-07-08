@@ -3,6 +3,7 @@ add_library( angiotk_meshing_volumefromstl
   SHARED
   volumefromstl.cpp
   AngioTkCenterlineField.cpp
+  centerlinesmanagerwindowinteractor.cpp
   )
 target_link_libraries( angiotk_meshing_volumefromstl ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} )
 

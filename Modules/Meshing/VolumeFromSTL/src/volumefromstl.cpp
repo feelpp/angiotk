@@ -3,6 +3,8 @@
 #include <volumefromstl.hpp>
 #include <AngioTkCenterlineField.h>
 
+#include <centerlinesmanagerwindowinteractor.hpp>
+
 namespace detail
 {
 Feel::fs::path AngioTkEnvironment::S_pathInitial;
@@ -408,8 +410,11 @@ CenterlinesManager::CenterlinesManager( std::string prefix )
     :
     M_prefix( prefix ),
     M_inputPath( soption(_name="input.filename",_prefix=this->prefix()) ),
+    M_inputSurfacePath( soption(_name="input.surface.filename",_prefix=this->prefix()) ),
+    M_inputPointSetPath( soption(_name="input.point-set.filename",_prefix=this->prefix()) ),
     M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
-    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
+    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
+    M_useWindowInteractor( boption(_name="use-window-interactor",_prefix=this->prefix() ) )
 {
     std::vector<int> removeids;
     if ( Environment::vm().count(prefixvm(this->prefix(),"remove-branch-ids").c_str()) )
@@ -425,13 +430,6 @@ CenterlinesManager::CenterlinesManager( std::string prefix )
         this->updateOutputPathFromInputFileName();
     }
 }
-CenterlinesManager::CenterlinesManager( CenterlinesManager const& e )
-    :
-    M_prefix( e.M_prefix ),
-    M_inputPath( e.M_inputPath ),
-    M_outputDirectory( e.M_outputDirectory ), M_outputPath( e.M_outputPath ),
-    M_forceRebuild( e.M_forceRebuild )
-{}
 
 void
 CenterlinesManager::updateOutputPathFromInputFileName()
@@ -459,6 +457,22 @@ CenterlinesManager::updateOutputPathFromInputFileName()
 void
 CenterlinesManager::run()
 {
+    if ( M_useWindowInteractor )
+    {
+        if ( !this->inputSurfacePath().empty() && fs::exists( this->inputSurfacePath() ) )
+        {
+            CenterlinesManagerWindowInteractor windowInteractor;
+            windowInteractor.setInputSurfacePath( this->inputSurfacePath() );
+            if ( !this->inputPointSetPath().empty() && fs::exists( this->inputPointSetPath() ) )
+                windowInteractor.setInputPointSetPath( this->inputPointSetPath() );
+            windowInteractor.run();
+        }
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : Centerlines Manager not run because this input surface path not exist :" << this->inputSurfacePath() << "\n";
+        return;
+    }
+
+
     if ( !fs::exists( this->inputPath() ) )
     {
         if ( this->worldComm().isMasterRank() )
@@ -522,9 +536,12 @@ CenterlinesManager::options( std::string const& prefix )
 
     myCenterlinesManagerOptions.add_options()
         (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
+        (prefixvm(prefix,"input.surface.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input surface filename" )
+        (prefixvm(prefix,"input.point-set.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input point-set filename" )
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
         (prefixvm(prefix,"remove-branch-ids").c_str(), po::value<std::vector<int> >()->multitoken(), "(vector of int) remove branch ids" )
         (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
+        (prefixvm(prefix,"use-window-interactor").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) use-window-interactor")
         ;
     return myCenterlinesManagerOptions;
 }

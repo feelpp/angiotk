@@ -167,7 +167,7 @@ class CenterlinesManager
 public :
 
     CenterlinesManager( std::string prefix );
-    CenterlinesManager( CenterlinesManager const& e );
+    CenterlinesManager( CenterlinesManager const& e ) = default;
 
     void updateOutputPathFromInputFileName();
 
@@ -175,20 +175,25 @@ public :
 
     static po::options_description options( std::string const& prefix );
 
-    std::string prefix() const { return M_prefix; }
+    std::string const& prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }
-    std::string inputPath() const { return M_inputPath; }
-    std::string outputPath() const { return M_outputPath; }
+    std::string const& inputPath() const { return M_inputPath; }
+    std::string const& inputSurfacePath() const { return M_inputSurfacePath; }
+    std::string const& inputPointSetPath() const { return M_inputPointSetPath; }
+    std::string const& outputPath() const { return M_outputPath; }
     bool forceRebuild() const { return M_forceRebuild; }
 
     void setInputPath(std::string const& path) {M_inputPath=path; }
+    void setInputSurfacePath(std::string const& path) { M_inputSurfacePath=path; }
+    void setInputPointSetPath(std::string const& path) { M_inputPointSetPath=path; }
     void setOutputPath(std::string const& path) { M_outputPath=path; }
     void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
 
 private :
     std::string M_prefix;
-    std::string M_inputPath, M_outputDirectory, M_outputPath;
+    std::string M_inputPath, M_inputSurfacePath, M_inputPointSetPath, M_outputDirectory, M_outputPath;
     bool M_forceRebuild;
+    bool M_useWindowInteractor;
     std::set<int> M_removeBranchIds;
 };
 
