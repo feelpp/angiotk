@@ -409,7 +409,7 @@ CenterlinesFromSTL::options( std::string const& prefix )
 CenterlinesManager::CenterlinesManager( std::string prefix )
     :
     M_prefix( prefix ),
-    M_inputPath( soption(_name="input.filename",_prefix=this->prefix()) ),
+    M_inputCenterlinesPath( soption(_name="input.centerlines.filename",_prefix=this->prefix()) ),
     M_inputSurfacePath( soption(_name="input.surface.filename",_prefix=this->prefix()) ),
     M_inputPointSetPath( soption(_name="input.point-set.filename",_prefix=this->prefix()) ),
     M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
@@ -422,10 +422,10 @@ CenterlinesManager::CenterlinesManager( std::string prefix )
     for ( int id : removeids )
         M_removeBranchIds.insert( id );
 
-    if ( !M_inputPath.empty() && fs::path(M_inputPath).is_relative() )
-        M_inputPath = (AngioTkEnvironment::pathInitial()/fs::path(M_inputPath) ).string();
+    if ( !M_inputCenterlinesPath.empty() && fs::path(M_inputCenterlinesPath).is_relative() )
+        M_inputCenterlinesPath = (AngioTkEnvironment::pathInitial()/fs::path(M_inputCenterlinesPath) ).string();
 
-    if ( !M_inputPath.empty() && M_outputPath.empty() )
+    if ( !M_inputCenterlinesPath.empty() && M_outputPath.empty() )
     {
         this->updateOutputPathFromInputFileName();
     }
@@ -434,7 +434,7 @@ CenterlinesManager::CenterlinesManager( std::string prefix )
 void
 CenterlinesManager::updateOutputPathFromInputFileName()
 {
-    CHECK( !M_inputPath.empty() ) << "input path is empty";
+    CHECK( !M_inputCenterlinesPath.empty() ) << "input path is empty";
 
     // define output directory
     fs::path meshesdirectories;
@@ -446,7 +446,7 @@ CenterlinesManager::updateOutputPathFromInputFileName()
         meshesdirectories = fs::path(M_outputDirectory);
 
     // get filename without extension
-    fs::path gp = M_inputPath;
+    fs::path gp = M_inputCenterlinesPath;
     std::string nameMeshFile = gp.stem().string();
 
     std::string newFileName = (boost::format("%1%_up.vtk")%nameMeshFile ).str();
@@ -465,6 +465,8 @@ CenterlinesManager::run()
             windowInteractor.setInputSurfacePath( this->inputSurfacePath() );
             if ( !this->inputPointSetPath().empty() && fs::exists( this->inputPointSetPath() ) )
                 windowInteractor.setInputPointSetPath( this->inputPointSetPath() );
+            if ( !this->inputCenterlinesPath().empty() && fs::exists( this->inputCenterlinesPath() ) )
+                windowInteractor.setInputCenterlinesPath( this->inputCenterlinesPath() );
             windowInteractor.run();
         }
         if ( this->worldComm().isMasterRank() )
@@ -473,10 +475,10 @@ CenterlinesManager::run()
     }
 
 
-    if ( !fs::exists( this->inputPath() ) )
+    if ( !fs::exists( this->inputCenterlinesPath() ) )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : Centerlines Manager not run because this input path not exist :" << this->inputPath() << "\n";
+            std::cout << "WARNING : Centerlines Manager not run because this input centerlines path not exist :" << this->inputCenterlinesPath() << "\n";
         return;
     }
 
@@ -486,7 +488,7 @@ CenterlinesManager::run()
             << "---------------------------------------\n"
             << "run CenterlinesManager \n"
             << "---------------------------------------\n";
-    coutStr << "inputPath          : " << this->inputPath() << "\n";
+    coutStr << "inputCenterlinesPath  : " << this->inputCenterlinesPath() << "\n";
     if ( M_removeBranchIds.size() > 0 )
     {
         coutStr << "remove branch ids :";
@@ -523,7 +525,7 @@ CenterlinesManager::run()
         Msg::SetVerbosity( verbosityLevel );
 
         AngioTkCenterline centerlinesTool;
-        centerlinesTool.updateCenterlinesFromFile( this->inputPath() );
+        centerlinesTool.updateCenterlinesFromFile( this->inputCenterlinesPath() );
         centerlinesTool.removeBranchIds( M_removeBranchIds );
         centerlinesTool.addFieldBranchIds();
         centerlinesTool.writeCenterlinesVTK( this->outputPath() );
@@ -535,7 +537,7 @@ CenterlinesManager::options( std::string const& prefix )
     po::options_description myCenterlinesManagerOptions( "Centerlines Manager from Image options" );
 
     myCenterlinesManagerOptions.add_options()
-        (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
+        (prefixvm(prefix,"input.centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
         (prefixvm(prefix,"input.surface.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input surface filename" )
         (prefixvm(prefix,"input.point-set.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input point-set filename" )
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")

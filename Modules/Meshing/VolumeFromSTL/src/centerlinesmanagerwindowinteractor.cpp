@@ -24,6 +24,7 @@
 
 #include <vtkPolyData.h>
 #include <vtkSTLReader.h>
+#include <vtkPolyDataReader.h>
 #include <vtkSmartPointer.h>
 #include <vtkPolyDataMapper.h>
 #include <vtkActor.h>
@@ -46,6 +47,10 @@
 #include <vtkCommand.h>
 #include <vtkTransform.h>
 #include <vtkBoxRepresentation.h>
+
+
+#include <feel/feelcore/feel.hpp>
+
 
 class vtkMyCallback : public vtkCommand
 {
@@ -746,18 +751,6 @@ CenterlinesManagerWindowInteractor::run()
       std::cout << "Required parameters: Filename" << endl;
       return;
     }
-  std::string inputFilename = this->inputSurfacePath();//argv[1];
-  vtkSmartPointer<vtkSTLReader> reader = vtkSmartPointer<vtkSTLReader>::New();
-  reader->SetFileName(inputFilename.c_str());
-  reader->Update();
-  // Create a mapper and actor
-  vtkSmartPointer<vtkPolyDataMapper> mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-  mapper->SetInputConnection(reader->GetOutputPort());
-  vtkSmartPointer<vtkActor> actorSTL = vtkSmartPointer<vtkActor>::New();
-  actorSTL->SetMapper(mapper);
-  actorSTL->GetProperty()->SetOpacity(0.7);//0.3
-
-
   // Create a renderer, render window, and interactor
   vtkSmartPointer<vtkRenderer> renderer = vtkSmartPointer<vtkRenderer>::New();
   vtkSmartPointer<vtkRenderWindow> renderWindow = vtkSmartPointer<vtkRenderWindow>::New();
@@ -765,21 +758,54 @@ CenterlinesManagerWindowInteractor::run()
   vtkSmartPointer<vtkRenderWindowInteractor> renderWindowInteractor = vtkSmartPointer<vtkRenderWindowInteractor>::New();
   //renderWindowInteractor->SetPicker(worldPointPicker);
   renderWindowInteractor->SetRenderWindow(renderWindow);
-  
+  //renderer->SetBackground(1,1,1); // Background color white
+  renderer->SetBackground(0.5,0.5,0.5); // Background color white
+
   vtkSmartPointer<MouseInteractorStyle> style = vtkSmartPointer<MouseInteractorStyle>::New();
   renderWindowInteractor->SetInteractorStyle( style );
 
-  // Add the actor to the scene
+
+  // load surface
+  std::string inputFilename = this->inputSurfacePath();
+  vtkSmartPointer<vtkSTLReader> readerSTL = vtkSmartPointer<vtkSTLReader>::New();
+  readerSTL->SetFileName(inputFilename.c_str());
+  readerSTL->Update();
+  // Create a mapper and actor
+  vtkSmartPointer<vtkPolyDataMapper> mapperSTL = vtkSmartPointer<vtkPolyDataMapper>::New();
+  mapperSTL->SetInputConnection(readerSTL->GetOutputPort());
+  vtkSmartPointer<vtkActor> actorSTL = vtkSmartPointer<vtkActor>::New();
+  actorSTL->SetMapper(mapperSTL);
+  actorSTL->GetProperty()->SetOpacity(0.7);//0.3
+
+   // Add the actor to the scene
   renderer->AddActor(actorSTL);
-  renderer->SetBackground(1,1,1); // Background color white
 
+  // update info in style
   style->setActorSTL( actorSTL );
-  style->setBoundsSTL(mapper->GetBounds());
-  style->setLenghtSTL(mapper->GetLength());
+  style->setBoundsSTL(mapperSTL->GetBounds());
+  style->setLenghtSTL(mapperSTL->GetLength());
 
-  if ( !this->inputPointSetPath().empty() ) //argc == 3 )
+  if ( !this->inputCenterlinesPath().empty() && Feel::fs::exists( this->inputCenterlinesPath() ) )
     {
-      std::string previousData = this->inputPointSetPath();//argv[2];
+      vtkSmartPointer<vtkPolyDataReader> readerVTK = vtkSmartPointer<vtkPolyDataReader>::New();
+      readerVTK->SetFileName(this->inputCenterlinesPath().c_str());
+      readerVTK->Update();
+      // Create a mapper and actor
+      vtkSmartPointer<vtkPolyDataMapper> mapperVTK = vtkSmartPointer<vtkPolyDataMapper>::New();
+      mapperVTK->SetInputConnection(readerVTK->GetOutputPort());
+      vtkSmartPointer<vtkActor> actorVTK = vtkSmartPointer<vtkActor>::New();
+      actorVTK->SetMapper(mapperVTK);
+
+      actorVTK->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
+      actorVTK->GetProperty()->SetLineWidth(3.0);
+      // Add the actor to the scene
+      renderer->AddActor(actorVTK);
+    }
+
+
+  if ( !this->inputPointSetPath().empty() )
+    {
+      std::string previousData = this->inputPointSetPath();
       style->loadFromDisk(previousData);
     }
 

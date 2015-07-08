@@ -47,7 +47,7 @@ int main( int argc, char** argv )
     if ( postProcessConvertCenterlines )
       {
 	CenterlinesManager myCM("convert-centerlines");
-	myCM.setInputPath( centerlines.outputPath() );
+	myCM.setInputCenterlinesPath( centerlines.outputPath() );
 	myCM.setOutputPath( finalOutputPath );
 	myCM.run();
       }
