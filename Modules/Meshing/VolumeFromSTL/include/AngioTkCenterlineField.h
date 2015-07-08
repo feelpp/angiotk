@@ -62,6 +62,7 @@ class AngioTkCenterline : public Field{
   double recombine;
   int NF, NV, NE, NR;
   int is_cut, is_closed, is_extruded;
+  int is_clip_mesh;
   double hLayer;
   double hSecondLayer;
   int nbElemLayer;
@@ -89,6 +90,7 @@ class AngioTkCenterline : public Field{
   
   //the lines cut of the tubular mesh by planes
   std::set<MEdge,Less_Edge> theCut;
+  std::map<int, std::set<MEdge,Less_Edge> > theCutMap;
   std::set<MVertex*> theCutV;
 
   //discrete edes and faces created by the cut
@@ -153,6 +155,9 @@ class AngioTkCenterline : public Field{
   //actions
   void run();
 
+  void runClipMesh();
+  void createFacesFromClip();
+
   //load desc file and define marker which are close to a point
   void initPhysicalMarkerFromDescFile( std::vector<GEdge*> boundEdges );
 
@@ -165,7 +170,7 @@ class AngioTkCenterline : public Field{
 
   // Cut the tubular structure with a disk
   // perpendicular to the tubular structure
-  bool cutByDisk(SVector3 &pt, SVector3 &dir, double &maxRad);
+  bool cutByDisk(SVector3 &pt, SVector3 &dir, double &maxRad, int tag = -1);
 
   //create discrete faces
   void createFaces();

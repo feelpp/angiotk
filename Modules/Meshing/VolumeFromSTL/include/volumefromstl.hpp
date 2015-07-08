@@ -121,35 +121,44 @@ class CenterlinesFromSTL
 public :
 
     CenterlinesFromSTL( std::string prefix );
-    CenterlinesFromSTL( CenterlinesFromSTL const& e );
+    CenterlinesFromSTL( CenterlinesFromSTL const& e ) = default;
 
     std::string prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }
 
     std::string inputPath() const { return M_inputPath; }
+    std::string inputCenterlinesPointSetPath() const { return M_inputCenterlinesPointSetPath; }
     std::string inputInletOutletDescPath() const { return M_inputInletOutletDescPath; }
     std::string outputPath() const { return M_outputPath; }
+    void setOutputPath(std::string const& path) { M_outputPath=path; }
     std::set<int> const& targetids() const { return M_targetids; }
     std::set<int> const& sourceids() const { return M_sourceids; }
     bool forceRebuild() const { return M_forceRebuild; }
+    bool viewResults() const { return M_viewResults; }
 
     void setStlFileName(std::string s) { M_inputPath=s; }
     void setTargetids( std::set<int> const& s ) { M_targetids=s; }
     void setSourceids( std::set<int> const& s ) { M_sourceids=s; }
     void setForceRebuild( bool b ) { M_forceRebuild=b; }
+    void setViewResults(bool b) { M_viewResults=b; }
 
     void updateOutputPathFromInputFileName();
 
     void run();
 
     static po::options_description options( std::string const& prefix );
+private :
+    //std::tuple< std::vector<double>, std::vector<double> >
+    std::tuple< std::vector<std::vector<double> >, std::vector<std::vector<double> > >
+    loadFromCenterlinesPointSetFile();
 
 private :
     std::string M_prefix;
-    std::string M_inputPath, M_inputInletOutletDescPath, M_outputPath;
+    std::string M_inputPath, M_inputCenterlinesPointSetPath, M_inputInletOutletDescPath, M_outputPath;
     std::string M_outputDirectory;
     std::set<int> M_targetids, M_sourceids;
     bool M_forceRebuild;
+    bool M_useInteractiveSelection;
     bool M_viewResults,M_viewResultsWithSurface;
 };
 
@@ -171,6 +180,10 @@ public :
     std::string inputPath() const { return M_inputPath; }
     std::string outputPath() const { return M_outputPath; }
     bool forceRebuild() const { return M_forceRebuild; }
+
+    void setInputPath(std::string const& path) {M_inputPath=path; }
+    void setOutputPath(std::string const& path) { M_outputPath=path; }
+    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
 
 private :
     std::string M_prefix;
@@ -246,9 +259,12 @@ public :
     std::string prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }
     std::string inputPath() const { return M_inputPath; }
+    void setInputPath(std::string const& path) {M_inputPath=path; }
     std::string outputPath() const { return M_outputPath; }
-    bool forceRebuild() const { return M_forceRebuild; }
+    void setOutputPath(std::string const& path) { M_outputPath=path; }
+    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
 
+    bool forceRebuild() const { return M_forceRebuild; }
     static po::options_description options( std::string const& prefix );
 
 private :
@@ -298,6 +314,7 @@ public :
     void updateOutputPathFromInputFileName();
 
     void run();
+    void runGMSH();
 
     static po::options_description options( std::string const& prefix );
 
@@ -358,9 +375,13 @@ private :
     std::string M_prefix;
     std::string M_packageType;
     std::string M_inputPath;
+    // with gmsh
     std::string M_centerlinesFileName;
     int M_remeshNbPointsInCircle;
+    // with vmtk
     double M_area;
+    int M_nIterationVMTK;
+
     std::string M_outputPathGMSH, M_outputPathVMTK;
     std::string M_outputDirectory;
     bool M_forceRebuild;

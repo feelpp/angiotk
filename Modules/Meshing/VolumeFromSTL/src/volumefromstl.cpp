@@ -121,9 +121,11 @@ CenterlinesFromSTL::CenterlinesFromSTL( std::string prefix )
     :
     M_prefix( prefix ),
     M_inputPath( soption(_name="input.filename",_prefix=this->prefix()) ),
+    M_inputCenterlinesPointSetPath( soption(_name="input.pointset.filename",_prefix=this->prefix()) ),
     M_inputInletOutletDescPath( soption(_name="input.desc.filename",_prefix=this->prefix()) ),
     M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
+    M_useInteractiveSelection( boption(_name="use-interactive-selection",_prefix=this->prefix()) ),
     M_viewResults( boption(_name="view-results",_prefix=this->prefix() ) ),
     M_viewResultsWithSurface( boption(_name="view-results.with-surface",_prefix=this->prefix() ) )
 {
@@ -143,20 +145,6 @@ CenterlinesFromSTL::CenterlinesFromSTL( std::string prefix )
     }
 }
 
-
-
-CenterlinesFromSTL::CenterlinesFromSTL( CenterlinesFromSTL const& e )
-    :
-    M_prefix( e.M_prefix ),
-    M_inputPath( e.M_inputPath ),
-    M_inputInletOutletDescPath( e.M_inputInletOutletDescPath ),
-    M_outputPath( e.M_outputPath ),
-    M_outputDirectory( e.M_outputDirectory ),
-    M_targetids( e.M_targetids ),
-    M_sourceids( e.M_sourceids ),
-    M_forceRebuild( e.M_forceRebuild ),
-    M_viewResults( e.M_viewResults )
-{}
 
 void
 CenterlinesFromSTL::updateOutputPathFromInputFileName()
@@ -181,6 +169,47 @@ CenterlinesFromSTL::updateOutputPathFromInputFileName()
     M_outputPath = outputPath.string();
 }
 
+std::tuple< std::vector<std::vector<double> >, std::vector<std::vector<double> > >
+CenterlinesFromSTL::loadFromCenterlinesPointSetFile()
+{
+    std::vector<std::vector<double> > sourcePts, targetPts;
+
+    std::ifstream fileLoaded( this->inputCenterlinesPointSetPath(), std::ios::in);
+    while ( !fileLoaded.eof() )
+      {
+          std::vector<double> pt(3);
+          double radius;
+          int typePt = -1;
+          fileLoaded >> typePt;
+          if ( fileLoaded.eof() ) break;
+          fileLoaded >> pt[0] >> pt[1] >> pt[2] >> radius;
+#if 1
+          if ( typePt == 0 )
+              sourcePts.push_back(pt);
+          else if ( typePt == 1 )
+              targetPts.push_back(pt);
+#else
+          if ( typePt == 0 )
+              {
+              sourcePts.push_back(pt);
+              sourcePts.push_back(pt);
+              sourcePts.push_back(pt);
+              }
+          //else if ( typePt == 1 )
+              {
+              targetPts.push_back(pt);
+              targetPts.push_back(pt);
+              targetPts.push_back(pt);
+              }
+
+#endif
+      }
+    fileLoaded.close();  // on ferme le fichier
+
+    auto res = std::make_tuple( sourcePts, targetPts );
+    return res;
+}
+
 
 void
 CenterlinesFromSTL::run()
@@ -191,7 +220,7 @@ CenterlinesFromSTL::run()
             std::cout << "WARNING : centerlines computation not done because this input path not exist :" << this->inputPath() << "\n";
         return;
     }
-    if ( this->sourceids().empty() && this->targetids().empty() )
+    if ( this->inputCenterlinesPointSetPath().empty() && this->sourceids().empty() && this->targetids().empty() )
     {
         if ( this->worldComm().isMasterRank() )
             std::cout << "WARNING : centerlines computation not done because this sourceids and targetids are empty\n";
@@ -205,15 +234,18 @@ CenterlinesFromSTL::run()
             << "run CenterlinesFromSTL \n"
             << "---------------------------------------\n";
     coutStr << "inputPath          : " << this->inputPath() << "\n";
-    coutStr << "targetids : ";
-    for ( int id : this->targetids() )
-        coutStr << id << " ";
-    coutStr << "\n";
-    coutStr << "sourceids : ";
-    for ( int id : this->sourceids() )
-        coutStr << id << " ";
-    coutStr << "\n"
-            << "output path       : " << this->outputPath() << "\n"
+    if ( !M_useInteractiveSelection )
+    {
+        coutStr << "targetids : ";
+        for ( int id : this->targetids() )
+            coutStr << id << " ";
+        coutStr << "\n";
+        coutStr << "sourceids : ";
+        for ( int id : this->sourceids() )
+            coutStr << id << " ";
+        coutStr << "\n";
+    }
+    coutStr << "output path       : " << this->outputPath() << "\n"
             << "---------------------------------------\n"
             << "---------------------------------------\n";
     std::cout << coutStr.str();
@@ -252,7 +284,30 @@ CenterlinesFromSTL::run()
         __str << pythonExecutable << " ";
         __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkcenterlines ";
 
-        if ( !this->inputInletOutletDescPath().empty() )
+
+        if ( M_useInteractiveSelection )
+        {
+            if ( false )
+            __str <<"-seedselector openprofiles ";
+            else
+            __str <<"-seedselector pickpoint ";
+        }
+        else if ( !this->inputCenterlinesPointSetPath().empty() )
+        {
+            auto pointset = loadFromCenterlinesPointSetFile();
+            __str <<"-seedselector pointlist ";
+            __str << "-sourcepoints ";
+            for ( std::vector<double> const& pt : std::get<0>(pointset) ) // source
+            {
+                __str << pt[0] << " " << pt[1] << " " << pt[2] << " ";
+            }
+            __str << "-targetpoints ";
+            for ( std::vector<double> const& pt : std::get<1>(pointset) ) // target
+            {
+                __str << pt[0] << " " << pt[1] << " " << pt[2] << " ";
+            }
+        }
+        else if ( !this->inputInletOutletDescPath().empty() )
         {
             InletOutletDesc iodesc( this->inputInletOutletDescPath() );
 
@@ -333,11 +388,15 @@ CenterlinesFromSTL::options( std::string const& prefix )
     po::options_description myCenterlinesOptions( "Centerlines from STL for blood flow mesh options" );
     myCenterlinesOptions.add_options()
         (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input filename" )
+        (prefixvm(prefix,"input.pointset.filename").c_str(), po::value<std::string>()->default_value( "" ), "input.pointset.filename" )
         (prefixvm(prefix,"input.desc.filename").c_str(), po::value<std::string>()->default_value( "" ), "inletoutlet-desc.filename" )
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
+        (prefixvm(prefix,"use-interactive-selection").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) use-interactive-selection")
+
         (prefixvm(prefix,"source-ids").c_str(), po::value<std::vector<int> >()->multitoken(), "(vector of int) source ids" )
         (prefixvm(prefix,"target-ids").c_str(), po::value<std::vector<int> >()->multitoken(), "(vector of int) target ids" )
         (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
+
         (prefixvm(prefix,"view-results").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) view-results")
         (prefixvm(prefix,"view-results.with-surface").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) view-results with surface")
         ;
@@ -827,8 +886,8 @@ SubdivideSurface::run()
             << "---------------------------------------\n";
     coutStr << "inputPath     : " << this->inputPath() << "\n";
     coutStr << "method        : " << M_method << "\n"
-            << "nSubdivisions   : " << M_nSubdivisions << "\n";
-    coutStr << "output path          : " << this->outputPath() << "\n"
+            << "nSubdivisions : " << M_nSubdivisions << "\n";
+    coutStr << "output path   : " << this->outputPath() << "\n"
             << "---------------------------------------\n"
             << "---------------------------------------\n";
     std::cout << coutStr.str();
@@ -1110,31 +1169,63 @@ OpenSurface::run()
 
     if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
     {
-        std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
-        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+        if ( true )
+        {
+            this->runGMSH();
+        }
+        else
+        {
+            std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
+            std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
 
-        std::ostringstream __str;
-        __str << pythonExecutable << " ";
-        __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkendpointextractor ";
-        __str << "-ifile " << this->inputCenterlinesPath() << " "
-              << "-radiusarray MaximumInscribedSphereRadius -numberofendpointspheres 1 ";
-        __str << "--pipe ";
-        __str << dirBaseVmtk << "/vmtkbranchclipper "
-              << "-ifile " << this->inputSurfacePath() << " "
-              << "-groupidsarray TractIds -blankingarray Blanking -radiusarray MaximumInscribedSphereRadius -insideout 0 -interactive 0 ";
-        __str << "--pipe ";
-        __str << dirBaseVmtk << "/vmtksurfaceconnectivity "
-              << " -cleanoutput 1 ";
-        __str << "--pipe "
-              <<  dirBaseVmtk << "/vmtksurfacewriter "
-              << "-ofile " << this->outputPath();
-        std::cout << "---------------------------------------\n"
-                  << "run in system : \n" << __str.str() << "\n"
-                  << "---------------------------------------\n";
-        auto err = ::system( __str.str().c_str() );
+            std::ostringstream __str;
+            __str << pythonExecutable << " ";
+            __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkendpointextractor ";
+            __str << "-ifile " << this->inputCenterlinesPath() << " "
+                  << "-radiusarray MaximumInscribedSphereRadius -numberofendpointspheres 1 ";
+            __str << "--pipe ";
+            __str << dirBaseVmtk << "/vmtkbranchclipper "
+                  << "-ifile " << this->inputSurfacePath() << " "
+                  << "-groupidsarray TractIds -blankingarray Blanking -radiusarray MaximumInscribedSphereRadius -insideout 0 -interactive 0 ";
+            __str << "--pipe ";
+            __str << dirBaseVmtk << "/vmtksurfaceconnectivity "
+                  << " -cleanoutput 1 ";
+            __str << "--pipe "
+                  <<  dirBaseVmtk << "/vmtksurfacewriter "
+                  << "-ofile " << this->outputPath();
+            std::cout << "---------------------------------------\n"
+                      << "run in system : \n" << __str.str() << "\n"
+                      << "---------------------------------------\n";
+            auto err = ::system( __str.str().c_str() );
+        }
     }
 
     // vmtkendpointextractor -ifile ~/Desktop/MaillagesOdysée/meshing2/centerlines/cut6_centerlines.vtk -radiusarray MaximumInscribedSphereRadius -numberofendpointspheres 1 --pipe vmtkbranchclipper -interactive 0 -ifile ~/feel/blabll/hh128.stl -groupidsarray TractIds -blankingarray Blanking -radiusarray MaximumInscribedSphereRadius   -insideout 0 --pipe vmtksurfaceconnectivity -cleanoutput 1 --pipe vmtksurfacewriter -ofile hola3.stl
+}
+
+void
+OpenSurface::runGMSH()
+{
+    std::ostringstream geodesc;
+    geodesc << "Mesh.Algorithm = 6; //(1=MeshAdapt, 5=Delaunay, 6=Frontal, 7=bamg, 8=delquad) \n"
+            << "Mesh.Algorithm3D = 1; //(1=tetgen, 4=netgen, 7=MMG3D, 9=R-tree) \n";
+
+    geodesc << "Merge \""<< this->inputSurfacePath() <<"\";\n";
+    geodesc << "Field[1] = AngioTkCenterline;\n";
+    geodesc << "Field[1].FileName = \"" << this->inputCenterlinesPath() << "\";\n";
+    geodesc << "Field[1].clipMesh =1;\n"
+            << "Field[1].run;\n"
+            << "Background Field = 1;\n";
+
+    fs::path outputMeshNamePath = fs::path(this->outputPath());
+    std::string _name = outputMeshNamePath.stem().string();
+    std::string geoname=_name+".geo";
+
+    std::ofstream geofile( geoname.c_str() );
+    geofile << geodesc.str();
+    geofile.close();
+
+    detail::generateMeshFromGeo(geoname,this->outputPath(),2);
 }
 
 po::options_description
@@ -1162,6 +1253,7 @@ RemeshSTL::RemeshSTL( std::string prefix )
     M_centerlinesFileName(soption(_name="centerlines.filename",_prefix=this->prefix())),
     M_remeshNbPointsInCircle( ioption(_name="nb-points-in-circle",_prefix=this->prefix()) ),
     M_area( doption(_name="area",_prefix=this->prefix()) ),
+    M_nIterationVMTK( ioption(_name="vmtk.n-iteration",_prefix=this->prefix()) ),
     M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
 {
@@ -1179,7 +1271,7 @@ RemeshSTL::RemeshSTL( RemeshSTL const& e )
     M_inputPath( e.M_inputPath ),
     M_centerlinesFileName( e.M_centerlinesFileName ),
     M_remeshNbPointsInCircle( e.M_remeshNbPointsInCircle ),
-    M_area( e.M_area ),
+    M_area( e.M_area ),M_nIterationVMTK( e.M_nIterationVMTK ),
     M_outputPathGMSH( e.M_outputPathGMSH ), M_outputPathVMTK( e.M_outputPathVMTK),
     M_outputDirectory( e.M_outputDirectory ),
     M_forceRebuild( e.M_forceRebuild )
@@ -1274,6 +1366,7 @@ RemeshSTL::runVMTK()
     __str << "-ifile " << this->inputPath() << " ";
     __str << "-ofile " << this->outputPath() << " ";
     __str << "-area " << this->area() << " ";
+    __str << "-iterations " << M_nIterationVMTK << " ";
     auto err = ::system( __str.str().c_str() );
 
     //std::cout << "hola\n"<< __str.str() <<"\n";
@@ -1328,6 +1421,8 @@ RemeshSTL::options( std::string const& prefix )
         //( prefixvm(prefix,"force-remesh").c_str(), po::value<bool>()->default_value( false ), "force-remesh" )
         ( prefixvm(prefix,"nb-points-in-circle").c_str(), po::value<int>()->default_value( 15 ), "nb-points-in-circle" )
         ( prefixvm(prefix,"area").c_str(), po::value<double>()->default_value( 0.5 ), "area" )
+        ( prefixvm(prefix,"vmtk.n-iteration").c_str(), po::value<int>()->default_value( 10 ), "maxit" )
+
         ( prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "stl.filename" )
         ( prefixvm(prefix,"centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "centerlines.filename" )
 

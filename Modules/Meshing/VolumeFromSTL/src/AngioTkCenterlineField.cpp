@@ -323,6 +323,7 @@ AngioTkCenterline::AngioTkCenterline(): kdtree(0), kdtreeR(0)
   is_cut = 0;
   is_closed = 0;
   is_extruded = 0;
+  is_clip_mesh = 0;
   descInletOutlet = "";
 
   options["closeVolume"] = new FieldOptionInt
@@ -332,6 +333,9 @@ AngioTkCenterline::AngioTkCenterline(): kdtree(0), kdtreeR(0)
   options["reMesh"] = new FieldOptionInt
     (is_cut, "Action: Cut the initial mesh in different mesh partitions using the "
      "centerlines");
+  options["clipMesh"] = new FieldOptionInt
+    (is_clip_mesh, "Action: Cut the initial mesh in different mesh partitions using thecenterlines");
+
   callbacks["run"] = new FieldCallbackGeneric<AngioTkCenterline>
     (this, &AngioTkCenterline::run, "Run actions (closeVolume, extrudeWall, cutMesh) \n");
 
@@ -380,7 +384,7 @@ void AngioTkCenterline::importFile(std::string fileName)
      if (gf->geomType() == GEntity::DiscreteSurface){
      	for(unsigned int j = 0; j < gf->triangles.size(); j++)
      	  triangles.push_back(gf->triangles[j]);
-	if (is_cut){
+	if (is_cut || is_clip_mesh ){
 	  gf->triangles.clear();
 	  gf->deleteVertexArrays();
 	  current->remove(gf);
@@ -481,6 +485,7 @@ void AngioTkCenterline::createBranches(int maxN)
       junctions.insert(*it);
     }
   }
+  //std::cout << "junctions.size() " << junctions.size() << "\n";
 
   //split edges
   int tag = 0;
@@ -494,8 +499,8 @@ void AngioTkCenterline::createBranches(int maxN)
       myLines.push_back(*itl);
       erase(lines, *itl);
       itl = lines.begin();
-      while ( !( junctions.find(vE) != junctions.end() &&
-		 junctions.find(vB) != junctions.end()) ) {
+      while ( lines.size() > 0 && !( junctions.find(vE) != junctions.end() &&
+				     junctions.find(vB) != junctions.end()) ) {
   	MVertex *v1 = (*itl)->getVertex(0);
   	MVertex *v2 = (*itl)->getVertex(1);
 	bool goVE = (junctions.find(vE) == junctions.end()) ? true : false ;
@@ -530,6 +535,7 @@ void AngioTkCenterline::createBranches(int maxN)
         Msg::Error("Begin and end points branch are the same \n");
         break;
       }
+
       orderMLines(myLines, vB, vE);
       std::vector<Branch> children;
       Branch newBranch ={ tag++, myLines, computeLength(myLines), vB, vE,
@@ -774,7 +780,9 @@ void AngioTkCenterline::createSplitCompounds()
 
     //1=conf_spectral 4=convex_circle, 7=conf_fe
     GFace *gfc = current->addCompoundFace(f_compound, 7, 0, num_gfc);
-    //GFace *gfc = current->addCompoundFace(f_compound, 1, 0, num_gfc);
+    // 4 marche pas mal
+    //GFace *gfc = current->addCompoundFace(f_compound, 4, 0, num_gfc);
+    //GFace *gfc = current->addCompoundFace(f_compound, 5, 0, num_gfc);
 
     Msg::Info("Create Compound Surface (%d) tag = %d discrete face",
               num_gfc, gfc->tag());
@@ -849,6 +857,103 @@ void AngioTkCenterline::createFaces()
   			    myVertices.begin(), myVertices.end());
   }
 }
+
+
+
+void AngioTkCenterline::createFacesFromClip()
+{
+  std::vector<std::vector<MTriangle*> > faces;
+
+  std::multimap<MEdge, MTriangle*, Less_Edge> e2e;
+  for(unsigned int i = 0; i < triangles.size(); ++i)
+    for(int j = 0; j < 3; j++)
+      e2e.insert(std::make_pair(triangles[i]->getEdge(j), triangles[i]));
+
+  while(!e2e.empty()){
+    std::set<MTriangle*> group;
+    std::set<MEdge, Less_Edge> touched;
+    group.clear();
+    touched.clear();
+    std::multimap<MEdge, MTriangle*, Less_Edge>::iterator ite = e2e.begin();
+    MEdge me = ite->first;
+    while (theCut.find(me) != theCut.end()){
+      ite++;
+      me = ite->first;
+    }
+    recurConnectByMEdge(me,e2e, group, touched, theCut);
+
+    std::set<int> groupTouchClipTag;
+    for ( MEdge const& edgeTouch : touched )
+      {
+	auto itCut = theCutMap.begin();
+	auto enCut = theCutMap.end();
+	bool find = false;
+	for ( ; (itCut != enCut) && (!find) ; ++itCut )
+	  {
+	    int tagCut = itCut->first;
+	    if ( itCut->second.find(edgeTouch) != itCut->second.end() )
+	      {
+		find = true;
+		groupTouchClipTag.insert( tagCut );
+	      }
+	  }
+      }
+    //std::cout << "groupTouchClipTag.size() " << groupTouchClipTag.size() << "\n";
+
+    if ( groupTouchClipTag.size() != 1 )
+      {
+	std::vector<MTriangle*> temp;
+	temp.insert(temp.begin(), group.begin(), group.end());
+	faces.push_back(temp);
+      }
+    else if ( groupTouchClipTag.size() == 1 )
+      {
+#if 0
+	// compute barycenter of group
+	SPoint3 baryGroup(0., 0., 0.);
+	for ( MTriangle* theTriangle : group )
+	  {
+	    SPoint3 theBary = theTriangle->barycenter();
+	    baryGroup[0] += theBary.x();
+	    baryGroup[1] += theBary.y();
+	    baryGroup[2] += theBary.z();
+	  }
+	baryGroup[0] /= (double)group.size();
+	baryGroup[1] /= (double)group.size();
+	baryGroup[2] /= (double)group.size();
+	std::cout << "baryGroup : " << baryGroup[0] << " " << baryGroup[1] << " " << baryGroup[2] << "\n";
+#endif
+      }
+    for(std::set<MEdge, Less_Edge>::iterator it = touched.begin();
+        it != touched.end(); ++it)
+      e2e.erase(*it);
+  }
+  Msg::Info("AngioTkCenterline: action (cutMesh) has cut surface mesh in %d faces ",
+            (int)faces.size());
+
+  //create discFaces
+  for(unsigned int i = 0; i < faces.size(); ++i){
+    int numF = current->getMaxElementaryNumber(2) + 1;
+    discreteFace *f = new discreteFace(current, numF);
+    current->add(f);
+    discFaces.push_back(f);
+    std::set<MVertex*> myVertices;
+    std::vector<MTriangle*> myFace = faces[i];
+    for(unsigned int j= 0; j< myFace.size(); j++){
+      MTriangle *t = myFace[j];
+      f->triangles.push_back(t);
+      for (int k= 0; k< 3; k++){
+	MVertex *v = t->getVertex(k);
+	myVertices.insert(v);
+	v->setEntity(f);
+      }
+    }
+    f->mesh_vertices.insert(f->mesh_vertices.begin(),
+  			    myVertices.begin(), myVertices.end());
+  }
+}
+
+
 
 void AngioTkCenterline::initPhysicalMarkerFromDescFile( std::vector<GEdge*> boundEdges )
 {
@@ -1107,6 +1212,13 @@ void AngioTkCenterline::run()
     update_needed = false;
   }
 
+  if ( is_clip_mesh )
+  {
+    this->runClipMesh();
+    return;
+  }
+
+
   if (is_cut) cutMesh();
   else{
     GFace *gf = current->getFaceByTag(1);
@@ -1152,6 +1264,140 @@ void AngioTkCenterline::run()
   double t2 = Cpu();
   Msg::Info("AngioTkCenterline operators computed in %g (s) ",t2-t1);
 }
+
+void AngioTkCenterline::runClipMesh()
+{
+  Msg::Info("runClipMesh");
+  //std::cout << "runClipMesh \n";
+  // point, direction, radius
+
+  std::vector<std::tuple<SVector3,SVector3,double> > cutDesc; 
+
+  for(unsigned int i = 0; i < edges.size(); ++i)
+    {
+      MVertex *vB = edges[i].vB;
+      MVertex *vE = edges[i].vE;
+      //std::cout << "edge " << i << " vB : " << vB->x() << " " << vB->y() << " " << vB->z() << "\n";
+      //std::cout << "edge " << i << " vE : " << vE->x() << " " << vE->y() << " " << vE->z() << "\n";
+      bool vBeginConnected = false, vEndConnected = false;
+
+	//for ( Branch const& branchConnected : edges[i].children )
+      for(unsigned int i2 = 0; i2 < edges.size(); ++i2)
+	{
+	  if ( i2 == i ) continue;
+
+	  Branch const& branchConnected =  edges[i2];
+	  //std::cout << "branchConnected.vB : " << branchConnected.vB->x() << " " << branchConnected.vB->y() << " " << branchConnected.vB->z() << "\n";
+	  //std::cout << "branchConnected.vE : " << branchConnected.vE->x() << " " << branchConnected.vE->y() << " " << branchConnected.vE->z() << "\n";
+
+	  //if ( ( vB->distance( branchConnected.vE ) < 1e-9 ) || (vB->distance( branchConnected.vB ) < 1e-9 ) )
+	  if ( vB == branchConnected.vE || vB == branchConnected.vB  )
+	       vBeginConnected = true;
+	    //if ( ( vE->distance( branchConnected.vB ) < 1e-9 ) || (vE->distance( branchConnected.vE ) < 1e-9 ) )
+	  if ( vE == branchConnected.vB || vE == branchConnected.vE )
+	    vEndConnected = true;
+	}
+
+      if ( !vBeginConnected )
+	{
+	  auto lines = edges[i].lines;
+	  if (lines.size() > 0)
+	    {
+	      MVertex *v1;
+	      MVertex *v2;
+	      if ( ( lines.front()->getVertex(0) == vB ) || (lines.front()->getVertex(0) == vE) )
+		{
+		  v1 = lines.front()->getVertex(1);
+		  v2 = lines.front()->getVertex(0);
+		}
+	      else if ( ( lines.front()->getVertex(1) == vB ) || (lines.front()->getVertex(1) == vE) )
+		{
+		  v1 = lines.front()->getVertex(0);
+		  v2 = lines.front()->getVertex(1);
+		}
+	      else
+		{
+		  Msg::Error("error !!");
+		}
+	      MVertex *thept = v2;
+	      std::map<MLine*,double>::iterator itr = radiusl.find(lines.front());
+	      double radius = itr->second;//0.8;
+	      cutDesc.push_back( std::make_tuple( SVector3(thept->x(),thept->y(),thept->z()),
+						  SVector3(v2->x()-v1->x(),v2->y()-v1->y(),v2->z()-v1->z()),
+						  radius ) );
+	    }
+	}
+      if ( !vEndConnected )
+	{
+	  auto lines = edges[i].lines;
+	  if (lines.size() > 0)
+	    {
+	      MVertex *v1;
+	      MVertex *v2;
+	      if ( ( lines.back()->getVertex(1) == vB ) || (lines.back()->getVertex(1) == vE) )
+		{
+		  v1 = lines.back()->getVertex(0);
+		  v2 = lines.back()->getVertex(1);
+		}
+	      else if ( ( lines.back()->getVertex(0) == vB ) || (lines.back()->getVertex(0) == vE) )
+		{
+		  v1 = lines.back()->getVertex(1);
+		  v2 = lines.back()->getVertex(0);
+		}
+	      else
+		{
+		  Msg::Error("error !!");
+		}
+	      //std::cout << " v1 : " << v1->x() << " " << v1->y() << " " << v1->z() << "\n";
+	      //std::cout << " v2 : " << v2->x() << " " << v2->y() << " " << v2->z() << "\n";
+
+	      MVertex *thept = v2;
+	      //std::map<MLine*,double>::iterator itr = radiusl.find(lines[lines.size()-1]);
+	      std::map<MLine*,double>::iterator itr = radiusl.find(lines.back());
+	      double radius = itr->second;//0.8;
+	      cutDesc.push_back( std::make_tuple( SVector3(thept->x(),thept->y(),thept->z()),
+						  SVector3(v2->x()-v1->x(),v2->y()-v1->y(),v2->z()-v1->z()),
+						  radius ) );
+	    }
+
+	}
+
+    }
+
+
+  for ( int k=0;k<cutDesc.size(); ++k)
+    {
+      auto & pt =  std::get<0>(cutDesc[k]);
+      auto & dir =  std::get<1>(cutDesc[k]);
+      double radius =  std::get<2>(cutDesc[k]);
+#if 0
+      std::cout << "pt : " << pt[0] << " " << pt[1] << " " << pt[2] << "\n";
+      std::cout << "dir : " << dir[0] << " " << dir[1] << " " << dir[2] << "\n";
+      std::cout << "radius " << radius << "\n";
+#endif
+      cutByDisk(pt, dir, radius, k+1);
+    }
+
+  //create discreteFaces
+  //createFaces();
+  this->createFacesFromClip();
+  current->createTopologyFromFaces(discFaces);
+  current->exportDiscreteGEOInternals();
+
+  //write
+  Msg::Info("AngioTkCenterline: writing splitted mesh 'mymyCLIPPARTS.msh'");
+  current->writeMSH("myCLIPPARTS.msh", 2.2, false, false);
+
+#if 0
+  //create compounds
+  createSplitCompounds();
+  Msg::Info("Done splitting mesh by centerlines");
+#endif
+
+
+}
+
+
 
 #if 0
 void AngioTkCenterline::cutMesh()
@@ -1244,14 +1490,55 @@ void AngioTkCenterline::cutMesh()
   Msg::Info("AngioTkCenterline: action (cutMesh) splits surface mesh (%d tris) using %s ",
             triangles.size(), fileName.c_str());
 
+
+  std::map<MVertex*,int> numberOfPoints;
+  for(unsigned int i = 0; i < edges.size(); i++){
+    std::vector<MLine*> lines = edges[i].lines;
+      for (unsigned int j= 0; j < lines.size(); j++){
+	  MVertex *v1 = lines[j]->getVertex(0);
+	  MVertex *v2 = lines[j]->getVertex(1);
+	  if ( numberOfPoints.find(v1) == numberOfPoints.end() )
+	    numberOfPoints[v1] = 1;
+	  else
+	    numberOfPoints[v1] = numberOfPoints[v1]+ 1;
+	  if ( numberOfPoints.find(v2) == numberOfPoints.end() )
+	    numberOfPoints[v2] = 1;
+	  else
+	    numberOfPoints[v2] = numberOfPoints[v2]+1;
+      }
+  }
+
+  std::set<MVertex*> junctionsReal;
+  std::set<MVertex*> inletOutletVertex;
+  for ( auto const& nPtsPair : numberOfPoints )
+    {
+      if (  nPtsPair.second == 1 )
+	inletOutletVertex.insert( nPtsPair.first );
+      else if ( nPtsPair.second > 2 )
+	junctionsReal.insert( nPtsPair.first );
+    }
+  std::cout << "junctionsReal.size() " << junctionsReal.size() << "\n";
+  std::cout << "inletOutletVertex.size() " << inletOutletVertex.size() << "\n";
   // i->j->(pt,radius)
   std::vector< std::map<int, std::pair<SVector3,double> > > cutDiskToPerform(edges.size());
   // first pass
   for(unsigned int i = 0; i < edges.size(); i++){
     std::vector<MLine*> lines = edges[i].lines;
     double L = edges[i].length;
-    double D = 2.*edges[i].minRad;  //(edges[i].minRad+edges[i].maxRad);
+    //double D = 2.*edges[i].minRad;  //(edges[i].minRad+edges[i].maxRad);
+    double D = (edges[i].minRad+edges[i].maxRad);
     double AR = L/D;
+
+    bool vBisJunc = /*junctions*/junctionsReal.find(edges[i].vB) != junctionsReal.end();
+    bool vEisJunc = /*junctions*/junctionsReal.find(edges[i].vE) != junctionsReal.end();
+
+    bool vBisInOut = inletOutletVertex.find(edges[i].vB) != inletOutletVertex.end();
+    bool vEisInOut = inletOutletVertex.find(edges[i].vE) != inletOutletVertex.end();
+
+    double radiusB = radiusl.find(lines.front())->second;
+    double radiusE = radiusl.find(lines.back())->second;
+
+
     // printf("*** AngioTkCenterline branch %d (AR=%.1f) \n", edges[i].tag, AR);
 #if 0 //VINCENT
     int nbSplit = (int)ceil(AR/2 + 1.1); //AR/2 + 0.9
@@ -1262,42 +1549,66 @@ void AngioTkCenterline::cutMesh()
     //int nbSplit = (int)ceil(AR/4 + 1.1); //AR/2 + 0.9
     //nbSplit = std::min( nbSplit, 8 );
     if( nbSplit > 1 ){
-      printf("->> cut branch in %d parts \n",  nbSplit);
-      std::cout << "->> cut branch "<< i << "(L="<< L << " ,D="<< D << " ,AR=" << AR << ")"
-		<< " in " << nbSplit << " parts\n";
       double li  = L/nbSplit;
-      double lc = 0.0;
+      printf("->> cut branch %i in %d parts (L=%f,D=%f,AR=%f,li=%f)\n", i, nbSplit, L,D,AR,li);
+
+      double lc = 0.0, lcTotal = 0.0;
       for (unsigned int j= 0; j < lines.size(); j++){
-      //for (unsigned int j= 2/*0*/; j < lines.size()-2; j++){
 	lc += lines[j]->getLength();
-	//if ( j < 3 || j >  lines.size()-3 ) continue;
-	//if ( j != (int)ceil( lines.size()/2) ) continue;
+	MVertex *v1 = lines[j]->getVertex(0);
+	MVertex *v2 = lines[j]->getVertex(1);
+
 	if ( lc > li && nbSplit > 1) {
-	  MVertex *v1 = lines[j]->getVertex(0);
-	  //MVertex *v2 = lines[j]->getVertex(1);
 	  SVector3 pt(v1->x(), v1->y(), v1->z());
-	  //SVector3 dir(v2->x()-v1->x(),v2->y()-v1->y(),v2->z()-v1->z());
+	  SVector3 dir(v2->x()-v1->x(),v2->y()-v1->y(),v2->z()-v1->z());
 	  std::map<MLine*,double>::iterator itr = radiusl.find(lines[j]);
 	  double radius= itr->second;
 	  //cutByDisk(pt, dir, itr->second);
 
 	  bool applyCut=true;
+	  //if ( i!=2 ) applyCut=false;
+#if 1
+	  if ( vBisInOut && ( lcTotal < 2*radiusB /*radiusl.find(lines.front())->second*/ ) )
+	    applyCut=false;
+	  if ( vEisInOut && ( lcTotal > (L-2*radiusE/*radiusl.find(lines.front())->second*/ ) ) )
+	    applyCut=false;
+#endif
+
 	  for(unsigned int ii = 0; ii < edges.size(); ii++){
 	    std::map<int, std::pair<SVector3,double> >::iterator itj = cutDiskToPerform[ii].begin();
 	    std::map<int, std::pair<SVector3,double> >::iterator enj = cutDiskToPerform[ii].end();
 	    for (; itj!=enj && applyCut;++itj)
 	      {
-		//int j= itj->first;
+		int jTest= itj->first;
 		SVector3 ptTest = itj->second.first;
 		double radiusTest= itj->second.second;
 		double distBetweenCenter = std::sqrt( std::pow( pt.x()-ptTest.x(),2)+std::pow( pt.y()-ptTest.y(),2)+std::pow( pt.z()-ptTest.z(),2) );
-#if 1 // VINCENT
-		if ( distBetweenCenter < (radius+radiusTest)/2. ) //if ( distBetweenCenter < (radius+radiusTest) )
-		  applyCut=false;
-#else
-		if ( distBetweenCenter < (radius+radiusTest)/8. ) //if ( distBetweenCenter < (radius+radiusTest) )
-		  applyCut=false;
+
+
+		MVertex *v1Test = lines[j]->getVertex(0);
+		MVertex *v2Test = lines[j]->getVertex(1);
+		SVector3 dirTest(v2Test->x()-v1Test->x(),v2Test->y()-v1Test->y(),v2Test->z()-v1Test->z());
+
+
+		double theScaling = 1./2.;
+		theScaling = 1;//1./4;
+		if (norm(dir-dirTest) < 1e-2 )
+		  theScaling = 1./2;
+
+#if 1
+		//if ( lcTotal > L*(1./3.) && lcTotal < L*(2./3.) )
+		double theScalingCoarse = 2;
+		if ( !vBisJunc && vEisJunc && lcTotal < (L-4*radiusE)/*edges[i].maxRad*/ )
+		  theScaling = theScalingCoarse;
+		if ( vBisJunc && !vEisJunc && lcTotal > 4*radiusB/*edges[i].maxRad*/ )
+		  theScaling = theScalingCoarse;
+		if ( vBisJunc && vEisJunc && lcTotal > 4*radiusB/*edges[i].maxRad*/ && lcTotal < (L-4*radiusB/*edges[i].maxRad*/) )
+		  theScaling = theScalingCoarse;
+		if ( !vBisJunc && !vEisJunc )
+		  theScaling = theScalingCoarse;
 #endif
+		if ( distBetweenCenter < (radius+radiusTest)*theScaling ) //if ( distBetweenCenter < (radius+radiusTest) )
+		  applyCut=false;
 	      }
 	  }
 	  if ( applyCut )
@@ -1305,6 +1616,7 @@ void AngioTkCenterline::cutMesh()
 	  nbSplit--;
 	  lc = 0.0;
 	}
+	lcTotal += lines[j]->getLength();
       }
     }
   } // end first for
@@ -1321,6 +1633,8 @@ void AngioTkCenterline::cutMesh()
 	int j= itj->first;
 	SVector3 pt = itj->second.first;
 	double radius= itj->second.second;
+
+	//if ( i==2 ) std::cout << "pt " << pt.x() << "," << pt.y() << "," << pt.z() << " radius " << radius << "\n";
 
 	MVertex *v1 = lines[j]->getVertex(0);
 	MVertex *v2 = lines[j]->getVertex(1);
@@ -1408,7 +1722,7 @@ void AngioTkCenterline::cutMesh()
 
 
 #endif
-bool AngioTkCenterline::cutByDisk(SVector3 &PT, SVector3 &NORM, double &maxRad)
+bool AngioTkCenterline::cutByDisk(SVector3 &PT, SVector3 &NORM, double &maxRad, int tag)
 {
   double a = NORM.x();
   double b = NORM.y();
@@ -1416,7 +1730,8 @@ bool AngioTkCenterline::cutByDisk(SVector3 &PT, SVector3 &NORM, double &maxRad)
   double d = -a * PT.x() - b * PT.y() - c * PT.z();
 
   int maxStep = 20;
-  const double EPS = 0.007;
+  //const double EPS = 0.007;
+  const double EPS = 1e-5;//0.007;
 
   //std::set<MEdge,Less_Edge> allEdges;
   std::vector<MEdge> allEdges;
@@ -1449,21 +1764,39 @@ bool AngioTkCenterline::cutByDisk(SVector3 &PT, SVector3 &NORM, double &maxRad)
       SVector3 P2(me.getVertex(1)->x(),me.getVertex(1)->y(), me.getVertex(1)->z());
       double V1 = a * P1.x() + b * P1.y() + c * P1.z() + d;
       double V2 = a * P2.x() + b * P2.y() + c * P2.z() + d;
-      bool inters = (V1*V2<=0.0) ? true: false;
+      //bool inters = (V1*V2<=0.0) ? true: false;
+      bool inters = (V1*V2<(EPS*EPS)) ? true: false;
       bool inDisk = ((norm(P1-PT) < rad ) || (norm(P2-PT) < rad)) ? true : false;
+      //bool inDisk2 = ((norm(P1-PT) < rad ) && (norm(P2-PT) < rad)) ? true : false;
       double rdist = -V1/(V2-V1);
-      if (inters && rdist > EPS && rdist < 1.-EPS){
+
+      if ( std::abs(V1)<=EPS/*1e-4*/ && std::abs(V2)<=EPS/*1e-4*/ && (norm(P1-PT) < rad ) && (norm(P2-PT) < rad) ){
+	inters = false;
+	//std::cout << "les 2 pts sont dans le plan de coupe\n";
+      }
+      else if ( std::abs(V1)<=EPS && (norm(P1-PT) < rad ) )
+	cutVertices.push_back(me.getVertex(0));
+      else if ( std::abs(V2)<=EPS && (norm(P2-PT) < rad ) )
+	cutVertices.push_back(me.getVertex(1));
+      else if (inters && rdist > EPS && rdist < (1.-EPS) ){
+      //if (inters && rdist > EPS ){ // && rdist < (1.-EPS) ){
 	SVector3 PZ = P1+rdist*(P2-P1);
-	if (inDisk){
+	bool inDiskPZ = (norm(PZ-PT) < rad );
+	if (inDiskPZ){
+	  // cut edge me at point newv
           MVertex *newv = new MVertex (PZ.x(), PZ.y(), PZ.z());
           cutEdges.insert(std::make_pair(me,newv));
         }
       }
-      else if (inters && rdist <= EPS && inDisk )
+#if 0
+      else if (inters && rdist <= EPS && inDisk && (norm(P1-PT) < rad ) )
 	cutVertices.push_back(me.getVertex(0));
-      else if (inters && rdist >= 1.-EPS && inDisk)
+      else if (inters && rdist >= (1.-EPS) && inDisk && (norm(P2-PT) < rad) )
 	cutVertices.push_back(me.getVertex(1));
+#endif
     }
+    //std::cout << "cutEdges.size() " << cutEdges.size() << "\n";
+    //std::cout << "cutVertices.size() " << cutVertices.size() << "\n";
     for(unsigned int i = 0; i < triangles.size(); i++){
       cutTriangle(triangles[i], cutEdges,cutVertices, newTris, newCut);
     }
@@ -1471,6 +1804,8 @@ bool AngioTkCenterline::cutByDisk(SVector3 &PT, SVector3 &NORM, double &maxRad)
       triangles.clear();
       triangles = newTris;
       theCut.insert(newCut.begin(),newCut.end());
+      if ( tag > 0 )
+	theCutMap[tag].insert(newCut.begin(),newCut.end());
       break;
     }
     else {
