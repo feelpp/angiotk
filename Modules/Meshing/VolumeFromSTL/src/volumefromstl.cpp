@@ -466,26 +466,24 @@ CenterlinesManager::run()
 {
     if ( M_useWindowInteractor )
     {
-        for (int k = 0;k<this->inputCenterlinesPath().size();++k)
+        if ( !this->inputSurfacePath().empty() && fs::exists( this->inputSurfacePath() ) )
         {
-            if ( !this->inputSurfacePath().empty() && fs::exists( this->inputSurfacePath() ) )
-            {
-                CenterlinesManagerWindowInteractor windowInteractor;
-                windowInteractor.setInputSurfacePath( this->inputSurfacePath() );
-                if ( !this->inputPointSetPath().empty() && fs::exists( this->inputPointSetPath() ) )
-                    windowInteractor.setInputPointSetPath( this->inputPointSetPath() );
+            CenterlinesManagerWindowInteractor windowInteractor;
+            windowInteractor.setInputSurfacePath( this->inputSurfacePath() );
+            if ( !this->inputPointSetPath().empty() && fs::exists( this->inputPointSetPath() ) )
+                windowInteractor.setInputPointSetPath( this->inputPointSetPath() );
 
-                std::vector<std::string> centerlinesPath;
-                for (int k = 0;k<this->inputCenterlinesPath().size();++k)
-                    if ( !this->inputCenterlinesPath(k).empty() && fs::exists( this->inputCenterlinesPath(k) ) )
-                        centerlinesPath.push_back( this->inputCenterlinesPath(k) );
-                windowInteractor.setInputCenterlinesPath( centerlinesPath );
+            std::vector<std::string> centerlinesPath;
+            for (int k = 0;k<this->inputCenterlinesPath().size();++k)
+                if ( !this->inputCenterlinesPath(k).empty() && fs::exists( this->inputCenterlinesPath(k) ) )
+                    centerlinesPath.push_back( this->inputCenterlinesPath(k) );
+            windowInteractor.setInputCenterlinesPath( centerlinesPath );
 
-                windowInteractor.run();
-            }
-            else if ( this->worldComm().isMasterRank() )
-                std::cout << "WARNING : Centerlines Manager not run because this input surface path not exist :" << this->inputSurfacePath() << "\n";
+            windowInteractor.run();
         }
+        else if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : Centerlines Manager not run because this input surface path not exist :" << this->inputSurfacePath() << "\n";
+
         return;
     }
 

@@ -808,7 +808,6 @@ CenterlinesManagerWindowInteractor::run()
   typedef vtkPointPicker picker_type; // vtkPointPicker, vtkWorldPointPicker
   //vtkSmartPointer<picker_type> worldPointPicker = vtkSmartPointer<picker_type>::New();
   //worldPointPicker->SetTolerance(0.0005);
-
   //--------------------------------------------
   // read stl
   if ( this->inputSurfacePath().empty() )
