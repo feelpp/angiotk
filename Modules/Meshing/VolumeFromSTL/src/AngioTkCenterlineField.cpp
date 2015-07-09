@@ -375,6 +375,14 @@ AngioTkCenterline::~AngioTkCenterline()
   }
 }
 
+void AngioTkCenterline::importSurfaceFromFile(std::string const& fileName )
+{
+  current = GModel::current();
+  //mod = new GModel();
+  current->load(fileName);
+  current->removeDuplicateMeshVertices(1.e-8);
+}
+
 void AngioTkCenterline::importFile(std::string fileName)
 {
   current = GModel::current();
@@ -391,6 +399,7 @@ void AngioTkCenterline::importFile(std::string fileName)
 	}
      }
   }
+  //std::cout << "number of triangle : " << triangles.size() << "\n";
 #if 0
   if(triangles.empty()){
     Msg::Error("Current GModel has no triangles ...");
@@ -404,20 +413,52 @@ void AngioTkCenterline::importFile(std::string fileName)
   // call indexMeshVertices allow to assign id on vertices from 1
   bool saveAll = false;
   int numVerticesInCenterlinesGModel = mod->indexMeshVertices(saveAll);
+
   //mod->writeMSH("myCenterlines.msh", 2.2, false, false);
   //mod->writeVTK("myCenterlines.vtk", false, false);
 
   current->setAsCurrent();
   current->setVisibility(1);
+  //std::cout<< "number of vertice in current GModel "<< current->indexMeshVertices(true) << "\n";
 
   int maxN = 0.0;
-  std::vector<GEdge*> modEdges(mod->firstEdge(), mod->lastEdge());
+  //std::vector<GEdge*> modEdges(mod->firstEdge(), mod->lastEdge());
+  //std::vector<GEdge*> modEdges;
 
+  //int tagShift = 0;
+  int previousTag = 0;
+  if ( !modEdges.empty() )
+    {
+    int maxTag = 0;
+      for (unsigned int i = 0; i < modEdges.size(); i++){
+	GEdge *ge = modEdges[i];
+	maxTag = std::max(maxTag, ge->tag());
+	//std::cout << "ge->tag() " << ge->tag() << "\n";
+      }
+      if ( maxTag > 0 )
+	previousTag = maxTag;
+    }
+  auto itEdge=mod->firstEdge();
+  auto enEdge=mod->lastEdge();
+  for ( ; itEdge!=enEdge; ++itEdge )
+    (*itEdge)->setTag( previousTag+(*itEdge)->tag() );
+
+  //tagStart+=modEdges.back()->tag()
+  modEdges.insert(modEdges.end(),mod->firstEdge(), mod->lastEdge());
+#if 0
   MVertex *vin = modEdges[0]->lines[0]->getVertex(0);
   ptin = SPoint3(vin->x(), vin->y(), vin->z());
+#endif
+  lines.clear();
+  colorp.clear();
+  colorl.clear();
 
   for (unsigned int i = 0; i < modEdges.size(); i++){
     GEdge *ge = modEdges[i];
+    int geTag = ge->tag();
+    //int geTag = previousTag + ge->tag();
+    //std::cout << "NEW ge->tag() " << geTag << "\n";
+
     for(unsigned int j = 0; j < ge->lines.size(); j++){
       MLine *l = ge->lines[j];
       MVertex *v0 = l->getVertex(0);
@@ -426,11 +467,11 @@ void AngioTkCenterline::importFile(std::string fileName)
       std::map<MVertex*, int>::iterator it1 = colorp.find(v1);
       if (it0 == colorp.end() || it1 == colorp.end()){
 	lines.push_back(l);
-	colorl.insert(std::make_pair(l, ge->tag()));
+	colorl.insert(std::make_pair(l, geTag));
 	maxN = std::max(maxN, ge->tag());
        }
-      if (it0 == colorp.end()) colorp.insert(std::make_pair(v0, ge->tag()));
-      if (it1 == colorp.end()) colorp.insert(std::make_pair(v1, ge->tag()));
+      if (it0 == colorp.end()) colorp.insert(std::make_pair(v0, geTag));
+      if (it1 == colorp.end()) colorp.insert(std::make_pair(v1, geTag));
     }
  }
 
@@ -479,6 +520,7 @@ void AngioTkCenterline::createBranches(int maxN)
   }
 
   //detect junctions
+  junctions.clear();
   std::multiset<MVertex*>::iterator it = allV.begin();
   for ( ; it != allV.end(); ++it){
     if (allV.count(*it) != 2) {
@@ -488,6 +530,7 @@ void AngioTkCenterline::createBranches(int maxN)
   //std::cout << "junctions.size() " << junctions.size() << "\n";
 
   //split edges
+  edges.clear();
   int tag = 0;
   for(unsigned int i = 0; i < color_edges.size(); ++i){
     std::vector<MLine*> lines = color_edges[i];
@@ -558,7 +601,40 @@ void AngioTkCenterline::createBranches(int maxN)
     edges[i].children = myChildren;
   }
 
-  // compute measures between surface and centerlibes
+  // compute junction and extremity points
+  //std::map<MVertex*,int> numberOfPoints;
+  std::map<MVertex*,std::set<std::pair<int,int> > > numberOfPoints;
+  for(unsigned int i = 0; i < edges.size(); i++){
+    std::vector<MLine*> mylines = edges[i].lines;
+      for (unsigned int j= 0; j < mylines.size(); j++){
+	  MVertex *v1 = mylines[j]->getVertex(0);
+	  MVertex *v2 = mylines[j]->getVertex(1);
+	  //if ( numberOfPoints.find(v1) == numberOfPoints.end() )
+	  numberOfPoints[v1].insert( std::make_pair(i,j) );
+	    //else
+	    //numberOfPoints[v1] = numberOfPoints[v1]+ 1;
+	    //if ( numberOfPoints.find(v2) == numberOfPoints.end() )
+	  numberOfPoints[v2].insert( std::make_pair(i,j) );
+	  //numberOfPoints[v2] = 1;
+	  //else
+	  //numberOfPoints[v2] = numberOfPoints[v2]+1;
+      }
+  }
+  M_junctionsVertex.clear();
+  M_extremityVertex.clear();
+  for ( auto const& nPtsPair : numberOfPoints )
+    {
+      if ( nPtsPair.second.size() == 1 )
+	M_extremityVertex[nPtsPair.first] = *(nPtsPair.second.begin());// std::make_pair(0,0);
+      else if ( nPtsPair.second.size() > 2 )
+	M_junctionsVertex.insert( nPtsPair.first );
+    }
+  //std::cout << "junctionsVertex.size() " << M_junctionsVertex.size() << "\n";
+  //std::cout << "inletOutletVertex.size() " << M_extremityVertex.size() << "\n";
+
+
+
+  // compute measures between surface and centerlines
   if(!triangles.empty())
   {
     //compute radius
@@ -605,6 +681,7 @@ void AngioTkCenterline::distanceToSurface()
     kdtreeR->annkSearch(midp, 1, index, dist);
     double minRad = sqrt(dist[0]);
     radiusl.insert(std::make_pair(lines[i], minRad));
+    //if ( minRad <1e-3 ) std::cout << minRad << "\n";
   }
 
 }
@@ -1490,35 +1567,6 @@ void AngioTkCenterline::cutMesh()
   Msg::Info("AngioTkCenterline: action (cutMesh) splits surface mesh (%d tris) using %s ",
             triangles.size(), fileName.c_str());
 
-
-  std::map<MVertex*,int> numberOfPoints;
-  for(unsigned int i = 0; i < edges.size(); i++){
-    std::vector<MLine*> lines = edges[i].lines;
-      for (unsigned int j= 0; j < lines.size(); j++){
-	  MVertex *v1 = lines[j]->getVertex(0);
-	  MVertex *v2 = lines[j]->getVertex(1);
-	  if ( numberOfPoints.find(v1) == numberOfPoints.end() )
-	    numberOfPoints[v1] = 1;
-	  else
-	    numberOfPoints[v1] = numberOfPoints[v1]+ 1;
-	  if ( numberOfPoints.find(v2) == numberOfPoints.end() )
-	    numberOfPoints[v2] = 1;
-	  else
-	    numberOfPoints[v2] = numberOfPoints[v2]+1;
-      }
-  }
-
-  std::set<MVertex*> junctionsReal;
-  std::set<MVertex*> inletOutletVertex;
-  for ( auto const& nPtsPair : numberOfPoints )
-    {
-      if (  nPtsPair.second == 1 )
-	inletOutletVertex.insert( nPtsPair.first );
-      else if ( nPtsPair.second > 2 )
-	junctionsReal.insert( nPtsPair.first );
-    }
-  std::cout << "junctionsReal.size() " << junctionsReal.size() << "\n";
-  std::cout << "inletOutletVertex.size() " << inletOutletVertex.size() << "\n";
   // i->j->(pt,radius)
   std::vector< std::map<int, std::pair<SVector3,double> > > cutDiskToPerform(edges.size());
   // first pass
@@ -1529,11 +1577,11 @@ void AngioTkCenterline::cutMesh()
     double D = (edges[i].minRad+edges[i].maxRad);
     double AR = L/D;
 
-    bool vBisJunc = /*junctions*/junctionsReal.find(edges[i].vB) != junctionsReal.end();
-    bool vEisJunc = /*junctions*/junctionsReal.find(edges[i].vE) != junctionsReal.end();
+    bool vBisJunc = /*junctions*/M_junctionsVertex.find(edges[i].vB) != M_junctionsVertex.end();
+    bool vEisJunc = /*junctions*/M_junctionsVertex.find(edges[i].vE) != M_junctionsVertex.end();
 
-    bool vBisInOut = inletOutletVertex.find(edges[i].vB) != inletOutletVertex.end();
-    bool vEisInOut = inletOutletVertex.find(edges[i].vE) != inletOutletVertex.end();
+    bool vBisInOut = M_extremityVertex.find(edges[i].vB) != M_extremityVertex.end();
+    bool vEisInOut = M_extremityVertex.find(edges[i].vE) != M_extremityVertex.end();
 
     double radiusB = radiusl.find(lines.front())->second;
     double radiusE = radiusl.find(lines.back())->second;
@@ -2641,7 +2689,7 @@ void AngioTkCenterline::removeBranchIds( std::set<int> const& _removeBranchIds )
       if (it1 == colorp.end()) colorp.insert(std::make_pair(v1, i/*ge->tag()*/));
     }
   }
-  edges.clear();
+  //edges.clear();
   createBranches(maxN);
 
 }

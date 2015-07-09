@@ -2,7 +2,6 @@
 
 #include <volumefromstl.hpp>
 #include <AngioTkCenterlineField.h>
-
 #include <centerlinesmanagerwindowinteractor.hpp>
 
 namespace detail
@@ -409,26 +408,34 @@ CenterlinesFromSTL::options( std::string const& prefix )
 CenterlinesManager::CenterlinesManager( std::string prefix )
     :
     M_prefix( prefix ),
-    M_inputCenterlinesPath( soption(_name="input.centerlines.filename",_prefix=this->prefix()) ),
+    M_inputCenterlinesPath(),// 1, soption(_name="input.centerlines.filename",_prefix=this->prefix()) ),
     M_inputSurfacePath( soption(_name="input.surface.filename",_prefix=this->prefix()) ),
     M_inputPointSetPath( soption(_name="input.point-set.filename",_prefix=this->prefix()) ),
     M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_useWindowInteractor( boption(_name="use-window-interactor",_prefix=this->prefix() ) )
 {
+    std::cout << "start Manager COnstructor\n";
+    if ( Environment::vm().count(prefixvm(this->prefix(),"input.centerlines.filename").c_str()) )
+        M_inputCenterlinesPath = Environment::vm()[prefixvm(this->prefix(),"input.centerlines.filename").c_str()].as<std::vector<std::string> >();
+
     std::vector<int> removeids;
     if ( Environment::vm().count(prefixvm(this->prefix(),"remove-branch-ids").c_str()) )
         removeids = Environment::vm()[prefixvm(this->prefix(),"remove-branch-ids").c_str()].as<std::vector<int> >();
     for ( int id : removeids )
         M_removeBranchIds.insert( id );
 
-    if ( !M_inputCenterlinesPath.empty() && fs::path(M_inputCenterlinesPath).is_relative() )
-        M_inputCenterlinesPath = (AngioTkEnvironment::pathInitial()/fs::path(M_inputCenterlinesPath) ).string();
+    for (int k = 0;k<this->inputCenterlinesPath().size();++k)
+    {
+        if ( !this->inputCenterlinesPath(k).empty() && fs::path(this->inputCenterlinesPath(k)).is_relative() )
+            M_inputCenterlinesPath[k] = (AngioTkEnvironment::pathInitial()/fs::path(this->inputCenterlinesPath(k)) ).string();
+    }
 
-    if ( !M_inputCenterlinesPath.empty() && M_outputPath.empty() )
+    if ( !this->inputCenterlinesPath().empty() && !this->inputCenterlinesPath(0).empty() && M_outputPath.empty() )
     {
         this->updateOutputPathFromInputFileName();
     }
+    std::cout << "finish Manager COnstructor\n";
 }
 
 void
@@ -446,7 +453,7 @@ CenterlinesManager::updateOutputPathFromInputFileName()
         meshesdirectories = fs::path(M_outputDirectory);
 
     // get filename without extension
-    fs::path gp = M_inputCenterlinesPath;
+    fs::path gp = this->inputCenterlinesPath(0);
     std::string nameMeshFile = gp.stem().string();
 
     std::string newFileName = (boost::format("%1%_up.vtk")%nameMeshFile ).str();
@@ -459,26 +466,39 @@ CenterlinesManager::run()
 {
     if ( M_useWindowInteractor )
     {
-        if ( !this->inputSurfacePath().empty() && fs::exists( this->inputSurfacePath() ) )
+        for (int k = 0;k<this->inputCenterlinesPath().size();++k)
         {
-            CenterlinesManagerWindowInteractor windowInteractor;
-            windowInteractor.setInputSurfacePath( this->inputSurfacePath() );
-            if ( !this->inputPointSetPath().empty() && fs::exists( this->inputPointSetPath() ) )
-                windowInteractor.setInputPointSetPath( this->inputPointSetPath() );
-            if ( !this->inputCenterlinesPath().empty() && fs::exists( this->inputCenterlinesPath() ) )
-                windowInteractor.setInputCenterlinesPath( this->inputCenterlinesPath() );
-            windowInteractor.run();
+            if ( !this->inputSurfacePath().empty() && fs::exists( this->inputSurfacePath() ) )
+            {
+                CenterlinesManagerWindowInteractor windowInteractor;
+                windowInteractor.setInputSurfacePath( this->inputSurfacePath() );
+                if ( !this->inputPointSetPath().empty() && fs::exists( this->inputPointSetPath() ) )
+                    windowInteractor.setInputPointSetPath( this->inputPointSetPath() );
+
+                std::vector<std::string> centerlinesPath;
+                for (int k = 0;k<this->inputCenterlinesPath().size();++k)
+                    if ( !this->inputCenterlinesPath(k).empty() && fs::exists( this->inputCenterlinesPath(k) ) )
+                        centerlinesPath.push_back( this->inputCenterlinesPath(k) );
+                windowInteractor.setInputCenterlinesPath( centerlinesPath );
+
+                windowInteractor.run();
+            }
+            else if ( this->worldComm().isMasterRank() )
+                std::cout << "WARNING : Centerlines Manager not run because this input surface path not exist :" << this->inputSurfacePath() << "\n";
         }
-        if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : Centerlines Manager not run because this input surface path not exist :" << this->inputSurfacePath() << "\n";
         return;
     }
 
-
-    if ( !fs::exists( this->inputCenterlinesPath() ) )
+    if ( this->inputCenterlinesPath().empty() )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : Centerlines Manager not run because this input centerlines path not exist :" << this->inputCenterlinesPath() << "\n";
+            std::cout << "WARNING : Centerlines Manager not run because this input centerlines is empty\n";
+        return;
+    }
+    if ( !fs::exists( this->inputCenterlinesPath(0) ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : Centerlines Manager not run because this input centerlines path not exist :" << this->inputCenterlinesPath(0) << "\n";
         return;
     }
 
@@ -488,7 +508,7 @@ CenterlinesManager::run()
             << "---------------------------------------\n"
             << "run CenterlinesManager \n"
             << "---------------------------------------\n";
-    coutStr << "inputCenterlinesPath  : " << this->inputCenterlinesPath() << "\n";
+    coutStr << "inputCenterlinesPath  : " << this->inputCenterlinesPath(0) << "\n";
     if ( M_removeBranchIds.size() > 0 )
     {
         coutStr << "remove branch ids :";
@@ -525,7 +545,7 @@ CenterlinesManager::run()
         Msg::SetVerbosity( verbosityLevel );
 
         AngioTkCenterline centerlinesTool;
-        centerlinesTool.updateCenterlinesFromFile( this->inputCenterlinesPath() );
+        centerlinesTool.updateCenterlinesFromFile( this->inputCenterlinesPath(0) );
         centerlinesTool.removeBranchIds( M_removeBranchIds );
         centerlinesTool.addFieldBranchIds();
         centerlinesTool.writeCenterlinesVTK( this->outputPath() );
@@ -537,7 +557,8 @@ CenterlinesManager::options( std::string const& prefix )
     po::options_description myCenterlinesManagerOptions( "Centerlines Manager from Image options" );
 
     myCenterlinesManagerOptions.add_options()
-        (prefixvm(prefix,"input.centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
+        //(prefixvm(prefix,"input.centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
+        (prefixvm(prefix,"input.centerlines.filename").c_str(), po::value<std::vector<std::string>>()->multitoken(), "(vector<string>) input centerline filename" )
         (prefixvm(prefix,"input.surface.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input surface filename" )
         (prefixvm(prefix,"input.point-set.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input point-set filename" )
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")

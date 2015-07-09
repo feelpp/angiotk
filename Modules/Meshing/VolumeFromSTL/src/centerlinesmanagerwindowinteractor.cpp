@@ -51,6 +51,9 @@
 
 #include <feel/feelcore/feel.hpp>
 
+#include <AngioTkCenterlineField.h>
+#include <Gmsh.h>
+#include <Context.h>
 
 class vtkMyCallback : public vtkCommand
 {
@@ -122,7 +125,8 @@ class MouseInteractorStyle : public vtkInteractorStyleTrackballCamera
     M_lastSphereActiveId(-1),
     M_sphereActorSelection(NULL),
     M_sphereActorSelectionId(-1),
-    M_lenghtSTL(0)
+    M_lenghtSTL(0),
+    M_outputPathPointSetFile("default.data")
   {
     M_LastPickedActor = NULL;
     M_LastPickedProperty = vtkProperty::New();
@@ -143,6 +147,7 @@ class MouseInteractorStyle : public vtkInteractorStyleTrackballCamera
 
   void saveOnDisk( std::string const& pathFile )
   {
+    std::cout << "saveOnDisk " << pathFile << "\n";
     if ( M_vectorSphereSourceObject.empty() ) return;
     if ( M_vectorSphereSourceObject.front().geometry() == NULL ) return;
 
@@ -190,12 +195,58 @@ class MouseInteractorStyle : public vtkInteractorStyleTrackballCamera
 	this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(actorSphere);
       }
 
-    //vtkSmartPointer<vtkSphereSource> sphereSource;
-    //vtkSmartPointer<vtkActor> actorSphere;
-    M_vectorSphereSourceObject.push_back(SphereSourceObject());//std::make_tuple(sphereSource,actorSphere,0));
+    M_vectorSphereSourceObject.push_back(SphereSourceObject());
 
-    fileLoaded.close();  // on ferme le fichier
+    fileLoaded.close();
     this->Interactor->GetRenderWindow()->Render();
+  }
+
+  void addSphereAtCenterlinesExtrimities()
+  {
+    if (!M_angioTkCenterlines) return;
+
+    for ( auto const& extremityPair : M_angioTkCenterlines->centerlinesExtremities() )
+      {
+	int typePt = 0;//-1;
+	double * center = new double[3];
+	center[0] = extremityPair.first->x();
+	center[1] = extremityPair.first->y();
+	center[2] = extremityPair.first->z();
+
+
+	int branchId = extremityPair.second.first;
+	int lineIdInBranch = extremityPair.second.second;
+	std::vector<MLine*> mylines = M_angioTkCenterlines->centerlinesBranch(branchId).lines;
+	MLine* myline = mylines[lineIdInBranch];
+	//std::map<MLine*,double>::iterator itr = M_angioTkCenterlines->centerlinesRadiusl().find(myline);
+	//auto itr = M_angioTkCenterlines->centerlinesRadiusl().find(myline);
+	double radius = -1.;
+	//if ( itr != M_angioTkCenterlines->centerlinesRadiusl().end() )
+	if ( M_angioTkCenterlines->centerlinesRadiusl().find(myline) != M_angioTkCenterlines->centerlinesRadiusl().end() )
+	  {
+	    //radius = itr->second;// not always work, strange!!
+	    radius = M_angioTkCenterlines->centerlinesRadiusl().find(myline)->second;
+	  //radius = M_angioTkCenterlines->centerlinesBranch(branchId).minRad;   //itr->second;//0.8;
+	  }
+	//std::cout << "add extremityPair with radius " << radius << " branchId " << branchId << " lineIdInBranch " << lineIdInBranch << "\n";
+
+
+	vtkSmartPointer<vtkSphereSource> sphereSource = vtkSmartPointer<vtkSphereSource>::New();
+	sphereSource->SetRadius(radius);
+	sphereSource->SetCenter(center);
+	delete [] center;
+	sphereSource->Update();
+	//Create a mapper and actor
+	vtkSmartPointer<vtkPolyDataMapper> mapperSphere = vtkSmartPointer<vtkPolyDataMapper>::New();
+	mapperSphere->SetInputConnection(sphereSource->GetOutputPort());
+	vtkSmartPointer<vtkActor> actorSphere = vtkSmartPointer<vtkActor>::New();
+	actorSphere->SetMapper(mapperSphere);  
+	actorSphere->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
+
+	M_vectorSphereSourceObject.push_back(std::make_tuple(sphereSource,actorSphere,typePt) );
+	M_vectorSphereSourceObject.back().applyColoring();
+	this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(actorSphere);
+      }
 
   }
 
@@ -209,11 +260,16 @@ int hasActor( vtkActor * _actor ) const
   }
   return k;
  }
-      
+
+  void setAngioTkCenterlines( boost::shared_ptr<AngioTkCenterline> obj ) { M_angioTkCenterlines = obj; }
+
   void setActorSTL( vtkSmartPointer<vtkActor> const& actor) { M_actorSTL=actor; }
 
   void setBoundsSTL(double * bounds ) { M_boundsSTL.insert( M_boundsSTL.begin(),bounds,bounds+6); }
   void setLenghtSTL(double d) { M_lenghtSTL=d; }
+
+  void setOutputPathPointSetFile(std::string const& path) { M_outputPathPointSetFile=path; }
+
 
   void activateSphereActorSelection()
   {
@@ -399,7 +455,9 @@ int hasActor( vtkActor * _actor ) const
 
       // save current state on disk
       if ( key == "s" )
-	this->saveOnDisk( "toto.data" );
+	{
+	  this->saveOnDisk( M_outputPathPointSetFile /*nameFile*/ );
+	}
 
       // display/remove axis orientation
       if ( key == "a" )
@@ -660,6 +718,7 @@ int hasActor( vtkActor * _actor ) const
         {
 	  if ( !M_vectorSphereSourceObject.empty() )
 	    {
+	      this->deactivateSphereActorSelection();
 	      if ( M_vectorSphereSourceObject.back().geometry() != NULL )
 		{
 		  // remove last actor in render
@@ -705,6 +764,7 @@ int hasActor( vtkActor * _actor ) const
 		}
 
 	      //--M_lastSphereActiveId;
+	      this->Interactor->GetRenderWindow()->Render();
 	    }
 	}
 #if 0
@@ -733,6 +793,11 @@ private :
   vtkSmartPointer<vtkMyCallback> M_callbackBoxAroundSphere;
 
   vtkSmartPointer<vtkActor> M_actorSTL;
+
+  boost::shared_ptr<AngioTkCenterline> M_angioTkCenterlines;
+
+  std::string M_outputPathPointSetFile;
+
 };
 vtkStandardNewMacro(MouseInteractorStyle);
 
@@ -785,10 +850,16 @@ CenterlinesManagerWindowInteractor::run()
   style->setBoundsSTL(mapperSTL->GetBounds());
   style->setLenghtSTL(mapperSTL->GetLength());
 
-  if ( !this->inputCenterlinesPath().empty() && Feel::fs::exists( this->inputCenterlinesPath() ) )
+  std::string nameFile = Feel::fs::path(this->inputSurfacePath()).stem().string()+"_pointset.data";
+  style->setOutputPathPointSetFile(nameFile);
+
+  boost::shared_ptr<AngioTkCenterline> centerlinesTool;
+  for ( int k=0;k<this->inputCenterlinesPath().size();++k)
     {
+      if ( this->inputCenterlinesPath(k).empty() || !Feel::fs::exists( this->inputCenterlinesPath(k) ) ) continue;
+
       vtkSmartPointer<vtkPolyDataReader> readerVTK = vtkSmartPointer<vtkPolyDataReader>::New();
-      readerVTK->SetFileName(this->inputCenterlinesPath().c_str());
+      readerVTK->SetFileName(this->inputCenterlinesPath(k).c_str());
       readerVTK->Update();
       // Create a mapper and actor
       vtkSmartPointer<vtkPolyDataMapper> mapperVTK = vtkSmartPointer<vtkPolyDataMapper>::New();
@@ -796,11 +867,29 @@ CenterlinesManagerWindowInteractor::run()
       vtkSmartPointer<vtkActor> actorVTK = vtkSmartPointer<vtkActor>::New();
       actorVTK->SetMapper(mapperVTK);
 
-      actorVTK->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
+      //actorVTK->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
+      actorVTK->GetProperty()->SetColor(0.0, 1.0, 0.0); //(R,G,B)
       actorVTK->GetProperty()->SetLineWidth(3.0);
       // Add the actor to the scene
       renderer->AddActor(actorVTK);
+      if ( !centerlinesTool )
+	{
+	  if ( true )
+	    {
+	      CTX::instance()->terminal = 1;
+	      int verbosityLevel = 5;
+	      Msg::SetVerbosity( verbosityLevel );
+	    }
+
+	  centerlinesTool.reset( new AngioTkCenterline );
+	  centerlinesTool->importSurfaceFromFile( this->inputSurfacePath() );
+	  style->setAngioTkCenterlines(centerlinesTool);
+	  //centerlinesTool->importFile( this->inputCenterlinesPath(k) );
+	}
+      centerlinesTool->importFile( this->inputCenterlinesPath(k) );
     }
+  if ( centerlinesTool )
+    style->addSphereAtCenterlinesExtrimities();
 
 
   if ( !this->inputPointSetPath().empty() )

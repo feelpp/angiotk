@@ -177,13 +177,14 @@ public :
 
     std::string const& prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }
-    std::string const& inputCenterlinesPath() const { return M_inputCenterlinesPath; }
+    std::vector<std::string> const& inputCenterlinesPath() const { return M_inputCenterlinesPath; }
+    std::string const& inputCenterlinesPath(int k) const { return M_inputCenterlinesPath[k]; }
     std::string const& inputSurfacePath() const { return M_inputSurfacePath; }
     std::string const& inputPointSetPath() const { return M_inputPointSetPath; }
     std::string const& outputPath() const { return M_outputPath; }
     bool forceRebuild() const { return M_forceRebuild; }
 
-    void setInputCenterlinesPath(std::string const& path) { M_inputCenterlinesPath=path; }
+    void setInputCenterlinesPath(std::string const& path) { M_inputCenterlinesPath = { path }; }
     void setInputSurfacePath(std::string const& path) { M_inputSurfacePath=path; }
     void setInputPointSetPath(std::string const& path) { M_inputPointSetPath=path; }
     void setOutputPath(std::string const& path) { M_outputPath=path; }
@@ -191,7 +192,8 @@ public :
 
 private :
     std::string M_prefix;
-    std::string M_inputCenterlinesPath, M_inputSurfacePath, M_inputPointSetPath, M_outputDirectory, M_outputPath;
+    std::vector<std::string> M_inputCenterlinesPath;
+    std::string M_inputSurfacePath, M_inputPointSetPath, M_outputDirectory, M_outputPath;
     bool M_forceRebuild;
     bool M_useWindowInteractor;
     std::set<int> M_removeBranchIds;

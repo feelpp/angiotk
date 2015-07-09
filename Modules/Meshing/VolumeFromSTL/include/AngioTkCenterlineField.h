@@ -84,6 +84,15 @@ class AngioTkCenterline : public Field{
   std::map<MVertex*,int> colorp;
   std::map<MLine*,int> colorl;
 
+  std::vector<GEdge*> modEdges;
+
+  // save junction points and extremity points 
+  std::set<MVertex*> M_junctionsVertex;
+  //std::set<MVertex*> M_extremityVertex;
+  // vertex -> ( branchId, lineIdInBranch )
+  std::map<MVertex*, std::pair<int,int> > M_extremityVertex;
+
+
   //the tubular surface mesh
   std::vector<MTriangle*> triangles;
   std::vector<MVertex*> vertices;
@@ -132,7 +141,17 @@ class AngioTkCenterline : public Field{
   void addFieldBranchIds();
   void writeCenterlinesVTK( std::string fileName );
 
+  std::map<MVertex*, std::pair<int,int> > const&
+    centerlinesExtremities() const { return M_extremityVertex; }
+  std::vector<Branch> const& centerlinesBranch() const { return edges; }
+  Branch const& centerlinesBranch(int k) const { return edges[k]; }
 
+  std::map<MLine*,double> /*const&*/ centerlinesRadiusl() const { return radiusl; }
+  //double centerlinesRadiusFromLine() const { 
+    //auto itr = M_angioTkCenterlines->centerlinesRadiusl().find( mylines[lineIdInBranch]/*mylines.front()*/);
+  //}
+
+  void importSurfaceFromFile(std::string const& fileName );
   //import the 1D mesh of the centerlines (in vtk format)
   //and fill the vector of lines
   void importFile(std::string fileName);
