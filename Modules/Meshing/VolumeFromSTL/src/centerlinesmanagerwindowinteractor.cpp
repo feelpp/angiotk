@@ -176,7 +176,7 @@ class MouseInteractorStyle : public vtkInteractorStyleTrackballCamera
 	fileLoaded >> typePt;
 	if ( fileLoaded.eof() ) break;
 	fileLoaded >> center[0] >> center[1] >> center[2] >> radius;
-
+	//std::cout << "add center " << center[0] <<","<< center[1] <<","<< center[2]<<"\n";
 	vtkSmartPointer<vtkSphereSource> sphereSource = vtkSmartPointer<vtkSphereSource>::New();
 	sphereSource->SetRadius(radius);
 	sphereSource->SetCenter(center);
@@ -188,7 +188,6 @@ class MouseInteractorStyle : public vtkInteractorStyleTrackballCamera
 	vtkSmartPointer<vtkActor> actorSphere = vtkSmartPointer<vtkActor>::New();
 	actorSphere->SetMapper(mapperSphere);  
 	actorSphere->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
-
 
 	M_vectorSphereSourceObject.push_back(std::make_tuple(sphereSource,actorSphere,typePt) );
 	M_vectorSphereSourceObject.back().applyColoring();
@@ -212,7 +211,7 @@ class MouseInteractorStyle : public vtkInteractorStyleTrackballCamera
 	center[0] = extremityPair.first->x();
 	center[1] = extremityPair.first->y();
 	center[2] = extremityPair.first->z();
-
+	//std::cout << "add center " << center[0] <<","<< center[1] <<","<< center[2]<<"\n";
 
 	int branchId = extremityPair.second.first;
 	int lineIdInBranch = extremityPair.second.second;
@@ -229,7 +228,6 @@ class MouseInteractorStyle : public vtkInteractorStyleTrackballCamera
 	  //radius = M_angioTkCenterlines->centerlinesBranch(branchId).minRad;   //itr->second;//0.8;
 	  }
 	//std::cout << "add extremityPair with radius " << radius << " branchId " << branchId << " lineIdInBranch " << lineIdInBranch << "\n";
-
 
 	vtkSmartPointer<vtkSphereSource> sphereSource = vtkSmartPointer<vtkSphereSource>::New();
 	sphereSource->SetRadius(radius);
@@ -290,18 +288,40 @@ int hasActor( vtkActor * _actor ) const
 	//M_widgetBoxAroundSphere->SetPlaceFactor(1.25);
 	M_widgetBoxAroundSphere->SetPlaceFactor(1.);
  	M_widgetBoxAroundSphere->SetProp3D(M_sphereActorSelection/*coneActor*/);
+	M_vectorSphereSourceObject[M_sphereActorSelectionId].actor()->GetProperty()->SetOpacity(0.2);
 
 	M_widgetBoxAroundSphere->PlaceWidget();
 	//M_widgetBoxAroundSphere->ScalingEnabledOff();
 	//vtkSmartPointer<vtkMyCallback> callback = vtkSmartPointer<vtkMyCallback>::New();
 	//M_widgetBoxAroundSphere->AddObserver(vtkCommand::InteractionEvent, callback);
+
+	//M_sphereActorSelection = M_vectorSphereSourceObject[selectId].actor();//LastPickedActor;
+	//M_sphereActorSelectionId = selectId;
+	//->geometry()
+#if 0
+	M_widgetBoxAroundSphere->HandlesOn();
+	M_widgetBoxAroundSphere->OutlineFaceWiresOff();
+	M_widgetBoxAroundSphere->OutlineCursorWiresOff();	
+	//M_widgetBoxAroundSphere->TranslationEnabledOff();
+	M_widgetBoxAroundSphere->ScalingEnabledOff();
+	M_widgetBoxAroundSphere->RotationEnabledOff();
+#endif
+	double radiusSphere = M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry()->GetRadius();
+	M_widgetBoxAroundSphere->SetHandleSize(radiusSphere/10000.);
+
 	M_widgetBoxAroundSphere->On();
+	//M_widgetBoxAroundSphere->Print(std::cout);
 	//M_callbackBoxAroundSphere->setSphereSource( M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry() );
 
       }
-
-
   }
+  /*void switchModeSphereActorSelection()
+  {
+	double radiusSphere = M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry()->GetRadius();
+	M_widgetBoxAroundSphere->SetHandleSize(radiusSphere/10000.);
+	M_widgetBoxAroundSphere->HandlesOff();
+	//M_widgetBoxAroundSphere->OutlineFaceWiresOn()
+	}*/
 
   void deactivateSphereActorSelection()
   {
@@ -324,6 +344,9 @@ int hasActor( vtkActor * _actor ) const
       t->Identity();
       M_widgetBoxAroundSphere->GetProp3D()->SetUserTransform(t);
 #endif
+
+	M_vectorSphereSourceObject[M_sphereActorSelectionId].actor()->GetProperty()->SetOpacity(1);
+
 
 	M_sphereActorSelection = NULL;
 	M_sphereActorSelectionId = -1;
@@ -371,6 +394,9 @@ int hasActor( vtkActor * _actor ) const
 	      this->activateSphereActorSelection();
 	    }
 	  //else if ( M_sphereActorSelectionId == selectId )
+	  //{
+	  //  this->switchModeSphereActorSelection();
+	  //}
 	  //this->deactivateSphereActorSelection();
 	}
       else if ( M_sphereActorSelectionId < 0 )
@@ -822,9 +848,16 @@ CenterlinesManagerWindowInteractor::run()
   vtkSmartPointer<vtkRenderWindowInteractor> renderWindowInteractor = vtkSmartPointer<vtkRenderWindowInteractor>::New();
   //renderWindowInteractor->SetPicker(worldPointPicker);
   renderWindowInteractor->SetRenderWindow(renderWindow);
+
+#if 0
   //renderer->SetBackground(1,1,1); // Background color white
   renderer->SetBackground(0.5,0.5,0.5); // Background color white
-
+#else
+  // Setup the background gradient
+  renderer->GradientBackgroundOn();
+  renderer->SetBackground(1,1,1);
+  renderer->SetBackground2(0,0,1);
+#endif
   vtkSmartPointer<MouseInteractorStyle> style = vtkSmartPointer<MouseInteractorStyle>::New();
   renderWindowInteractor->SetInteractorStyle( style );
 
@@ -839,7 +872,8 @@ CenterlinesManagerWindowInteractor::run()
   mapperSTL->SetInputConnection(readerSTL->GetOutputPort());
   vtkSmartPointer<vtkActor> actorSTL = vtkSmartPointer<vtkActor>::New();
   actorSTL->SetMapper(mapperSTL);
-  actorSTL->GetProperty()->SetOpacity(0.7);//0.3
+  actorSTL->GetProperty()->SetOpacity(0.25);//0.8);//0.7//0.3
+  //actorSTL->GetProperty()->SetOpacity(0.8);//0.7//0.3
 
    // Add the actor to the scene
   renderer->AddActor(actorSTL);
@@ -887,7 +921,7 @@ CenterlinesManagerWindowInteractor::run()
 	}
       centerlinesTool->importFile( this->inputCenterlinesPath(k) );
     }
-  if ( centerlinesTool )
+  if ( centerlinesTool && false )
     style->addSphereAtCenterlinesExtrimities();
 
 

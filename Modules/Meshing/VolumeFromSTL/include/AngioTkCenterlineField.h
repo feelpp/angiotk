@@ -43,6 +43,9 @@ struct Branch{
 #if defined(HAVE_ANN)
 class ANNkd_tree;
 
+
+int readVTKPolyDataFields( const std::string &name, std::map<std::string,std::vector< std::vector<double> > > & fieldsPointData, bool bigEndian=false );
+
 // This class takes as input A 1D mesh which is the centerline
 // of a tubular 2D surface mesh
 // It computes a mesh size field function of the distance to the centerlines
@@ -106,6 +109,7 @@ class AngioTkCenterline : public Field{
   std::vector<discreteEdge*> discEdges;
   std::vector<discreteFace*> discFaces;
 
+ public:
   std::map<std::string,std::vector<std::vector<double> > >  centerlinesFieldsPointData;
 
  public:
@@ -137,6 +141,8 @@ class AngioTkCenterline : public Field{
 
 
   void updateCenterlinesFromFile( std::string fileName );
+  void updateCenterlinesFromFile2( std::string fileName );
+  void updateCenterlinesFieldsFromFile(std::string fileName);
   void removeBranchIds( std::set<int> const& _removeBranchIds );
   void addFieldBranchIds();
   void writeCenterlinesVTK( std::string fileName );
@@ -150,6 +156,16 @@ class AngioTkCenterline : public Field{
   //double centerlinesRadiusFromLine() const { 
     //auto itr = M_angioTkCenterlines->centerlinesRadiusl().find( mylines[lineIdInBranch]/*mylines.front()*/);
   //}
+  //std::pair<std::map<int,int>,std::map<int,int> > computeRelationVertex() const;
+  void updateRelationMapVertex();
+  void updateRelationMapVertex(std::map<int,int> & _mapVertexGmshIdToVtkId,
+			       std::map<int,int> & _mapVertexVtkIdToGmshId );
+  std::map<int,int> M_mapVertexGmshIdToVtkId, M_mapVertexVtkIdToGmshId;
+  std::set<std::pair<int,int> > M_registerLinesToRemoveFromPointIdPairInModelEdge;
+
+
+  std::vector<std::shared_ptr<AngioTkCenterline> > M_attachAngioTkCenterline;
+  void attachAngioTkCenterline( std::shared_ptr<AngioTkCenterline> const& obj ) { if ( obj ) M_attachAngioTkCenterline.push_back(obj); }
 
   void importSurfaceFromFile(std::string const& fileName );
   //import the 1D mesh of the centerlines (in vtk format)

@@ -284,7 +284,7 @@ CenterlinesFromSTL::run()
         std::ostringstream __str;
         __str << pythonExecutable << " ";
         __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkcenterlines ";
-
+        //__str << "-usetetgen 1 -simplifyvoronoi 1 ";
 
         if ( M_useInteractiveSelection )
         {
@@ -415,7 +415,6 @@ CenterlinesManager::CenterlinesManager( std::string prefix )
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_useWindowInteractor( boption(_name="use-window-interactor",_prefix=this->prefix() ) )
 {
-    std::cout << "start Manager COnstructor\n";
     if ( Environment::vm().count(prefixvm(this->prefix(),"input.centerlines.filename").c_str()) )
         M_inputCenterlinesPath = Environment::vm()[prefixvm(this->prefix(),"input.centerlines.filename").c_str()].as<std::vector<std::string> >();
 
@@ -435,7 +434,6 @@ CenterlinesManager::CenterlinesManager( std::string prefix )
     {
         this->updateOutputPathFromInputFileName();
     }
-    std::cout << "finish Manager COnstructor\n";
 }
 
 void
@@ -499,6 +497,12 @@ CenterlinesManager::run()
             std::cout << "WARNING : Centerlines Manager not run because this input centerlines path not exist :" << this->inputCenterlinesPath(0) << "\n";
         return;
     }
+    if ( this->inputCenterlinesPath().size() > 1 && ( this->inputSurfacePath().empty() || !fs::exists( this->inputSurfacePath() ) ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : Centerlines Manager (fusion case) not run because this input centerlines path not exist :" << this->inputCenterlinesPath(0) << "\n";
+        return;
+    }
 
     std::ostringstream coutStr;
     coutStr << "\n"
@@ -506,7 +510,8 @@ CenterlinesManager::run()
             << "---------------------------------------\n"
             << "run CenterlinesManager \n"
             << "---------------------------------------\n";
-    coutStr << "inputCenterlinesPath  : " << this->inputCenterlinesPath(0) << "\n";
+    for ( int k=0;k<this->inputCenterlinesPath().size();++k)
+        coutStr << "inputCenterlinesPath[" << k << "]  : " << this->inputCenterlinesPath(k) << "\n";
     if ( M_removeBranchIds.size() > 0 )
     {
         coutStr << "remove branch ids :";
@@ -531,22 +536,51 @@ CenterlinesManager::run()
     // // wait all process
     this->worldComm().globalComm().barrier();
 
-
-    if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
+    if ( this->inputCenterlinesPath().size() == 1 )
     {
-        GmshInitialize();
-        // if(!Msg::GetGmshClient())
-        CTX::instance()->terminal = 1;
-        //GmshBatch();
+        if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
+        {
+            GmshInitialize();
+            // if(!Msg::GetGmshClient())
+            CTX::instance()->terminal = 1;
+            //GmshBatch();
 
-        int verbosityLevel = 5;
-        Msg::SetVerbosity( verbosityLevel );
+            int verbosityLevel = 5;
+            Msg::SetVerbosity( verbosityLevel );
 
-        AngioTkCenterline centerlinesTool;
-        centerlinesTool.updateCenterlinesFromFile( this->inputCenterlinesPath(0) );
-        centerlinesTool.removeBranchIds( M_removeBranchIds );
-        centerlinesTool.addFieldBranchIds();
-        centerlinesTool.writeCenterlinesVTK( this->outputPath() );
+            AngioTkCenterline centerlinesTool;
+            centerlinesTool.updateCenterlinesFromFile( this->inputCenterlinesPath(0) );
+            centerlinesTool.removeBranchIds( M_removeBranchIds );
+            centerlinesTool.addFieldBranchIds();
+            centerlinesTool.writeCenterlinesVTK( this->outputPath() );
+        }
+    }
+    else
+    {
+        if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
+        {
+            std::shared_ptr<AngioTkCenterline> centerlinesTool;
+            for ( int k=0;k<this->inputCenterlinesPath().size();++k)
+            {
+                if ( !centerlinesTool )
+                {
+                    if ( true )
+                    {
+                        CTX::instance()->terminal = 1;
+                        int verbosityLevel = 5;
+                        Msg::SetVerbosity( verbosityLevel );
+                    }
+                    centerlinesTool.reset( new AngioTkCenterline );
+                    centerlinesTool->importSurfaceFromFile( this->inputSurfacePath() );
+
+                    //centerlinesTool->updateCenterlinesFromFile( this->inputCenterlinesPath(k) );
+                }
+                //else
+                centerlinesTool->importFile( this->inputCenterlinesPath(k) );
+
+            }
+            centerlinesTool->writeCenterlinesVTK( this->outputPath() );
+        }
     }
 }
 po::options_description
@@ -771,7 +805,7 @@ SurfaceFromImage::run()
     coutStr << "\n"
             << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
             << "---------------------------------------\n"
-            << "run ImageFromCenterlines \n"
+            << "run SurfaceFromImage \n"
             << "---------------------------------------\n";
     coutStr << "inputPath         : " << this->inputPath() << "\n";
     if ( M_hasThresholdLower )
