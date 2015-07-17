@@ -13,6 +13,8 @@
 #include <map>
 #include <set>
 #include <string>
+#include <memory> // std::shared_ptr
+
 #include <gmshHeadersMissing/Field.h>
 #include <MEdge.h>
 
