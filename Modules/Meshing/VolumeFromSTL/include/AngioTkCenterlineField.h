@@ -59,7 +59,8 @@ class AngioTkCenterline : public Field{
 
  protected: 
   GModel *current; //current GModel
-  GModel *mod; //centerline GModel
+  std::shared_ptr<GModel> mod;
+  //GModel *mod; //centerline GModel
   GModel *split; //split GModel
   ANNkd_tree *kdtree, *kdtreeR; 
   std::string fileName;
@@ -143,7 +144,6 @@ class AngioTkCenterline : public Field{
 
 
   void updateCenterlinesFromFile( std::string fileName );
-  void updateCenterlinesFromFile2( std::string fileName );
   void updateCenterlinesFieldsFromFile(std::string fileName);
   void removeBranchIds( std::set<int> const& _removeBranchIds );
   void addFieldBranchIds();

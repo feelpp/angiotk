@@ -414,7 +414,7 @@ AngioTkCenterline::~AngioTkCenterline()
   // WARNING  memory leaks here (mod must be destroy but can be problematic in particular case)
   // -> TODO : need to introduce mod as std::shared_ptr
   //if (mod) delete mod;
-
+  
   if(kdtree){
     ANNpointArray nodes = kdtree->thePoints();
     if(nodes) annDeallocPts(nodes);
@@ -430,14 +430,21 @@ AngioTkCenterline::~AngioTkCenterline()
 void AngioTkCenterline::importSurfaceFromFile(std::string const& fileName )
 {
   current = GModel::current();
+  //if ( !current ) current = new GModel();
+
   //mod = new GModel();
   current->load(fileName);
   current->removeDuplicateMeshVertices(1.e-8);
+#if 0
+      current->setAsCurrent();
+      current->setVisibility(1);
+#endif
 }
 
 void AngioTkCenterline::importFile(std::string fileName)
 {
   current = GModel::current();
+  //if ( !current ) current = new GModel();
   std::vector<GFace*> currentFaces(current->firstFace(), current->lastFace());
   for (unsigned int i = 0; i < currentFaces.size(); i++){
     GFace *gf = currentFaces[i];
@@ -713,8 +720,6 @@ void AngioTkCenterline::importFile(std::string fileName)
 	  }
       }
 
-
-
       //---------------------------------------------//
       // replace points in line
       for ( auto idReplacePair : indexVertexReplaced )
@@ -734,32 +739,15 @@ void AngioTkCenterline::importFile(std::string fileName)
 
 	    }
 	}
-#if 0
-      std::set<std::pair<int,int> > newRegisterLinesToRemove;
-      for ( auto const & mypair : M_registerLinesToRemoveFromPointIdPairInModelEdge )
-	{
-	  newRegisterLinesToRemove.insert( std::make_pair(previousMaxVertexIndex+mypair.first,
-							  previousMaxVertexIndex+mypair.second) );
-	}
-      M_registerLinesToRemoveFromPointIdPairInModelEdge.clear();
-      M_registerLinesToRemoveFromPointIdPairInModelEdge.insert(newRegisterLinesToRemove.begin(),newRegisterLinesToRemove.end());
-#else
-      // update
-      //for ( auto const & mypair : newRegisterLinesToRemove )
-	//M_registerLinesToRemoveFromPointIdPairInModelEdge.insert( std::make_pair(previousMaxVertexIndex+mypair.first,
-      //previousMaxVertexIndex+mypair.second) );
-      //M_registerLinesToRemoveFromPointIdPairInModelEdge.insert( mypair );
-
       for ( auto myLine : newRegisterLinesToRemove2 )
 	{
 	  int v0Id = myLine->getVertex(0)->getIndex(), v1Id=myLine->getVertex(1)->getIndex();
 	  M_registerLinesToRemoveFromPointIdPairInModelEdge.insert( std::make_pair(v0Id,v1Id) );
 	  M_registerLinesToRemoveFromPointIdPairInModelEdge.insert( std::make_pair(v1Id,v0Id) );
 	}
-#endif
       //---------------------------------------------//
-      //std::shared_ptr<GModel> hhhh( new GModel() );
 #if 0
+      //std::shared_ptr<GModel> hhhh( new GModel() );
       std::shared_ptr<GModel> hhhh;
       hhhh.reset( new GModel() );
 #endif
@@ -771,7 +759,8 @@ void AngioTkCenterline::importFile(std::string fileName)
     }
   else
     {
-      mod = new GModel();
+      //mod = new GModel();
+      mod.reset( new GModel() );
       mod->load(fileName);
       mod->removeDuplicateMeshVertices(1.e-8);
       // call indexMeshVertices allow to assign id on vertices from 1
@@ -779,15 +768,10 @@ void AngioTkCenterline::importFile(std::string fileName)
       int numVerticesInCenterlinesGModel = mod->indexMeshVertices(saveAll);
       //mod->writeMSH("myCenterlines.msh", 2.2, false, false);
       //mod->writeVTK("myCenterlines.vtk", false, false);
+#if 1
       current->setAsCurrent();
       current->setVisibility(1);
-
-#if 0
-      readVTKPolyDataFields( fileName,this->centerlinesFieldsPointData );
-      this->updateRelationMapVertex();
 #endif
-      //readVTKPolyDataFields( fileName, this->centerlinesFieldsPointData /*fieldsPointDataInput*/ );
-
       //std::cout<< "number of vertice in current GModel "<< current->indexMeshVertices(true) << "\n";
       modEdges.insert(modEdges.end(),mod->firstEdge(), mod->lastEdge());
     }
@@ -803,9 +787,9 @@ void AngioTkCenterline::importFile(std::string fileName)
   colorl.clear();
   int maxN = 0.0;
 
-  int nbModEdgeAddedFromMerging=0;
+  /*int nbModEdgeAddedFromMerging=0;
   if ( newCenterlines )
-    nbModEdgeAddedFromMerging = std::distance( newCenterlines->mod->firstEdge(), newCenterlines->mod->lastEdge() );
+  nbModEdgeAddedFromMerging = std::distance( newCenterlines->mod->firstEdge(), newCenterlines->mod->lastEdge() );*/
 
 
   // import first build previous centerlines (with maybe some mod) and after add new centerlines
@@ -816,28 +800,6 @@ void AngioTkCenterline::importFile(std::string fileName)
       GEdge *ge = modEdges[i];
       int geTag = ge->tag();
       //std::cout<< "init my branch i "<<i<<" has " << ge->lines.size() << " lines \n";
-
-#if 0
-      if ( i >= ( modEdges.size() - nbModEdgeAddedFromMerging) )
-	{
-	  std::cout << "try to change tag\n";
-	  //std::map<GEntity*,std::set<MVertex*> > fusionBranch;
-	  for ( auto fb : fusionBranch )
-	    {
-	    if ( geTag == fb.first->tag() )
-	      {
-		if ( fb.second.size() > 1 || fb.second.empty() )
-		  Msg::Error("There is a problem\n");
-		if ( colorp.find(*fb.second.begin()) == colorp.end() )
-		  Msg::Error("There is another problem\n");
-		std::cout<< "CHANGE TAG " <<geTag << " -> " << colorp.find(*fb.second.begin())->second << "\n";
-		geTag = colorp.find(*fb.second.begin())->second;
-		fb.first->setTag( geTag );
-		break;
-	      }
-	    }
-	}
-#endif
  
       for(unsigned int j = 0; j < ge->lines.size(); j++)
 	{
@@ -887,52 +849,40 @@ void AngioTkCenterline::importFile(std::string fileName)
     }
 
   // in case of merging centerline : update centerlinesFieldsPointData
-  if ( newCenterlines )//&& false )
+  if ( newCenterlines )
     {
       std::map<std::string,std::vector<std::vector<double> > >  newCenterlinesFieldsPointData;
       // get new mapping between GmshId and VtkId
       std::map<int,int>  _mapVertexGmshIdToVtkId,_mapVertexVtkIdToGmshId;
       this->updateRelationMapVertex( _mapVertexGmshIdToVtkId,_mapVertexVtkIdToGmshId);
 
-      //std::set<int> idValueReg;
       if ( newCenterlines  )
 	{
-	  //int numVertices = numberOfVertices(edges);
-	  //std::cout << "newCenterlines->centerlinesFieldsPointData.size() " << newCenterlines->centerlinesFieldsPointData.size() << "\n";
 	  for (auto const& fieldsPointDataPair : newCenterlines->centerlinesFieldsPointData )
 	    {
 	      newCenterlinesFieldsPointData[fieldsPointDataPair.first].clear();
 	      newCenterlinesFieldsPointData[fieldsPointDataPair.first].resize( _mapVertexVtkIdToGmshId.size() );
-
-	      //std::cout << "fieldsPointDataPair.first " << fieldsPointDataPair.first << "\n";
 	      auto const& vecNewPointData = fieldsPointDataPair.second;
 	      for (int k=0;k<newCenterlines->M_mapVertexVtkIdToGmshId.size();++k)
 		{
-		  //if ( ignoreIndexReplaced.find( k+1 ) != ignoreIndexReplaced.end() ) { /*std::cout << "ignore this point\n";*/ continue; }
-		  if ( ignoreIndexReplaced.find( newCenterlines->M_mapVertexVtkIdToGmshId[k] ) != ignoreIndexReplaced.end() ) { /*std::cout << "ignore this point\n";*/ continue; }
+		  if ( ignoreIndexReplaced.find( newCenterlines->M_mapVertexVtkIdToGmshId[k] ) != ignoreIndexReplaced.end() ) { continue; }
 
 		  int idContainer = _mapVertexGmshIdToVtkId[ previousMaxVertexIndex+newCenterlines->M_mapVertexVtkIdToGmshId[k] ];
 		  //std::cout << "idContainer " << idContainer << "with " << centerlinesFieldsPointData[fieldsPointDataPair.first].size() << " and " << _mapVertexGmshIdToVtkId.size()<<"\n";
 		  newCenterlinesFieldsPointData[fieldsPointDataPair.first][idContainer] = vecNewPointData[k];
-		  //idValueReg.insert(idContainer);
 		}
 	    }
 	}
 
       for (auto const& fieldsPointDataPair : centerlinesFieldsPointData )
 	{
-	  //std::cout << "AAAfieldsPointDataPair.first " << fieldsPointDataPair.first << "\n";
 	  auto const& vecNewPointData = fieldsPointDataPair.second;
 	  for (int k=0;k<M_mapVertexVtkIdToGmshId.size();++k)
 	    {
 	      int idContainer = _mapVertexGmshIdToVtkId.find( M_mapVertexVtkIdToGmshId[k] )->second;
 	      newCenterlinesFieldsPointData[fieldsPointDataPair.first][idContainer] = vecNewPointData[k];
-	      //for (int comp=0;comp<centerlinesFieldsPointData[fieldsPointDataPair.first][idContainer].size();++comp )
-	      //centerlinesFieldsPointData[fieldsPointDataPair.first][idContainer][comp] =  0.;
-	      //idValueReg.insert(idContainer);
 	    }
 	}
-      //std::cout << "idValueReg.size() : " << idValueReg.size() << "\n";
       centerlinesFieldsPointData.clear();
       centerlinesFieldsPointData = newCenterlinesFieldsPointData;
     }
@@ -1029,15 +979,10 @@ void AngioTkCenterline::importFile(std::string fileName)
       }
 
     }
-  //std::cout << "BIS colorl.size() " << colorl.size() << "\n" << "colorp.size() " << colorp.size() << "\n";
-
-  //std::cout << "numVertices before = "<<numberOfVertices(edges)<<"\n";
   this->createBranches(maxN);
-  //std::cout << "numVertices after = "<<numberOfVertices(edges)<<"\n";
 #endif
   //---------------------------------------------------------------------------------------------//
   // in case of merging centerline : update centerlinesFieldsPointData
-  //if ( newCenterlines && false )
     {
       std::map<std::string,std::vector<std::vector<double> > >  newCenterlinesFieldsPointData;
       // get new mapping between GmshId and VtkId
@@ -1048,22 +993,7 @@ void AngioTkCenterline::importFile(std::string fileName)
       for (auto const& fieldsPointDataPair : centerlinesFieldsPointData )
 	{
 	  newCenterlinesFieldsPointData[fieldsPointDataPair.first].clear();
-	  //std::cout << "AAAfieldsPointDataPair.first " << fieldsPointDataPair.first << "\n";
 	  auto const& vecNewPointData = fieldsPointDataPair.second;
-#if 0
-	  //for (int k=0;k<M_mapVertexVtkIdToGmshId.size();++k)
-	  for (int k=0;k<_previousMapVertexVtkIdToGmshId.size();++k)
-	    {
-	      if ( _mapVertexGmshIdToVtkId.find( M_mapVertexVtkIdToGmshId[k] ) == _mapVertexGmshIdToVtkId.end() )
-		Msg::Error("Error in mapping \n");
-	      //int idContainer = _mapVertexGmshIdToVtkId[ M_mapVertexVtkIdToGmshId[k] ];
-	      int idContainer = _mapVertexGmshIdToVtkId[ _previousMapVertexVtkIdToGmshId[k] ];
-	      //_previousMapVertexGmshIdToVtkId,_previousMapVertexVtkIdToGmshId
-	      //std::cout << "k="<< k << " _previousMapVertexVtkIdToGmshId[k] "<< _previousMapVertexVtkIdToGmshId[k]
-	      //<< " idContainer " << idContainer << "\n";
-	      centerlinesFieldsPointData[fieldsPointDataPair.first][idContainer] = vecNewPointData[k];
-	    }
-#else
 	  newCenterlinesFieldsPointData[fieldsPointDataPair.first].resize(_mapVertexVtkIdToGmshId.size());
 	  for (int k=0;k<_mapVertexVtkIdToGmshId.size();++k)
 	    {
@@ -1081,31 +1011,11 @@ void AngioTkCenterline::importFile(std::string fileName)
 
 	      for (int comp=0;comp<compSize;++comp )
 		newCenterlinesFieldsPointData[fieldsPointDataPair.first][k][comp] =  vecNewPointData[idContainer][comp];
-
-	    }
-#endif
-	}
-      if ( newCenterlines && false)
-	{
-	  //std::cout << "newCenterlines->centerlinesFieldsPointData.size() " << newCenterlines->centerlinesFieldsPointData.size() << "\n";
-	  for (auto const& fieldsPointDataPair : newCenterlines->centerlinesFieldsPointData )
-	    {
-	      std::cout << "fieldsPointDataPair.first " << fieldsPointDataPair.first << "\n";
-	      auto const& vecNewPointData = fieldsPointDataPair.second;
-	      for (int k=0;k<newCenterlines->M_mapVertexVtkIdToGmshId.size();++k)
-		{
-		  if ( ignoreIndexReplaced.find( k+1 ) != ignoreIndexReplaced.end() ) { /*std::cout << "ignore this point\n";*/ continue; }
-
-		  int idContainer = _mapVertexGmshIdToVtkId[ previousMaxVertexIndex+newCenterlines->M_mapVertexVtkIdToGmshId[k] ];
-		  //std::cout << "idContainer " << idContainer << "with " << centerlinesFieldsPointData[fieldsPointDataPair.first].size() << " and " << _mapVertexGmshIdToVtkId.size()<<"\n";
-		  centerlinesFieldsPointData[fieldsPointDataPair.first][idContainer] = vecNewPointData[k];
-		}
 	    }
 	}
 
 	  centerlinesFieldsPointData.clear();
 	  centerlinesFieldsPointData = newCenterlinesFieldsPointData;
-
     }
 
   // update new mapping between GmshId and VtkId
@@ -2935,103 +2845,9 @@ int readVTKPolyDataFields( const std::string &name, std::map<std::string,std::ve
 
 
 }
-#if 0
-int writeVTKPolyData( GModel * gmodel,std::vector<Branch> const& edges,
-		       const std::string &name,
-		       std::map<std::string,std::vector<std::vector<double> > > const& fieldsPointData,
-		       bool binary=false,
-		       bool saveAll=false, double scalingFactor=1.0,
-		       bool bigEndian=false)
-{
-  FILE *fp = Fopen(name.c_str(), binary ? "wb" : "w");
-  if(!fp){
-    Msg::Error("Unable to open file '%s'", name.c_str());
-    return 0;
-  }
 
-  if(gmodel->noPhysicalGroups()) saveAll = true;
 
-  // get the number of vertices and index the vertices in a continuous
-  // sequence
-  //int numVertices = gmodel->indexMeshVertices(saveAll);
-  int numVertices = gmodel->getNumMeshVertices();
-
-  fprintf(fp, "# vtk DataFile Version 3.0\n");
-  fprintf(fp, "%s, Created by Gmsh\n", gmodel->getName().c_str());
-  if(binary)
-    fprintf(fp, "BINARY\n");
-  else
-    fprintf(fp, "ASCII\n");
-  fprintf(fp, "DATASET POLYDATA\n");
-
-  // get all the entities in the model
-  std::vector<GEntity*> entities;
-  gmodel->getEntities(entities);
-
-  fprintf(fp, "POINTS %d double\n", numVertices);
-  for(unsigned int i = 0; i < entities.size(); i++)
-    for(unsigned int j = 0; j < entities[i]->mesh_vertices.size(); j++)
-      entities[i]->mesh_vertices[j]->writeVTK(fp, binary, scalingFactor, bigEndian);
-  fprintf(fp, "\n");
-
-  unsigned int nBranch = edges.size();
-  unsigned int cptLines=0;
-  for(unsigned int i = 0; i < nBranch; ++i){
-    std::vector<MLine*> lines = edges[i].lines;
-    cptLines +=lines.size()+2;
-  }
-  fprintf(fp, "LINES %d %d\n", nBranch ,cptLines);
-  for(unsigned int i = 0; i < nBranch; ++i){
-    std::vector<MLine*> lines = edges[i].lines;
-    bool firstPtDone = false;
-
-    for(unsigned int k = 0; k < lines.size(); ++k){
-      MLine *l = lines[k];
-      if ( !firstPtDone )
-	{
-	  int nPointInBranch = lines.size() +1;
-	  fprintf(fp, "%d", nPointInBranch );
-	  fprintf(fp, " %d", l->getVertex(0)->getIndex() - 1);
-	  firstPtDone = true;
-	}
-
-      fprintf(fp, " %d", l->getVertex(1)->getIndex() - 1);
-    }
-    fprintf(fp, "\n");
-  }
-
-  //std::cout << "fieldsPointData.size() " << fieldsPointData.size() << "\n";
-  if ( fieldsPointData.size() > 0 )
-    {
-    fprintf(fp, "\nPOINT_DATA %d\n", numVertices);
-    fprintf(fp, "FIELD FieldData %d\n", (int)fieldsPointData.size());
-    }
-
-  for ( auto const& thefield : fieldsPointData )
-    {
-      int nComp = thefield.second[0].size();
-      fprintf(fp, "%s %d %d double\n", thefield.first.c_str(), nComp, numVertices);
-
-      int cptVal=0;
-      for ( auto const& valAllComp : thefield.second )
-	for ( double val : valAllComp )
-	//for ( double val : thefield.second )
-	{
-	  fprintf(fp, "%.16g ", val );
-	  if ( cptVal%6==5 ) 
-	    fprintf(fp, "\n" );
-	  ++cptVal;
-	}
-
-	  fprintf(fp, "\n" );
-    }
-
-  fclose(fp);
-  return 1;
-
-}
-#endif
-int writeVTKPolyData( GModel * gmodel,std::vector<Branch> const& edges,
+int writeVTKPolyData( std::shared_ptr<GModel>/*GModel **/ gmodel,std::vector<Branch> const& edges,
 		      const std::string &name,
 		      std::map<std::string,std::vector<std::vector<double> > > const& fieldsPointData,
 		      bool binary=false,
@@ -3177,153 +2993,6 @@ void AngioTkCenterline::writeCenterlinesVTK(std::string fileName)
 }
 
 #include <gmshHeadersMissing/MVertexPositionSet.h>
-void AngioTkCenterline::updateCenterlinesFromFile2(std::string fileName)
-{
-  this->importFile( fileName );
-
-  std::vector<MVertex*> verticesPosition;
-  bool saveAll=false;
-  int numVertices = numberOfVertices(edges);
-#if 0
-  //int numVertices = mod->indexMeshVertices(saveAll);
-  int numVertices = mod->getNumMeshVertices();
-
-  //std::cout << "numVertices " << numVertices << "\n";
-  std::vector<GEntity*> entities;
-  mod->getEntities(entities);
-
-  std::map<int,std::pair<int,int> > vertexIdToEntityIdAndLocalId;
-  for(unsigned int i = 0; i < entities.size(); i++)
-    for(unsigned int j = 0; j < entities[i]->mesh_vertices.size(); j++)
-    {
-      MVertex * myvertex = entities[i]->mesh_vertices[j];
-      //std::cout << myvertex->x() << " " << myvertex->y() << " "<< myvertex->z() << "\n";
-      verticesPosition.push_back(new MVertex(myvertex->x(), myvertex->y(), myvertex->z(), NULL, myvertex->getIndex() ));
-      vertexIdToEntityIdAndLocalId[myvertex->getIndex()]=std::make_pair(i,j);
-    }
-#else
-  for ( auto& ptPair : colorp )
-    {
-      MVertex* myvertex = ptPair.first;
-      std::cout << myvertex->x() << " " << myvertex->y() << " "<< myvertex->z() << "\n";
-      verticesPosition.push_back(new MVertex(myvertex->x(), myvertex->y(), myvertex->z(), NULL, myvertex->getIndex() ));
-    }
-#endif
-
-  // init localisation tool
-  MVertexPositionSet pos(verticesPosition);
-  double tolerance = 1.0e-8;
-  SBoundingBox3d bbox = mod->bounds();
-  double lc = bbox.empty() ? 1. : norm(SVector3(bbox.max(), bbox.min()));
-  double eps = lc * tolerance;
-
-  // load initial centerlines with duplicate vertices/lines
-  GModel * modInitial = new GModel();
-  modInitial->load(fileName);
-  int numVerticesInitial = modInitial->indexMeshVertices(saveAll);
-  //int numVerticesInitial = modInitial->getNumMeshVertices();
-  //std::cout << "numVerticesInitial " << numVerticesInitial << "\n";
-  std::vector<GEntity*> entitiesInitial;
-  modInitial->getEntities(entitiesInitial);
-
-  // compute vertices relation between initial mesh and clean mesh
-  std::map<int,int> initialVertexIdToCleanVertexId;
-  for(unsigned int i = 0; i < entitiesInitial.size(); i++)
-    for(unsigned int j = 0; j < entitiesInitial[i]->mesh_vertices.size(); j++)
-    {
-      MVertex * myvertex = entitiesInitial[i]->mesh_vertices[j];
-
-      MVertex *vertexFind = pos.find(myvertex->x(), myvertex->y(), myvertex->z(), eps);
-
-      if ( !vertexFind )
-	Msg::Error("vertexFind not find ");
-
-      initialVertexIdToCleanVertexId[myvertex->getIndex()] = vertexFind->getNum();
-      //initialVertexIdToCleanVertexId[myvertex->getIndex()] = vertexFind->getIndex();
-      //std::cout << "get correspondance "<< myvertex->getIndex() << " vs " << vertexFind->getNum() << " in " << i << "\n";
-    }
-
-#if 0
-  for(unsigned int i = 0; i < entitiesInitial.size(); i++)
-    for(unsigned int j = 0; j < entitiesInitial[i]->mesh_vertices.size(); j++)
-    {
-      MVertex * myvertexInitial = entitiesInitial[i]->mesh_vertices[j];
-      int vertexIdClean = initialVertexIdToCleanVertexId[myvertexInitial->getIndex()];
-      int entityIdClean = vertexIdToEntityIdAndLocalId[vertexIdClean].first;
-      int localIdClean = vertexIdToEntityIdAndLocalId[vertexIdClean].second;
-      MVertex * myvertexClean = entities[entityIdClean]->mesh_vertices[localIdClean];
-      std::cout << myvertexInitial->x() << " " << myvertexInitial->y() << " "<< myvertexInitial->z()
-		<< " VS "
-		<< myvertexClean->x() << " " << myvertexClean->y() << " "<< myvertexClean->z()
-		<< "\n";
-    }
-#endif
-
-  // load vtk Point Data and store
-  std::map<std::string,std::vector<std::vector<double> > >  fieldsPointDataInput;
-  readVTKPolyDataFields( fileName, fieldsPointDataInput );
-
-  // tranfert into clean centerlines the Point Data Value
-  centerlinesFieldsPointData.clear();
-  for ( auto const& thefield : fieldsPointDataInput )
-    {
-      centerlinesFieldsPointData[thefield.first].resize(numVertices);
-      for ( auto & thefieldClean : centerlinesFieldsPointData[thefield.first] )
-	thefieldClean.resize(thefield.second[0].size());
-    }
-
-#if 0
-  for(unsigned int i = 0; i < entitiesInitial.size(); i++)
-    for(unsigned int j = 0; j < entitiesInitial[i]->mesh_vertices.size(); j++)
-    {
-      MVertex * myvertexInitial = entitiesInitial[i]->mesh_vertices[j];
-      int vertexIdClean = initialVertexIdToCleanVertexId[myvertexInitial->getIndex()];
-      int entityIdClean = vertexIdToEntityIdAndLocalId[vertexIdClean].first;
-      int localIdClean = vertexIdToEntityIdAndLocalId[vertexIdClean].second;
-      MVertex * myvertexClean = entities[entityIdClean]->mesh_vertices[localIdClean];
-
-      for ( auto const& thefield : fieldsPointDataInput )
-	for ( int comp=0;comp< thefield.second[0].size();++comp )
-	{
-	  centerlinesFieldsPointData[thefield.first][myvertexClean->getIndex()-1][comp] = thefield.second[myvertexInitial->getIndex()-1][comp];
-	}
-    }
-#elif 1
-  for(unsigned int i = 0; i < entitiesInitial.size(); i++)
-    for(unsigned int j = 0; j < entitiesInitial[i]->mesh_vertices.size(); j++)
-    {
-      MVertex * myvertexInitial = entitiesInitial[i]->mesh_vertices[j];
-      int vertexIdClean = initialVertexIdToCleanVertexId[myvertexInitial->getIndex()];
-#if 0
-      int entityIdClean = vertexIdToEntityIdAndLocalId[vertexIdClean].first;
-      int localIdClean = vertexIdToEntityIdAndLocalId[vertexIdClean].second;
-      MVertex * myvertexClean = entities[entityIdClean]->mesh_vertices[localIdClean];
-#endif
-      for ( auto const& thefield : fieldsPointDataInput )
-	for ( int comp=0;comp< thefield.second[0].size();++comp )
-	{
-	  centerlinesFieldsPointData[thefield.first][this->M_mapVertexGmshIdToVtkId[vertexIdClean]][comp] = thefield.second[myvertexInitial->getIndex()-1][comp];
-	}
-    }
-
-#else
-
-  for ( auto const& colorpPair : colorp )
-    {
-      MVertex * myvertexInitial = colorpPair.first;//entitiesInitial[i]->mesh_vertices[j];
-      int vertexIdClean = initialVertexIdToCleanVertexId[myvertexInitial->getIndex()];
-      int entityIdClean = vertexIdToEntityIdAndLocalId[vertexIdClean].first;
-      int localIdClean = vertexIdToEntityIdAndLocalId[vertexIdClean].second;
-      MVertex * myvertexClean = myvertexInitial;//entities[entityIdClean]->mesh_vertices[localIdClean];
-
-      for ( auto const& thefield : fieldsPointDataInput )
-	for ( int comp=0;comp< thefield.second[0].size();++comp )
-	{
-	  centerlinesFieldsPointData[thefield.first][myvertexClean->getIndex()-1][comp] = thefield.second[myvertexInitial->getIndex()-1][comp];
-	}
-    }
-#endif
-}
 void AngioTkCenterline::updateCenterlinesFromFile(std::string fileName)
 {
   this->importFile( fileName );
@@ -3331,28 +3000,8 @@ void AngioTkCenterline::updateCenterlinesFromFile(std::string fileName)
 }
 void AngioTkCenterline::updateCenterlinesFieldsFromFile(std::string fileName)
 {
-  //this->importFile( fileName );
 
   std::vector<MVertex*> verticesPosition;
-  bool saveAll=false;
-#if 0
-  //int numVertices = mod->indexMeshVertices(saveAll);
-  int numVertices = mod->getNumMeshVertices();
-
-  //std::cout << "numVertices " << numVertices << "\n";
-  std::vector<GEntity*> entities;
-  mod->getEntities(entities);
-
-  std::map<int,std::pair<int,int> > vertexIdToEntityIdAndLocalId;
-  for(unsigned int i = 0; i < entities.size(); i++)
-    for(unsigned int j = 0; j < entities[i]->mesh_vertices.size(); j++)
-    {
-      MVertex * myvertex = entities[i]->mesh_vertices[j];
-      //std::cout << myvertex->x() << " " << myvertex->y() << " "<< myvertex->z() << "\n";
-      verticesPosition.push_back(new MVertex(myvertex->x(), myvertex->y(), myvertex->z(), NULL, myvertex->getIndex() ));
-      vertexIdToEntityIdAndLocalId[myvertex->getIndex()]=std::make_pair(i,j);
-    }
-#else
   int numVertices = numberOfVertices(edges);
   //std::cout << " numVertices " << numVertices << " and colorp " << colorp.size() << "\n";
   for ( auto& ptPair : colorp )
@@ -3361,8 +3010,6 @@ void AngioTkCenterline::updateCenterlinesFieldsFromFile(std::string fileName)
       //std::cout << myvertex->x() << " " << myvertex->y() << " "<< myvertex->z() << "\n";
       verticesPosition.push_back(new MVertex(myvertex->x(), myvertex->y(), myvertex->z(), NULL, myvertex->getIndex() ));
     }
-#endif
-
   // init localisation tool
   MVertexPositionSet pos(verticesPosition);
   double tolerance = 1.0e-8;
@@ -3373,6 +3020,7 @@ void AngioTkCenterline::updateCenterlinesFieldsFromFile(std::string fileName)
   // load initial centerlines with duplicate vertices/lines
   GModel * modInitial = new GModel();
   modInitial->load(fileName);
+  bool saveAll=false;
   int numVerticesInitial = modInitial->indexMeshVertices(saveAll);
   //int numVerticesInitial = modInitial->getNumMeshVertices();
   //std::cout << "numVerticesInitial " << numVerticesInitial << "\n";
