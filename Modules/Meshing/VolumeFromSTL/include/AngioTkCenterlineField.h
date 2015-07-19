@@ -147,6 +147,8 @@ class AngioTkCenterline : public Field{
   void updateCenterlinesFieldsFromFile(std::string fileName);
   void removeBranchIds( std::set<int> const& _removeBranchIds );
   void addFieldBranchIds();
+  void addFieldRadiusMin();
+  void applyThresholdRadius(double valMinThreshold);
   void writeCenterlinesVTK( std::string fileName );
 
   std::map<MVertex*, std::pair<int,int> > const&
@@ -155,6 +157,8 @@ class AngioTkCenterline : public Field{
   Branch const& centerlinesBranch(int k) const { return edges[k]; }
 
   std::map<MLine*,double> /*const&*/ centerlinesRadiusl() const { return radiusl; }
+  double minRadiusAtVertex( MVertex* myvertex );
+
   //double centerlinesRadiusFromLine() const { 
     //auto itr = M_angioTkCenterlines->centerlinesRadiusl().find( mylines[lineIdInBranch]/*mylines.front()*/);
   //}

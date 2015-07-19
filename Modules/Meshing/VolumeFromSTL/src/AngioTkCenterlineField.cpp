@@ -477,7 +477,7 @@ void AngioTkCenterline::importFile(std::string fileName)
 
   if ( !modEdges.empty() )
     {
-      std::cout << "NEW start\n";
+      Msg::Info("AngioTkCenterline: importFile : merge centerlines start");
 
       //std::shared_ptr<AngioTkCenterline> newCenterlines( new AngioTkCenterline );
       newCenterlines.reset( new AngioTkCenterline );
@@ -513,22 +513,13 @@ void AngioTkCenterline::importFile(std::string fileName)
 	  std::cout << "extremity ptToLocalize " << ptToLocalize[0] <<","<< ptToLocalize[1] <<","<< ptToLocalize[2]<<"\n";
 	  std::cout << "Find KdTree " << nodes[index[0]][0] <<","<< nodes[index[0]][1]<<","<< nodes[index[0]][2] << " dist " << dist[0] << "\n";
 	  std::cout << "myRadius " << radius << "\n";
-
-	  if ( 4*radius > dist[0] )
-	    std::cout << "yes we found\n";
-	  else
-	    std::cout << "not found\n";
 #endif
 
 	  if ( lineIdInBranch != 0 && lineIdInBranch != (mylines.size()-1) )
 	    Msg::Error("is not an extremity\n");
 
-	  //if ( index[0] >= colorp.size() )
-	  // Msg::Error("invalid acces tab \n");
-
-
-	  if ( 4*radius > dist[0] )
-	    {
+	  //if ( 4*radius > dist[0] )
+	  //{
 	      // get point in colorp (with respect to the initialisation of kdtree)
 	      MVertex* pointFound = NULL;
 	      if ( index[0] < colorp.size() )
@@ -537,7 +528,16 @@ void AngioTkCenterline::importFile(std::string fileName)
 		  for (int k=0;k<index[0];++k)
 		    ++itp;
 		  //std::cout << " itp->first; " << itp->first->x() << "," << itp->first->y() << "," << itp->first->z() <<"\n";
-		  pointFound = itp->first;
+#if 0
+		  if ( 4*radius > dist[0] )
+		    pointFound = itp->first;
+#else
+		  if ( 2*(radius+this->minRadiusAtVertex(itp->first) ) > dist[0] )
+		    pointFound = itp->first;
+		  //if ( 30*(/*radius*/1 ) > dist[0] )
+		  //pointFound = itp->first;
+#endif
+		  //if ( centerlinesFieldsPointData. )
 		}
 	      else
 		{
@@ -551,7 +551,16 @@ void AngioTkCenterline::importFile(std::string fileName)
 		    //SVector3 P0(v0->x(),v0->y(), v0->z());
 		    //SVector3 P1(v1->x(),v1->y(), v1->z());
 		    for (int j= 1; j < nbPL+1; j++){
-		      if ( ind==index[0] ) { pointFound = v0; break;}
+		      if ( ind==index[0] ) {
+			//if ( 4*radius > dist[0] )
+			//  pointFound = v0;
+			if ( 2*(radius+this->minRadiusAtVertex(v0) ) > dist[0] )
+			  pointFound = v0;
+			  //if ( 30*(1/*radius*/ ) > dist[0] )
+			//pointFound = v0;
+
+			break;
+		      }
 			//double inc = (double)j/(double)(nbPL+1);
 			//SVector3 Pj = P0+inc*(P1-P0);
 		      ind++;
@@ -569,10 +578,14 @@ void AngioTkCenterline::importFile(std::string fileName)
 		  std::cout << "pointFound  " << pointFound->x() <<","<< pointFound->y() <<","<< pointFound->z()<<"\n";
 		  std::cout << "myRadius " << radius << "\n";
 		}
+#if 0
 	      if ( pointFound == NULL )
-		Msg::Error("point not Found \n");
-
-
+		std::cout << "point not found with dist " << dist[0] << "\n";
+	      else
+		std::cout << "point found\n";
+#endif
+	      if ( pointFound != NULL )
+		{
 
 	      MVertex* _ptToReplaced = extremityPair.first;
 	      MLine* _lineWhichHasToReplaced = myline;
@@ -594,7 +607,6 @@ void AngioTkCenterline::importFile(std::string fileName)
 		      int vIdInLine = (isForwardSearch)?0 : 1;
 		      MVertex *newV = mylineSearch->getVertex( vIdInLine );
 		      if ( _mylink != newV ) Msg::Error("NOT GOOD \n");
-		      //std::cout << "linkKKKKK : " << _mylink->getIndex() << " VS " << newV->getIndex() << "\n";
 		      _mylink = mylineSearch->getVertex( (int)(vIdInLine+1)%2 );
 		      double newdist = pointFound->distance(newV);
 		      if ( newdist < curMinDist )
@@ -755,7 +767,7 @@ void AngioTkCenterline::importFile(std::string fileName)
       //modEdges.insert(modEdges.end(),mod->firstEdge(), mod->lastEdge());
       modEdges.insert(modEdges.end(),newCenterlines->mod->firstEdge(), newCenterlines->mod->lastEdge());
       //std::cout << "new distance" << std::distance( newCenterlines->mod->firstEdge(), newCenterlines->mod->lastEdge())<<"\n";
-      std::cout << "NEW finish\n";
+      Msg::Info("AngioTkCenterline: importFile : merge centerlines finish");
     }
   else
     {
@@ -860,6 +872,8 @@ void AngioTkCenterline::importFile(std::string fileName)
 	{
 	  for (auto const& fieldsPointDataPair : newCenterlines->centerlinesFieldsPointData )
 	    {
+	      if ( centerlinesFieldsPointData.find(fieldsPointDataPair.first) == centerlinesFieldsPointData.end() ) continue;
+
 	      newCenterlinesFieldsPointData[fieldsPointDataPair.first].clear();
 	      newCenterlinesFieldsPointData[fieldsPointDataPair.first].resize( _mapVertexVtkIdToGmshId.size() );
 	      auto const& vecNewPointData = fieldsPointDataPair.second;
@@ -873,6 +887,15 @@ void AngioTkCenterline::importFile(std::string fileName)
 		}
 	    }
 	}
+
+      std::set<std::string> fieldsToErase;
+      for (auto const& fieldsPointDataPair : centerlinesFieldsPointData )
+	{
+	  if ( newCenterlines->centerlinesFieldsPointData.find(fieldsPointDataPair.first) == newCenterlines->centerlinesFieldsPointData.end() )
+	    fieldsToErase.insert( fieldsPointDataPair.first );
+	}
+      for ( std::string const fieldName : fieldsToErase )
+	centerlinesFieldsPointData.erase(fieldName);
 
       for (auto const& fieldsPointDataPair : centerlinesFieldsPointData )
 	{
@@ -3103,8 +3126,8 @@ void AngioTkCenterline::updateCenterlinesFieldsFromFile(std::string fileName)
 
 void AngioTkCenterline::addFieldBranchIds()
 {
-  if ( centerlinesFieldsPointData.find("BranchIds") != centerlinesFieldsPointData.end() )
-    return;
+  //if ( centerlinesFieldsPointData.find("BranchIds") != centerlinesFieldsPointData.end() )
+  //  return;
 
   int numVertices = numberOfVertices(edges);
   centerlinesFieldsPointData["BranchIds"].resize( numVertices );
@@ -3136,6 +3159,69 @@ void AngioTkCenterline::addFieldBranchIds()
   }
 
 }
+
+void
+AngioTkCenterline::addFieldRadiusMin()
+{
+  int numVertices = numberOfVertices(edges);
+  if ( colorp.size() != numVertices ) 
+        Msg::Error("invalid container size");
+
+  centerlinesFieldsPointData["RadiusMin"].clear();
+  centerlinesFieldsPointData["RadiusMin"].resize( numVertices );
+  for ( auto& ptPair : colorp )
+    {
+      MVertex* myvertex = ptPair.first;
+      double pt[3] = { myvertex->x(), myvertex->y(), myvertex->z() };
+      ANNidx index[1];
+      ANNdist dist[1];
+      kdtreeR->annkSearch(pt, 1, index, dist);
+      double minRad = sqrt(dist[0]);
+
+      int vId = myvertex->getIndex();
+      int vVtkId = this->M_mapVertexGmshIdToVtkId[vId];
+      centerlinesFieldsPointData["RadiusMin"][vVtkId] = { (double)minRad };
+    }
+}
+
+double
+AngioTkCenterline::minRadiusAtVertex( MVertex* myvertex )
+{
+  if ( !kdtreeR )
+    Msg::Error("kdtreeR not built");
+
+  double pt[3] = { myvertex->x(), myvertex->y(), myvertex->z() };
+  ANNidx index[1];
+  ANNdist dist[1];
+  kdtreeR->annkSearch(pt, 1, index, dist);
+  double minRad = sqrt(dist[0]);
+  return minRad;
+}
+
+void
+AngioTkCenterline::applyThresholdRadius(double valMinThreshold)
+{
+  int numVertices = numberOfVertices(edges);
+  if ( centerlinesFieldsPointData.find("RadiusMin") != centerlinesFieldsPointData.end() &&
+       centerlinesFieldsPointData.find("RadiusMin")->second.size() == numVertices )
+    {
+      for (int k=0;k<numVertices;++k)
+	{
+	  if ( centerlinesFieldsPointData["RadiusMin"][k][0] < valMinThreshold )
+	    centerlinesFieldsPointData["RadiusMin"][k][0] = valMinThreshold;
+	}
+    }
+  if ( centerlinesFieldsPointData.find("MaximumInscribedSphereRadius") != centerlinesFieldsPointData.end() &&
+       centerlinesFieldsPointData.find("MaximumInscribedSphereRadius")->second.size() == numVertices )
+    {
+      for (int k=0;k<numVertices;++k)
+	{
+	  if ( centerlinesFieldsPointData["MaximumInscribedSphereRadius"][k][0] < valMinThreshold )
+	    centerlinesFieldsPointData["MaximumInscribedSphereRadius"][k][0] = valMinThreshold;
+	}
+    }
+}
+
 
 
 void AngioTkCenterline::removeBranchIds( std::set<int> const& _removeBranchIds )

@@ -413,7 +413,8 @@ CenterlinesManager::CenterlinesManager( std::string prefix )
     M_inputPointSetPath( soption(_name="input.point-set.filename",_prefix=this->prefix()) ),
     M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
-    M_useWindowInteractor( boption(_name="use-window-interactor",_prefix=this->prefix() ) )
+    M_useWindowInteractor( boption(_name="use-window-interactor",_prefix=this->prefix() ) ),
+    M_applyThresholdMinRadius( doption(_name="apply-threshold-min-radius",_prefix=this->prefix() ) )
 {
     if ( Environment::vm().count(prefixvm(this->prefix(),"input.centerlines.filename").c_str()) )
         M_inputCenterlinesPath = Environment::vm()[prefixvm(this->prefix(),"input.centerlines.filename").c_str()].as<std::vector<std::string> >();
@@ -536,6 +537,9 @@ CenterlinesManager::run()
     // // wait all process
     this->worldComm().globalComm().barrier();
 
+
+    bool surfaceMeshExist = !this->inputSurfacePath().empty() && fs::exists( this->inputSurfacePath() );
+
     if ( this->inputCenterlinesPath().size() == 1 )
     {
         if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
@@ -549,9 +553,15 @@ CenterlinesManager::run()
             Msg::SetVerbosity( verbosityLevel );
 
             AngioTkCenterline centerlinesTool;
+            if ( surfaceMeshExist )
+                centerlinesTool.importSurfaceFromFile( this->inputSurfacePath() );
             centerlinesTool.updateCenterlinesFromFile( this->inputCenterlinesPath(0) );
             centerlinesTool.removeBranchIds( M_removeBranchIds );
             centerlinesTool.addFieldBranchIds();
+            if ( surfaceMeshExist )
+                centerlinesTool.addFieldRadiusMin();
+            if ( M_applyThresholdMinRadius > 0 )
+                centerlinesTool.applyThresholdRadius( M_applyThresholdMinRadius );
             centerlinesTool.writeCenterlinesVTK( this->outputPath() );
         }
     }
@@ -571,14 +581,19 @@ CenterlinesManager::run()
                         Msg::SetVerbosity( verbosityLevel );
                     }
                     centerlinesTool.reset( new AngioTkCenterline );
-                    centerlinesTool->importSurfaceFromFile( this->inputSurfacePath() );
+                    if ( surfaceMeshExist )
+                        centerlinesTool->importSurfaceFromFile( this->inputSurfacePath() );
 
                     //centerlinesTool->updateCenterlinesFromFile( this->inputCenterlinesPath(k) );
                 }
                 //else
                 centerlinesTool->importFile( this->inputCenterlinesPath(k) );
-
             }
+            centerlinesTool->addFieldBranchIds();
+            if ( surfaceMeshExist && false )
+                centerlinesTool->addFieldRadiusMin();
+            if ( M_applyThresholdMinRadius > 0 )
+                centerlinesTool->applyThresholdRadius( M_applyThresholdMinRadius );
             centerlinesTool->writeCenterlinesVTK( this->outputPath() );
         }
     }
@@ -597,6 +612,7 @@ CenterlinesManager::options( std::string const& prefix )
         (prefixvm(prefix,"remove-branch-ids").c_str(), po::value<std::vector<int> >()->multitoken(), "(vector of int) remove branch ids" )
         (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         (prefixvm(prefix,"use-window-interactor").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) use-window-interactor")
+        (prefixvm(prefix,"apply-threshold-min-radius").c_str(), Feel::po::value<double>()->default_value(-1), "(double) apply-threshold-min-radius")
         ;
     return myCenterlinesManagerOptions;
 }
@@ -608,24 +624,17 @@ ImageFromCenterlines::ImageFromCenterlines( std::string prefix )
     M_prefix( prefix ),
     M_inputPath( soption(_name="input.filename",_prefix=this->prefix()) ),
     M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_dimX( doption(_name="dim.x",_prefix=this->prefix() ) ),
     M_dimY( doption(_name="dim.y",_prefix=this->prefix() ) ),
     M_dimZ( doption(_name="dim.z",_prefix=this->prefix() ) ),
-    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
+    M_radiusArrayName( soption(_name="radius-array-name",_prefix=this->prefix() ) )
 {
     if ( !M_inputPath.empty() && M_outputPath.empty() )
     {
         this->updateOutputPathFromInputFileName();
     }
 }
-ImageFromCenterlines::ImageFromCenterlines( ImageFromCenterlines const& e )
-    :
-    M_prefix( e.M_prefix ),
-    M_inputPath( e.M_inputPath ),
-    M_outputDirectory( e.M_outputDirectory ), M_outputPath( e.M_outputPath ),
-    M_dimX( e.M_dimX ), M_dimY( e.M_dimY ), M_dimZ( e.M_dimZ ),
-    M_forceRebuild( e.M_forceRebuild )
-{}
 
 void
 ImageFromCenterlines::updateOutputPathFromInputFileName()
@@ -666,8 +675,9 @@ ImageFromCenterlines::run()
             << "---------------------------------------\n"
             << "run ImageFromCenterlines \n"
             << "---------------------------------------\n";
-    coutStr << "inputPath          : " << this->inputPath() << "\n";
-    coutStr << "dimensions : [" << M_dimX << "," << M_dimY << "," << M_dimZ << "]\n";
+    coutStr << "inputPath         : " << this->inputPath() << "\n";
+    coutStr << "dimensions        : [" << M_dimX << "," << M_dimY << "," << M_dimZ << "]\n";
+    coutStr << "radius array name :" << M_radiusArrayName << "\n";
     coutStr << "output path       : " << this->outputPath() << "\n"
             << "---------------------------------------\n"
             << "---------------------------------------\n";
@@ -694,7 +704,8 @@ ImageFromCenterlines::run()
         std::ostringstream __str;
         __str << pythonExecutable << " ";
         __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkcenterlinemodeller ";
-        __str << "-ifile " << this->inputPath() << " -radiusarray MaximumInscribedSphereRadius "
+        //__str << "-ifile " << this->inputPath() << " -radiusarray MaximumInscribedSphereRadius "
+        __str << "-ifile " << this->inputPath() << " -radiusarray " << M_radiusArrayName << " "
               << "-negate 1 -dimensions " << M_dimX << " " << M_dimY << " " << M_dimZ << " ";
         __str << "-ofile " << this->outputPath();
 
@@ -713,10 +724,11 @@ ImageFromCenterlines::options( std::string const& prefix )
     myImageFromCenterlinesOptions.add_options()
         (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
+        (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         (prefixvm(prefix,"dim.x").c_str(), Feel::po::value<double>()->default_value(64), "(bool) force-rebuild")
         (prefixvm(prefix,"dim.y").c_str(), Feel::po::value<double>()->default_value(64), "(bool) force-rebuild")
         (prefixvm(prefix,"dim.z").c_str(), Feel::po::value<double>()->default_value(64), "(bool) force-rebuild")
-        (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
+        (prefixvm(prefix,"radius-array-name").c_str(), Feel::po::value<std::string>()->default_value("MaximumInscribedSphereRadius"), "(std::string) radius-array-name")
         ;
     return myImageFromCenterlinesOptions;
 }
@@ -751,15 +763,6 @@ SurfaceFromImage::SurfaceFromImage( std::string prefix )
         this->updateOutputPathFromInputFileName();
     }
 }
-SurfaceFromImage::SurfaceFromImage( SurfaceFromImage const& e )
-    :
-    M_prefix( e.M_prefix ),
-    M_inputPath( e.M_inputPath ),
-    M_outputDirectory( e.M_outputDirectory ), M_outputPath( e.M_outputPath ),
-    M_thresholdLower( e.M_thresholdLower ), M_thresholdUpper( e.M_thresholdUpper ),
-    M_hasThresholdLower( e.M_hasThresholdLower), M_hasThresholdUpper( e.M_hasThresholdUpper),
-    M_forceRebuild( e.M_forceRebuild )
-{}
 
 void
 SurfaceFromImage::updateOutputPathFromInputFileName()
@@ -1534,7 +1537,24 @@ generateMeshFromGeo( std::string inputGeoName,std::string outputMeshName,int dim
     int verbosityLevel = 5;
     Msg::SetVerbosity( verbosityLevel );
 
+#if 0
+  if(GModel::current()->empty()){
+      // if the current model is empty, make sure it's reaaally cleaned-up, and
+      // reuse it
+      GModel::current()->destroy();
+      GModel::current()->getGEOInternals()->destroy();
+  }
+  else{
+    // if the current model is not empty make it invisible and add a new model
+    new GModel();
+    GModel::current(GModel::list.size() - 1);
+  }
+#endif
+
+
     GModel * M_gmodel = new GModel();
+    // add new model as current (important if this function is called more than 1 time)
+    GModel::current(GModel::list.size() - 1);
 
     M_gmodel->setName( _name );
 #if !defined( __APPLE__ )

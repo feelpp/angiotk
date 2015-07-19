@@ -197,6 +197,7 @@ private :
     bool M_forceRebuild;
     bool M_useWindowInteractor;
     std::set<int> M_removeBranchIds;
+    double M_applyThresholdMinRadius;
 };
 
 class ImageFromCenterlines
@@ -204,7 +205,7 @@ class ImageFromCenterlines
 public :
 
     ImageFromCenterlines( std::string prefix );
-    ImageFromCenterlines( ImageFromCenterlines const& e );
+    ImageFromCenterlines( ImageFromCenterlines const& e ) = default;
 
     void updateOutputPathFromInputFileName();
 
@@ -221,8 +222,9 @@ public :
 private :
     std::string M_prefix;
     std::string M_inputPath, M_outputDirectory,M_outputPath;
-    double M_dimX,M_dimY,M_dimZ;
     bool M_forceRebuild;
+    double M_dimX,M_dimY,M_dimZ;
+    std::string M_radiusArrayName;
 };
 
 class SurfaceFromImage
@@ -230,7 +232,7 @@ class SurfaceFromImage
 public :
 
     SurfaceFromImage( std::string prefix );
-    SurfaceFromImage( SurfaceFromImage const& e );
+    SurfaceFromImage( SurfaceFromImage const& e ) = default;
 
     void updateOutputPathFromInputFileName();
 
