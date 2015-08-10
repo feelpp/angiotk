@@ -69,6 +69,7 @@ class AngioTkCenterline : public Field{
   int NF, NV, NE, NR;
   int is_cut, is_closed, is_extruded;
   int is_clip_mesh;
+  double M_clipMeshScalingFactor;
   double hLayer;
   double hSecondLayer;
   int nbElemLayer;

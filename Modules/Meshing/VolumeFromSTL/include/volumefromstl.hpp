@@ -223,7 +223,7 @@ private :
     std::string M_prefix;
     std::string M_inputPath, M_outputDirectory,M_outputPath;
     bool M_forceRebuild;
-    double M_dimX,M_dimY,M_dimZ;
+    int/*double*/ M_dimX,M_dimY,M_dimZ;
     std::string M_radiusArrayName;
 };
 
@@ -318,7 +318,7 @@ class OpenSurface
 public :
 
     OpenSurface( std::string prefix );
-    OpenSurface( OpenSurface const& e );
+    OpenSurface( OpenSurface const& e ) = default;
 
     void updateOutputPathFromInputFileName();
 
@@ -338,6 +338,7 @@ private :
     std::string M_prefix;
     std::string M_inputSurfacePath, M_inputCenterlinesPath, M_outputDirectory, M_outputPath;
     bool M_forceRebuild;
+    double M_distanceClipScalingFactor;
 };
 
 namespace detail

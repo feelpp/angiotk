@@ -3,9 +3,11 @@ add_library( angiotk_meshing_volumefromstl
   SHARED
   volumefromstl.cpp
   AngioTkCenterlineField.cpp
+  angiotkPolyBallModeller.cxx
+  angiotkPolyBallLine.cxx
   centerlinesmanagerwindowinteractor.cpp
   )
-target_link_libraries( angiotk_meshing_volumefromstl ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} )
+target_link_libraries( angiotk_meshing_volumefromstl ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} ${VMTK_LIBRARIES} )
 
 
 angiotk_add_component( meshing_createinletoutletdesc createinletoutletdesc_main.cpp )

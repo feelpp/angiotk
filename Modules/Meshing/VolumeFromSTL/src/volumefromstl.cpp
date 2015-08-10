@@ -4,6 +4,18 @@
 #include <AngioTkCenterlineField.h>
 #include <centerlinesmanagerwindowinteractor.hpp>
 
+#include <vtkSmartPointer.h>
+#include <vtkPolyDataReader.h>
+#include <vtkMetaImageWriter.h>
+#include <vtkMetaImageReader.h> // mha
+#include <vtkXMLImageDataReader.h> // vti
+#include <vtkMarchingCubes.h>
+#include <vtkSTLWriter.h>
+#include <vtkImageTranslateExtent.h>
+
+//#include <vtkvmtkPolyBallModeller.h>
+#include <angiotkPolyBallModeller.h>
+
 namespace detail
 {
 Feel::fs::path AngioTkEnvironment::S_pathInitial;
@@ -695,9 +707,9 @@ ImageFromCenterlines::run()
     // // wait all process
     this->worldComm().globalComm().barrier();
 
-
     if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
     {
+#if 0
         std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
         std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
 
@@ -713,7 +725,29 @@ ImageFromCenterlines::run()
                   << "run in system : \n" << __str.str() << "\n"
                   << "---------------------------------------\n";
         auto err = ::system( __str.str().c_str() );
+#else
+
+        vtkSmartPointer<vtkPolyDataReader> readerVTK = vtkSmartPointer<vtkPolyDataReader>::New();
+        readerVTK->SetFileName(this->inputPath().c_str());
+        readerVTK->Update();
+
+        //vtkSmartPointer<vtkvmtkPolyBallModeller> modeller = vtkvmtkPolyBallModeller::New();
+        vtkSmartPointer<angiotkPolyBallModeller> modeller = angiotkPolyBallModeller::New();
+        modeller->SetInput( (vtkDataObject*)readerVTK->GetOutput() );
+        modeller->SetRadiusArrayName(M_radiusArrayName.c_str());
+        modeller->UsePolyBallLineOn();
+        int sampleDimensions[3] = { M_dimX,M_dimY,M_dimZ };
+        modeller->SetSampleDimensions( sampleDimensions );
+        modeller->SetNegateFunction(1);
+        modeller->Update();
+
+        vtkSmartPointer<vtkMetaImageWriter> writer = vtkSmartPointer<vtkMetaImageWriter>::New();
+        writer->SetInput(modeller->GetOutput());
+        writer->SetFileName(this->outputPath().c_str());
+        writer->Write();
+#endif
     }
+
 }
 
 po::options_description
@@ -855,7 +889,7 @@ SurfaceFromImage::run()
                   << "run in system : \n" << __str.str() << "\n"
                   << "---------------------------------------\n";
         auto err = ::system( __str.str().c_str() );
-
+#if 0
         std::ostringstream __str2;
         __str2 << pythonExecutable << " ";
         __str2 << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtklevelsetsegmentation ";
@@ -870,6 +904,104 @@ SurfaceFromImage::run()
                   << "run in system : \n" << __str2.str() << "\n"
                   << "---------------------------------------\n";
         auto err2 = ::system( __str2.str().c_str() );
+#else
+        std::string nameImageLevelSet = fs::path(this->outputPath()).stem().string()+"_levelset.vti";
+        std::string outputPathImageLevelSetInit = (fs::path(this->outputPath()).parent_path()/fs::path(nameImageLevelSet)).string();
+
+        std::ostringstream __str2;
+        __str2 << pythonExecutable << " ";
+        __str2 << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtklevelsetsegmentation ";
+        __str2 << "-ifile " << this->inputPath() << " -initiallevelsetsfile " << outputPathImageInit << " -iterations 1 "
+               << "-ofile " << outputPathImageLevelSetInit;
+        std::cout << "---------------------------------------\n"
+                  << "run in system : \n" << __str2.str() << "\n"
+                  << "---------------------------------------\n";
+        auto err2 = ::system( __str2.str().c_str() );
+
+
+// Read the file
+  vtkSmartPointer<vtkXMLImageDataReader> reader =
+    vtkSmartPointer<vtkXMLImageDataReader>::New();
+  reader->SetFileName(outputPathImageLevelSetInit.c_str());
+  reader->Update();
+  //int* boundIMG = reader->GetWholeExtent();
+
+  //vtkDataSet * hhh = reader->GetOutputAsDataSet();
+  //int boundIMG
+  double boundIMG[6];
+  //hhh->GetWholeExtent(boundIMG);
+  reader->GetOutput()->/*hhh*/GetBounds(boundIMG);
+  std::cout << " boundIMG : \n"
+            << boundIMG[0] << " , " << boundIMG[1] << "\n"
+            << boundIMG[2] << " , " << boundIMG[3] << "\n"
+            << boundIMG[4] << " , " << boundIMG[5] << "\n";
+
+  vtkSmartPointer<vtkMetaImageReader> reader2 = vtkSmartPointer<vtkMetaImageReader>::New();
+  reader2->SetFileName(this->inputPath().c_str());
+  reader2->Update();
+  double boundIMG2[6];
+  reader2->GetOutput()->GetBounds(boundIMG2);
+  std::cout << " boundIMG2 : \n"
+            << boundIMG2[0] << " , " << boundIMG2[1] << "\n"
+            << boundIMG2[2] << " , " << boundIMG2[3] << "\n"
+            << boundIMG2[4] << " , " << boundIMG2[5] << "\n";
+  std::cout << " diff boundIMG : \n"
+            << boundIMG[1]-boundIMG[0] << " vs " << boundIMG2[1]-boundIMG2[0] << "\n"
+            << boundIMG[3]-boundIMG[2] << " vs " << boundIMG2[3]-boundIMG2[2] << "\n"
+            << boundIMG[5]-boundIMG[4] << " vs " << boundIMG2[5]-boundIMG2[4] << "\n";
+
+  double orig1[3];reader->GetOutput()->GetOrigin(orig1);
+  std::cout << "orig1 " << orig1[0] << "," << orig1[1] << "," << orig1[2] << "\n";
+  double orig2[3];reader2->GetOutput()->GetOrigin(orig2);
+  std::cout << "orig2 " << orig2[0] << "," << orig2[1] << "," << orig2[2] << "\n";
+  reader->GetOutput()->SetOrigin(orig2);
+#if 0
+  double bary1[3] = { (boundIMG[1]+boundIMG[0])/2.,(boundIMG[3]+boundIMG[2])/2.,(boundIMG[5]+boundIMG[4])/2. };
+  double bary2[3] = { (boundIMG2[1]+boundIMG2[0])/2.,(boundIMG2[3]+boundIMG2[2])/2.,(boundIMG2[5]+boundIMG2[4])/2. };
+  double trans[3] = { bary2[0]-bary1[0],bary2[1]-bary1[1],bary2[2]-bary1[2] };
+  std::cout << "trans " << trans[0] << ","<<trans[1] << "," << trans[2] << "\n";
+  vtkSmartPointer<vtkImageTranslateExtent> imageTranslated = vtkSmartPointer<vtkImageTranslateExtent>::New();
+  imageTranslated->SetInput(reader->GetOutput());
+  imageTranslated->SetTranslation(trans[0],trans[1],trans[2]);
+  imageTranslated->Update();
+
+  double boundIMGFinal[6];
+  imageTranslated->GetOutput()->GetBounds(boundIMGFinal);
+  std::cout << " boundIMGFinal : \n"
+            << boundIMGFinal[0] << " , " << boundIMGFinal[1] << "\n"
+            << boundIMGFinal[2] << " , " << boundIMGFinal[3] << "\n"
+            << boundIMGFinal[4] << " , " << boundIMGFinal[5] << "\n";
+#endif
+
+
+
+  // marching cube
+  vtkSmartPointer<vtkMarchingCubes> surface = vtkSmartPointer<vtkMarchingCubes>::New();
+  //#if VTK_MAJOR_VERSION <= 5
+  surface->SetInput(reader->GetOutput());
+  //surface->SetInput(imageTranslated->GetOutput());
+  //#else
+  //surface->SetInputData(volume);
+  //#endif
+  //surface->ComputeNormalsOn();
+  double isoValue=0.0;
+  surface->SetValue(0, isoValue);
+  surface->Update();
+  //std::cout<<"Number of points: " << surface->GetNumberOfPoints() << std::endl;
+#if 0
+  // Create polydata from iso-surface
+   vtkSmartPointer<vtkPolyData> marched = vtkSmartPointer<vtkPolyData>::New();
+   surface->Update();
+   marched->DeepCopy(surface->GetOutput());
+   std::cout<<"Number of points: " << marched->GetNumberOfPoints() << std::endl;
+#endif
+  vtkSmartPointer<vtkSTLWriter> stlWriter = vtkSmartPointer<vtkSTLWriter>::New();
+  stlWriter->SetFileName(this->outputPath().c_str());
+  //stlWriter->SetInputConnection(surface->GetOutputPort());
+  stlWriter->SetInput(surface->GetOutput());
+  stlWriter->Write();
+
+#endif
     }
 
     //vmtkimageinitialization -ifile hh32.mha -method threshold -lowerthreshold -1 -interactive 0 -osurfacefile imginit.stl -olevelsetsfile levelsetinit.vti
@@ -1161,7 +1293,8 @@ OpenSurface::OpenSurface( std::string prefix )
     M_inputSurfacePath( soption(_name="input.surface.filename",_prefix=this->prefix()) ),
     M_inputCenterlinesPath( soption(_name="input.centerlines.filename",_prefix=this->prefix()) ),
     M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
-    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
+    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
+    M_distanceClipScalingFactor( doption(_name="distance-clip.scaling-factor",_prefix=this->prefix() ) )
 {
     if ( !M_inputSurfacePath.empty() && M_outputPath.empty() )
     {
@@ -1169,14 +1302,6 @@ OpenSurface::OpenSurface( std::string prefix )
     }
 }
 
-OpenSurface::OpenSurface( OpenSurface const& e )
-    :
-    M_prefix( e.M_prefix ),
-    M_inputSurfacePath( e.M_inputSurfacePath ),
-    M_inputCenterlinesPath( e.M_inputCenterlinesPath ),
-    M_outputDirectory( e.M_outputDirectory ), M_outputPath( e.M_outputPath ),
-    M_forceRebuild( e.M_forceRebuild )
-{}
 
 void
 OpenSurface::updateOutputPathFromInputFileName()
@@ -1289,6 +1414,7 @@ OpenSurface::runGMSH()
     geodesc << "Field[1] = AngioTkCenterline;\n";
     geodesc << "Field[1].FileName = \"" << this->inputCenterlinesPath() << "\";\n";
     geodesc << "Field[1].clipMesh =1;\n"
+            << "Field[1].clipMeshScalingFactor = " << M_distanceClipScalingFactor << ";\n"
             << "Field[1].run;\n"
             << "Background Field = 1;\n";
 
@@ -1313,6 +1439,7 @@ OpenSurface::options( std::string const& prefix )
         (prefixvm(prefix,"input.surface.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
         (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
+        (prefixvm(prefix,"distance-clip.scaling-factor").c_str(), Feel::po::value<double>()->default_value(2.0), "(double) scaling-factor")
         ;
     return myOpenSurfaceOptions;
 }
