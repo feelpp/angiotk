@@ -77,7 +77,11 @@ if ( FEELPP_CMAKE_MODULES )
   set(Feel++_FOUND 1)
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g0 -O3 -DNDEBUG  -finline-functions -pedantic  -ftemplate-depth-256 -Wno-inline" )
 else()
-  #message(FATAL_ERROR "Feel++ does not seem to have been installed on this platform")
+  # The meshing module uses Feel++
+  # If it is not installed, make cmake end up with an error
+  if(BUILD_MODULE_Meshing)
+    message(FATAL_ERROR "Feel++ does not seem to be installed on this platform. Please set the FEELPP_DIR variable.")
+  endif()
 endif()
 
 #=========================================================
