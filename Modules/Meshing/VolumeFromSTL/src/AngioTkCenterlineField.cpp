@@ -372,6 +372,7 @@ AngioTkCenterline::AngioTkCenterline(): kdtree(0), kdtreeR(0)
   is_closed = 0;
   is_extruded = 0;
   is_clip_mesh = 0;
+  M_clipMeshScalingFactor=2.0;
   descInletOutlet = "";
 
   options["closeVolume"] = new FieldOptionInt
@@ -383,6 +384,8 @@ AngioTkCenterline::AngioTkCenterline(): kdtree(0), kdtreeR(0)
      "centerlines");
   options["clipMesh"] = new FieldOptionInt
     (is_clip_mesh, "Action: Cut the initial mesh in different mesh partitions using thecenterlines");
+  options["clipMeshScalingFactor"] = new FieldOptionDouble
+    (M_clipMeshScalingFactor, "scaling factor (distance proportional to radius)");
 
   callbacks["run"] = new FieldCallbackGeneric<AngioTkCenterline>
     (this, &AngioTkCenterline::run, "Run actions (closeVolume, extrudeWall, cutMesh) \n");
@@ -1923,7 +1926,7 @@ void AngioTkCenterline::runClipMesh()
   Msg::Info("runClipMesh");
   //std::cout << "runClipMesh \n";
   // point, direction, radius
-  double scalingClip = 2;//1;
+  double scalingClip = M_clipMeshScalingFactor;//2;//1;
   std::vector<std::tuple<SVector3,SVector3,double> > cutDesc; 
 
   for(unsigned int i = 0; i < edges.size(); ++i)
@@ -1974,10 +1977,16 @@ void AngioTkCenterline::runClipMesh()
 #endif
 	      MLine* curLine = lines.front();
 
-	      if ( ( lines.front()->getVertex(0) == vB ) || (lines.front()->getVertex(0) == vE) )
+	      double curLength = 0.;
+
+	      bool extremityIsPoint0 = ( lines.front()->getVertex(0) == vB ) || (lines.front()->getVertex(0) == vE);
+	      bool extremityIsPoint1 = ( lines.front()->getVertex(1) == vB ) || (lines.front()->getVertex(1) == vE);
+	      if ( !extremityIsPoint0 && !extremityIsPoint1 )
+		Msg::Error("error !!");
+
+	      for ( int k=0 ; k<lines.size() && curLength <= scalingClip*radiusLineB ; ++k )
 		{
-		  double curLength = 0;
-		  for ( int k=0 ; k<lines.size() && curLength < scalingClip*radiusLineB ; ++k )
+		  if ( extremityIsPoint0 )
 		    {
 		      curLine = lines[k];
 		      curLength += curLine->getLength();
@@ -1986,11 +1995,7 @@ void AngioTkCenterline::runClipMesh()
 		    }
 		  //v1 = lines.front()->getVertex(1);
 		  //v2 = lines.front()->getVertex(0);
-		}
-	      else if ( ( lines.front()->getVertex(1) == vB ) || (lines.front()->getVertex(1) == vE) )
-		{
-		  double curLength = 0;
-		  for ( int k=0 ; k<lines.size() && curLength < scalingClip*radiusLineB ; ++k )
+		  else
 		    {
 		      curLine = lines[k];
 		      curLength += curLine->getLength();
@@ -1999,10 +2004,6 @@ void AngioTkCenterline::runClipMesh()
 		    }
 		  //v1 = lines.front()->getVertex(0);
 		  //v2 = lines.front()->getVertex(1);
-		}
-	      else
-		{
-		  Msg::Error("error !!");
 		}
 	      MVertex *thept = v1;//v2;
 	      std::map<MLine*,double>::iterator itr = radiusl.find(curLine);
@@ -2037,11 +2038,16 @@ void AngioTkCenterline::runClipMesh()
 
 
 	      MLine* curLine = lines.back();
+	      double curLength = 0.;
 
-	      if ( ( lines.back()->getVertex(1) == vB ) || (lines.back()->getVertex(1) == vE) )
+	      bool extremityIsPoint0 = ( lines.back()->getVertex(0) == vB ) || (lines.back()->getVertex(0) == vE);
+	      bool extremityIsPoint1 = ( lines.back()->getVertex(1) == vB ) || (lines.back()->getVertex(1) == vE);
+	      if ( !extremityIsPoint0 && !extremityIsPoint1 )
+		Msg::Error("error !!");
+
+	      for ( int k=0 ; k<lines.size() && curLength <= scalingClip*radiusLineB ; ++k )
 		{
-		  double curLength = 0;
-		  for ( int k=0 ; k<lines.size() && curLength < scalingClip*radiusLineB ; ++k )
+		  if ( extremityIsPoint1 ) 
 		    {
 		      curLine = lines[lines.size()-1-k];
 		      curLength += curLine->getLength();
@@ -2050,11 +2056,7 @@ void AngioTkCenterline::runClipMesh()
 		    }
 		  //v1 = lines.back()->getVertex(0);
 		  //v2 = lines.back()->getVertex(1);
-		}
-	      else if ( ( lines.back()->getVertex(0) == vB ) || (lines.back()->getVertex(0) == vE) )
-		{
-		  double curLength = 0;
-		  for ( int k=0 ; k<lines.size() && curLength < scalingClip*radiusLineB ; ++k )
+		  else
 		    {
 		      curLine = lines[lines.size()-1-k];
 		      curLength += curLine->getLength();
@@ -2063,10 +2065,6 @@ void AngioTkCenterline::runClipMesh()
 		    }
 		  //v1 = lines.back()->getVertex(1);
 		  //v2 = lines.back()->getVertex(0);
-		}
-	      else
-		{
-		  Msg::Error("error !!");
 		}
 	      //std::cout << " v1 : " << v1->x() << " " << v1->y() << " " << v1->z() << "\n";
 	      //std::cout << " v2 : " << v2->x() << " " << v2->y() << " " << v2->z() << "\n";
@@ -2103,7 +2101,10 @@ void AngioTkCenterline::runClipMesh()
       std::cout << "dir : " << dir[0] << " " << dir[1] << " " << dir[2] << "\n";
       std::cout << "radius " << radius << "\n";
 #endif
-      cutByDisk(pt, dir, radius, k+1);
+      bool cutSucess = cutByDisk(pt, dir, radius, k+1);
+      if (!cutSucess)
+	    Msg::Error("cut by disk fail");
+
     }
   fileWrited.close();
   Msg::Info("AngioTkCenterline: all cuts done");
