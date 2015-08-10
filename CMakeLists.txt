@@ -91,11 +91,42 @@ FIND_PACKAGE(PythonInterp)
 
 #=========================================================
 # Find VMTK
+
+# binary dir
 FIND_PATH(VMTK_BINARY_DIR NAMES vmtkcenterlines PATH $ENV{VMTK_DIR}/bin )
 # if ( NOT VMTK_BINARY_DIR )
-#   message(FATAL_ERROR "VMTK_BINARY_DIR not find")
+#    message(FATAL_ERROR "VMTK_BINARY_DIR not find")
 # endif()
 
+# include dir
+FIND_PATH(VMTK_INCLUDE_DIR vtkvmtkConfigure.h HINTS $ENV{VMTK_DIR}/include/  PATH_SUFFIXES vmtk )
+#FIND_PATH(VMTK_INCLUDE_DIR vmtk/vtkvmtkConfigure.h HINTS $ENV{VMTK_DIR}/include/  )
+# if ( NOT VMTK_INCLUDE_DIR )
+#   message(FATAL_ERROR "VMTK_INCLUDE_DIR not find")
+# endif()
+
+# libraries path
+unset(VMTK_LIBRARIES)
+foreach(_vmtklib vtkvmtkCommon vtkvmtkComputationalGeometry)
+  unset(VMTK_LIBRARY CACHE)
+  FIND_LIBRARY(VMTK_LIBRARY NAMES ${_vmtklib} HINTS $ENV{VMTK_DIR}/lib/ PATH_SUFFIXES vmtk )
+  if ( VMTK_LIBRARY )
+    set( VMTK_LIBRARIES ${VMTK_LIBRARIES} ${VMTK_LIBRARY} )
+  endif()
+endforeach()
+
+if ( VMTK_BINARY_DIR AND VMTK_INCLUDE_DIR AND VMTK_LIBRARIES )
+  set( VMTK_FOUND 1)
+else()
+  set( VMTK_FOUND 0)
+endif()
+
+if ( ${VMTK_FOUND} )
+  include_directories( ${VMTK_INCLUDE_DIR} )
+  # message( "VMTK_BINARY_DIR ${VMTK_BINARY_DIR}" )
+  #message( "VMTK_INCLUDE_DIR ${VMTK_INCLUDE_DIR}" )
+  # message( "VMTK_LIBRARIES ${VMTK_LIBRARIES}")
+endif()
 
 
 #=========================================================
