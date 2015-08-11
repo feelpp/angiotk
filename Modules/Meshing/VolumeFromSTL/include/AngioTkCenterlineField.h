@@ -9,7 +9,7 @@
 #ifndef _CENTERLINEFIELD_H_
 #define _CENTERLINEFIELD_H_
 
-#include <feel/feelconfig.h>
+#include "feel/feelconfig.h"
 #include <vector>
 #include <map>
 #include <set>
@@ -43,7 +43,7 @@ struct Branch{
   double maxRad;
 };
 
-#if defined(FEELPP_HAVE_ANN_H)
+#if defined(FEELPP_HAS_ANN_H)
 class ANNkd_tree;
 
 

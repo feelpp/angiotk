@@ -12,7 +12,7 @@
 #include <list>
 #include "simpleFunction.h"
 
-#if defined(FEELPP_HAVE_ANN_H)
+#if defined(FEELPP_HAS_ANN_H)
 #include <ANN/ANN.h>
 class ANNkd_tree;
 #endif

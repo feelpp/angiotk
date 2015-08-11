@@ -10,7 +10,7 @@
 #include "GmshMessage.h"
 #include "MVertex.h"
 
-#if defined(HAVE_ANN)
+#if defined(FEELPP_HAS_ANN_H)
 #include "ANN/ANN.h"
 
 // Stores MVertices in a kd-tree so we can query unique vertices (up
