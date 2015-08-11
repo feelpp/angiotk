@@ -9,6 +9,7 @@
 #ifndef _CENTERLINEFIELD_H_
 #define _CENTERLINEFIELD_H_
 
+#include <feel/feelconfig.h>
 #include <vector>
 #include <map>
 #include <set>
@@ -42,7 +43,7 @@ struct Branch{
   double maxRad;
 };
 
-#if defined(HAVE_ANN)
+#if defined(FEELPP_HAVE_ANN_H)
 class ANNkd_tree;
 
 
@@ -229,9 +230,9 @@ class AngioTkCenterline : public Field{
 class AngioTkCenterline : public Field{
 
  public:
-  Centerline(std::string fileName){ Msg::Error("Gmsh has to be compiled with ANN support to use CenterlineFields");}
-  Centerline(){ Msg::Error("Gmsh has to be compiled with ANN support to use CenterlineFields");}
-  ~Centerline();
+  AngioTkCenterline(std::string fileName){ Msg::Error("Gmsh has to be compiled with ANN support to use CenterlineFields");}
+  AngioTkCenterline(){ Msg::Error("Gmsh has to be compiled with ANN support to use CenterlineFields");}
+  ~AngioTkCenterline();
 
   virtual bool isotropic () const {return false;}
   virtual const char *getName()
