@@ -189,6 +189,7 @@ public :
     void setInputPointSetPath(std::string const& path) { M_inputPointSetPath=path; }
     void setOutputPath(std::string const& path) { M_outputPath=path; }
     void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
+    void setForceRebuild(bool b) { M_forceRebuild=b; }
 
 private :
     std::string M_prefix;

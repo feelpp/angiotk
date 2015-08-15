@@ -11,7 +11,7 @@ int main( int argc, char** argv )
     myoptions.add( CenterlinesFromSTL::options("") );
     myoptions.add_options()
       ("pre-process.subdivide-surface", Feel::po::value<bool>()->default_value(false), "use subdivide-surface ")
-      ("post-process.convert-centerlines", Feel::po::value<bool>()->default_value(false), "convert-centerlines ");
+      ("post-process.convert-centerlines", Feel::po::value<bool>()->default_value(true), "convert-centerlines ");
       myoptions.add( SubdivideSurface::options("subdivide-surface") ).add( CenterlinesManager::options("convert-centerlines") );
     Environment env( _argc=argc, _argv=argv,
                      _desc=myoptions,
@@ -50,6 +50,8 @@ int main( int argc, char** argv )
 	myCM.setInputSurfacePath( centerlines.inputPath() );
 	myCM.setInputCenterlinesPath( centerlines.outputPath() );
 	myCM.setOutputPath( finalOutputPath );
+	if ( centerlines.forceRebuild() )
+	  myCM.setForceRebuild( true );
 	myCM.run();
       }
 
