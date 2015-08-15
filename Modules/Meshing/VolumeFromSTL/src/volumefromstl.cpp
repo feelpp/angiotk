@@ -12,6 +12,7 @@
 #include <vtkMarchingCubes.h>
 #include <vtkSTLWriter.h>
 #include <vtkImageTranslateExtent.h>
+#include <vtkPolyDataConnectivityFilter.h>
 
 //#include <vtkvmtkPolyBallModeller.h>
 #include <angiotkPolyBallModeller.h>
@@ -919,87 +920,99 @@ SurfaceFromImage::run()
         auto err2 = ::system( __str2.str().c_str() );
 
 
-// Read the file
-  vtkSmartPointer<vtkXMLImageDataReader> reader =
-    vtkSmartPointer<vtkXMLImageDataReader>::New();
-  reader->SetFileName(outputPathImageLevelSetInit.c_str());
-  reader->Update();
-  //int* boundIMG = reader->GetWholeExtent();
+        // read image obtained by levelset segmentation
+        vtkSmartPointer<vtkXMLImageDataReader> readerSegmentation = vtkSmartPointer<vtkXMLImageDataReader>::New();
+        readerSegmentation->SetFileName(outputPathImageLevelSetInit.c_str());
+        readerSegmentation->Update();
+        //int* boundIMG = reader->GetWholeExtent();
 
-  //vtkDataSet * hhh = reader->GetOutputAsDataSet();
-  //int boundIMG
-  double boundIMG[6];
-  //hhh->GetWholeExtent(boundIMG);
-  reader->GetOutput()->/*hhh*/GetBounds(boundIMG);
-  std::cout << " boundIMG : \n"
-            << boundIMG[0] << " , " << boundIMG[1] << "\n"
-            << boundIMG[2] << " , " << boundIMG[3] << "\n"
-            << boundIMG[4] << " , " << boundIMG[5] << "\n";
-
-  vtkSmartPointer<vtkMetaImageReader> reader2 = vtkSmartPointer<vtkMetaImageReader>::New();
-  reader2->SetFileName(this->inputPath().c_str());
-  reader2->Update();
-  double boundIMG2[6];
-  reader2->GetOutput()->GetBounds(boundIMG2);
-  std::cout << " boundIMG2 : \n"
-            << boundIMG2[0] << " , " << boundIMG2[1] << "\n"
-            << boundIMG2[2] << " , " << boundIMG2[3] << "\n"
-            << boundIMG2[4] << " , " << boundIMG2[5] << "\n";
-  std::cout << " diff boundIMG : \n"
-            << boundIMG[1]-boundIMG[0] << " vs " << boundIMG2[1]-boundIMG2[0] << "\n"
-            << boundIMG[3]-boundIMG[2] << " vs " << boundIMG2[3]-boundIMG2[2] << "\n"
-            << boundIMG[5]-boundIMG[4] << " vs " << boundIMG2[5]-boundIMG2[4] << "\n";
-
-  double orig1[3];reader->GetOutput()->GetOrigin(orig1);
-  std::cout << "orig1 " << orig1[0] << "," << orig1[1] << "," << orig1[2] << "\n";
-  double orig2[3];reader2->GetOutput()->GetOrigin(orig2);
-  std::cout << "orig2 " << orig2[0] << "," << orig2[1] << "," << orig2[2] << "\n";
-  reader->GetOutput()->SetOrigin(orig2);
+        //vtkDataSet * hhh = reader->GetOutputAsDataSet();
+        //int boundIMG
 #if 0
-  double bary1[3] = { (boundIMG[1]+boundIMG[0])/2.,(boundIMG[3]+boundIMG[2])/2.,(boundIMG[5]+boundIMG[4])/2. };
-  double bary2[3] = { (boundIMG2[1]+boundIMG2[0])/2.,(boundIMG2[3]+boundIMG2[2])/2.,(boundIMG2[5]+boundIMG2[4])/2. };
-  double trans[3] = { bary2[0]-bary1[0],bary2[1]-bary1[1],bary2[2]-bary1[2] };
-  std::cout << "trans " << trans[0] << ","<<trans[1] << "," << trans[2] << "\n";
-  vtkSmartPointer<vtkImageTranslateExtent> imageTranslated = vtkSmartPointer<vtkImageTranslateExtent>::New();
-  imageTranslated->SetInput(reader->GetOutput());
-  imageTranslated->SetTranslation(trans[0],trans[1],trans[2]);
-  imageTranslated->Update();
+        double boundIMG[6];
+        readerSegmentation->GetOutput()->GetBounds(boundIMG);
+        std::cout << " boundIMG : \n"
+                  << boundIMG[0] << " , " << boundIMG[1] << "\n"
+                  << boundIMG[2] << " , " << boundIMG[3] << "\n"
+                  << boundIMG[4] << " , " << boundIMG[5] << "\n";
+#endif
+        // read initial image
+        vtkSmartPointer<vtkMetaImageReader> readerInitialImage = vtkSmartPointer<vtkMetaImageReader>::New();
+        readerInitialImage->SetFileName(this->inputPath().c_str());
+        readerInitialImage->Update();
+#if 0
+        double boundIMG2[6];
+        readerInitialImage->GetOutput()->GetBounds(boundIMG2);
+        std::cout << " boundIMG2 : \n"
+                  << boundIMG2[0] << " , " << boundIMG2[1] << "\n"
+                  << boundIMG2[2] << " , " << boundIMG2[3] << "\n"
+                  << boundIMG2[4] << " , " << boundIMG2[5] << "\n";
+        std::cout << " diff boundIMG : \n"
+                  << boundIMG[1]-boundIMG[0] << " vs " << boundIMG2[1]-boundIMG2[0] << "\n"
+                  << boundIMG[3]-boundIMG[2] << " vs " << boundIMG2[3]-boundIMG2[2] << "\n"
+                  << boundIMG[5]-boundIMG[4] << " vs " << boundIMG2[5]-boundIMG2[4] << "\n";
+#endif
+        double originSegmentationImage[3];
+        readerSegmentation->GetOutput()->GetOrigin(originSegmentationImage);
+        std::cout << "originSegmentationImage " << originSegmentationImage[0] << "," << originSegmentationImage[1] << "," << originSegmentationImage[2] << "\n";
 
-  double boundIMGFinal[6];
-  imageTranslated->GetOutput()->GetBounds(boundIMGFinal);
-  std::cout << " boundIMGFinal : \n"
-            << boundIMGFinal[0] << " , " << boundIMGFinal[1] << "\n"
-            << boundIMGFinal[2] << " , " << boundIMGFinal[3] << "\n"
-            << boundIMGFinal[4] << " , " << boundIMGFinal[5] << "\n";
+        double originInitialImage[3];
+        readerInitialImage->GetOutput()->GetOrigin(originInitialImage);
+        std::cout << "originInitialImage " << originInitialImage[0] << "," << originInitialImage[1] << "," << originInitialImage[2] << "\n";
+        readerSegmentation->GetOutput()->SetOrigin(originInitialImage);
+#if 0
+        double bary1[3] = { (boundIMG[1]+boundIMG[0])/2.,(boundIMG[3]+boundIMG[2])/2.,(boundIMG[5]+boundIMG[4])/2. };
+        double bary2[3] = { (boundIMG2[1]+boundIMG2[0])/2.,(boundIMG2[3]+boundIMG2[2])/2.,(boundIMG2[5]+boundIMG2[4])/2. };
+        double trans[3] = { bary2[0]-bary1[0],bary2[1]-bary1[1],bary2[2]-bary1[2] };
+        std::cout << "trans " << trans[0] << ","<<trans[1] << "," << trans[2] << "\n";
+        vtkSmartPointer<vtkImageTranslateExtent> imageTranslated = vtkSmartPointer<vtkImageTranslateExtent>::New();
+        imageTranslated->SetInput(reader->GetOutput());
+        imageTranslated->SetTranslation(trans[0],trans[1],trans[2]);
+        imageTranslated->Update();
+
+        double boundIMGFinal[6];
+        imageTranslated->GetOutput()->GetBounds(boundIMGFinal);
+        std::cout << " boundIMGFinal : \n"
+                  << boundIMGFinal[0] << " , " << boundIMGFinal[1] << "\n"
+                  << boundIMGFinal[2] << " , " << boundIMGFinal[3] << "\n"
+                  << boundIMGFinal[4] << " , " << boundIMGFinal[5] << "\n";
 #endif
 
+        // marching cube
+        vtkSmartPointer<vtkMarchingCubes> surface = vtkSmartPointer<vtkMarchingCubes>::New();
+        //#if VTK_MAJOR_VERSION <= 5
+        surface->SetInput(readerSegmentation->GetOutput());
+        //surface->SetInput(imageTranslated->GetOutput());
+        //#else
+        //surface->SetInputData(volume);
+        //#endif
+        //surface->ComputeNormalsOn();
+        double isoValue=0.0;
+        surface->SetValue(0, isoValue);
+        surface->Update();
+        //std::cout<<"Number of points: " << surface->GetNumberOfPoints() << std::endl;
 
-
-  // marching cube
-  vtkSmartPointer<vtkMarchingCubes> surface = vtkSmartPointer<vtkMarchingCubes>::New();
-  //#if VTK_MAJOR_VERSION <= 5
-  surface->SetInput(reader->GetOutput());
-  //surface->SetInput(imageTranslated->GetOutput());
-  //#else
-  //surface->SetInputData(volume);
-  //#endif
-  //surface->ComputeNormalsOn();
-  double isoValue=0.0;
-  surface->SetValue(0, isoValue);
-  surface->Update();
-  //std::cout<<"Number of points: " << surface->GetNumberOfPoints() << std::endl;
 #if 0
-  // Create polydata from iso-surface
-   vtkSmartPointer<vtkPolyData> marched = vtkSmartPointer<vtkPolyData>::New();
-   surface->Update();
-   marched->DeepCopy(surface->GetOutput());
-   std::cout<<"Number of points: " << marched->GetNumberOfPoints() << std::endl;
+        // create polydata from iso-surface
+        vtkSmartPointer<vtkPolyData> marched = vtkSmartPointer<vtkPolyData>::New();
+        surface->Update();
+        marched->DeepCopy(surface->GetOutput());
+        std::cout<<"Number of points: " << marched->GetNumberOfPoints() << std::endl;
 #endif
-  vtkSmartPointer<vtkSTLWriter> stlWriter = vtkSmartPointer<vtkSTLWriter>::New();
-  stlWriter->SetFileName(this->outputPath().c_str());
-  //stlWriter->SetInputConnection(surface->GetOutputPort());
-  stlWriter->SetInput(surface->GetOutput());
-  stlWriter->Write();
+
+        // keep only largest region
+        vtkSmartPointer<vtkPolyDataConnectivityFilter> connectivityFilter = vtkSmartPointer<vtkPolyDataConnectivityFilter>::New();
+        connectivityFilter->SetInput(surface->GetOutput());
+        connectivityFilter->SetExtractionModeToLargestRegion();
+        connectivityFilter->Update();
+
+        // save stl on disk
+        vtkSmartPointer<vtkSTLWriter> stlWriter = vtkSmartPointer<vtkSTLWriter>::New();
+        stlWriter->SetFileName(this->outputPath().c_str());
+        //stlWriter->SetInputConnection(surface->GetOutputPort());
+        //stlWriter->SetInput(surface->GetOutput());
+        stlWriter->SetInput(connectivityFilter->GetOutput());
+        stlWriter->Write();
 
 #endif
     }
@@ -1663,6 +1676,9 @@ generateMeshFromGeo( std::string inputGeoName,std::string outputMeshName,int dim
 
     int verbosityLevel = 5;
     Msg::SetVerbosity( verbosityLevel );
+
+    //CTX::instance()->mesh.randFactor = 1e-14;//1e-10;
+
 
 #if 0
   if(GModel::current()->empty()){
