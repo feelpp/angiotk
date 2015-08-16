@@ -113,6 +113,10 @@ void
 InletOutletDesc::save( std::string outputPath )
 {
     std::cout << "save desc in : " << outputPath << "\n";
+    fs::path dir = fs::path(outputPath).parent_path();
+    if ( !fs::exists( dir ) )
+        fs::create_directories( dir );
+
     std::ofstream fileWrited( outputPath, std::ios::out | std::ios::trunc);
     if( fileWrited )
     {
