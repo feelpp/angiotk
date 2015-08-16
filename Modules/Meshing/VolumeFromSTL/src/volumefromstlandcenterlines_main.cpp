@@ -17,6 +17,17 @@ int main( int argc, char** argv )
 
 
     VolumeMeshing myMeshingVolume("");
+    if ( myMeshingVolume.inputInletOutletDescPath().empty() )
+      {
+	std::string inputSurfacePath = myMeshingVolume.inputSTLPath();
+	InletOutletDesc ioDesc;
+	ioDesc.loadFromSTL( inputSurfacePath );
+
+	std::string nameWithoutExt = fs::path(inputSurfacePath).stem().string();
+	std::string outputPath = (fs::path(myMeshingVolume.outputPath()).parent_path()/fs::path(nameWithoutExt+".desc")).string();
+	ioDesc.save(outputPath);
+	myMeshingVolume.setInputInletOutletDescPath(outputPath);
+      }
     myMeshingVolume.run();
 
     return 0;
