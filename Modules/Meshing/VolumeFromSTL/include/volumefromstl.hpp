@@ -157,6 +157,7 @@ private :
     std::string M_inputPath, M_inputCenterlinesPointSetPath, M_inputInletOutletDescPath, M_outputPath;
     std::string M_outputDirectory;
     std::set<int> M_targetids, M_sourceids;
+    std::string M_costFunctionExpr;
     bool M_forceRebuild;
     bool M_useInteractiveSelection;
     bool M_viewResults,M_viewResultsWithSurface;
@@ -335,6 +336,10 @@ public :
     std::string outputPath() const { return M_outputPath; }
     bool forceRebuild() const { return M_forceRebuild; }
 
+    void setInputSurfacePath(std::string const& s) { M_inputSurfacePath=s; }
+    void setInputCenterlinesPath(std::string const& s) { M_inputCenterlinesPath=s; }
+    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
+
 private :
     std::string M_prefix;
     std::string M_inputSurfacePath, M_inputCenterlinesPath, M_outputDirectory, M_outputPath;
@@ -352,13 +357,13 @@ class RemeshSTL
 public :
 
     RemeshSTL( std::string prefix );
-    RemeshSTL( RemeshSTL const& e );
+    RemeshSTL( RemeshSTL const& e ) = default;
 
     std::string prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }
     std::string packageType() const { return M_packageType; }
-    std::string inputPath() const { return M_inputPath; }
-    std::string centerlinesFileName() const { return M_centerlinesFileName; }
+    std::string inputSurfacePath() const { return M_inputSurfacePath; }
+    std::string inputCenterlinesPath() const { return M_inputCenterlinesPath; }
     int remeshNbPointsInCircle() const { return M_remeshNbPointsInCircle; }
     double area() const { return M_area; }
     std::string outputPath() const { if ( this->packageType() =="gmsh" ) return M_outputPathGMSH; else return M_outputPathVMTK; }
@@ -368,8 +373,8 @@ public :
         CHECK( type == "gmsh" || type == "vmtk" ) << "error on packageType : " << type;
         M_packageType=type;
     }
-    void setInputPath(std::string s) { M_inputPath=s; }
-    void setCenterlinesFileName(std::string s) { M_centerlinesFileName=s; }
+    void setInputSurfacePath(std::string const& s) { M_inputSurfacePath=s; }
+    void setInputCenterlinesPath(std::string const& s) { M_inputCenterlinesPath=s; }
 
     bool forceRebuild() const { return M_forceRebuild; }
     void setForceRebuild( bool b ) { M_forceRebuild=b; }
@@ -385,9 +390,9 @@ public :
 private :
     std::string M_prefix;
     std::string M_packageType;
-    std::string M_inputPath;
+    std::string M_inputSurfacePath;
     // with gmsh
-    std::string M_centerlinesFileName;
+    std::string M_inputCenterlinesPath;
     int M_remeshNbPointsInCircle;
     // with vmtk
     double M_area;

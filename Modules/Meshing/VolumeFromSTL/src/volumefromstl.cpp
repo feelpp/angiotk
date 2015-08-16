@@ -138,6 +138,7 @@ CenterlinesFromSTL::CenterlinesFromSTL( std::string prefix )
     M_inputCenterlinesPointSetPath( soption(_name="input.pointset.filename",_prefix=this->prefix()) ),
     M_inputInletOutletDescPath( soption(_name="input.desc.filename",_prefix=this->prefix()) ),
     M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+    M_costFunctionExpr( soption(_name="cost-function.expression",_prefix=this->prefix()) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_useInteractiveSelection( boption(_name="use-interactive-selection",_prefix=this->prefix()) ),
     M_viewResults( boption(_name="view-results",_prefix=this->prefix() ) ),
@@ -352,6 +353,18 @@ CenterlinesFromSTL::run()
                 __str << id << " ";
         }
 
+
+        __str << " -costfunction " << M_costFunctionExpr << " ";
+#if 0
+        //std::string costFunction = "1/R";
+        //std::string costFunction = "(R-0.5)*(R-0.5)";
+        //std::string costFunction = "R*R-R+0.25";
+        //std::string costFunction = "R*R-2*0.8*R+0.8*0.8";
+        std::string costFunction = "R*R-2*1.1*R+1.1*1.1";
+        __str << " -costfunction " << costFunction << " ";
+        //__str << " -delaunaytessellationfile " << costFunction << " ";
+#endif
+
         __str << " -ifile " << this->inputPath() << " ";
         __str << " -ofile " << pathVTP << " " //name << ".vtp "
               << " --pipe " << dirBaseVmtk << "/vmtksurfacewriter "
@@ -406,7 +419,7 @@ CenterlinesFromSTL::options( std::string const& prefix )
         (prefixvm(prefix,"input.desc.filename").c_str(), po::value<std::string>()->default_value( "" ), "inletoutlet-desc.filename" )
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
         (prefixvm(prefix,"use-interactive-selection").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) use-interactive-selection")
-
+        (prefixvm(prefix,"cost-function.expression").c_str(), Feel::po::value<std::string>()->default_value("1/R"), "(string) cost-function")
         (prefixvm(prefix,"source-ids").c_str(), po::value<std::vector<int> >()->multitoken(), "(vector of int) source ids" )
         (prefixvm(prefix,"target-ids").c_str(), po::value<std::vector<int> >()->multitoken(), "(vector of int) target ids" )
         (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
@@ -1452,7 +1465,7 @@ OpenSurface::options( std::string const& prefix )
         (prefixvm(prefix,"input.surface.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
         (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
-        (prefixvm(prefix,"distance-clip.scaling-factor").c_str(), Feel::po::value<double>()->default_value(2.0), "(double) scaling-factor")
+        (prefixvm(prefix,"distance-clip.scaling-factor").c_str(), Feel::po::value<double>()->default_value(0.0), "(double) scaling-factor")
         ;
     return myOpenSurfaceOptions;
 }
@@ -1464,8 +1477,8 @@ RemeshSTL::RemeshSTL( std::string prefix )
     :
     M_prefix( prefix ),
     M_packageType(soption(_name="package-type",_prefix=this->prefix())),
-    M_inputPath(soption(_name="input.filename",_prefix=this->prefix())),
-    M_centerlinesFileName(soption(_name="centerlines.filename",_prefix=this->prefix())),
+    M_inputSurfacePath(soption(_name="input.filename",_prefix=this->prefix())),
+    M_inputCenterlinesPath(soption(_name="centerlines.filename",_prefix=this->prefix())),
     M_remeshNbPointsInCircle( ioption(_name="nb-points-in-circle",_prefix=this->prefix()) ),
     M_area( doption(_name="area",_prefix=this->prefix()) ),
     M_nIterationVMTK( ioption(_name="vmtk.n-iteration",_prefix=this->prefix()) ),
@@ -1473,30 +1486,17 @@ RemeshSTL::RemeshSTL( std::string prefix )
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
 {
     CHECK( M_packageType == "gmsh" || M_packageType == "vmtk" ) << "error on packageType : " << M_packageType;
-    if ( !M_inputPath.empty() && M_outputPathGMSH.empty() )
+    if ( !this->inputSurfacePath().empty() && M_outputPathGMSH.empty() )
     {
         this->updateOutputPathFromInputFileName();
     }
 }
 
-RemeshSTL::RemeshSTL( RemeshSTL const& e )
-    :
-    M_prefix( e.M_prefix ),
-    M_packageType( e.M_packageType ),
-    M_inputPath( e.M_inputPath ),
-    M_centerlinesFileName( e.M_centerlinesFileName ),
-    M_remeshNbPointsInCircle( e.M_remeshNbPointsInCircle ),
-    M_area( e.M_area ),M_nIterationVMTK( e.M_nIterationVMTK ),
-    M_outputPathGMSH( e.M_outputPathGMSH ), M_outputPathVMTK( e.M_outputPathVMTK),
-    M_outputDirectory( e.M_outputDirectory ),
-    M_forceRebuild( e.M_forceRebuild )
-{}
-
 
 void
 RemeshSTL::updateOutputPathFromInputFileName()
 {
-    CHECK( !M_inputPath.empty() ) << "input path is empty";
+    CHECK( !this->inputSurfacePath().empty() ) << "input surface path is empty";
 
     // define output directory
     fs::path meshesdirectories;
@@ -1508,7 +1508,7 @@ RemeshSTL::updateOutputPathFromInputFileName()
         meshesdirectories = fs::path(M_outputDirectory);
 
     // get filename without extension
-    fs::path gp = M_inputPath;
+    fs::path gp = this->inputSurfacePath();
     std::string nameMeshFile = gp.stem().string();
 
     std::string specGMSH = (boost::format( "remeshGMSHpt%1%") %this->remeshNbPointsInCircle() ).str();
@@ -1529,12 +1529,12 @@ RemeshSTL::run()
               << "run RemeshSTL \n"
               << "---------------------------------------\n";
     std::cout << "type                 : " << M_packageType << "\n"
-              << "inputPath          : " << this->inputPath() << "\n";
+              << "inputSurfacePath     : " << this->inputSurfacePath() << "\n";
     if ( this->packageType() == "gmsh" )
-        std::cout << "centerlinesFileName  : " << this->centerlinesFileName() << "\n";
+        std::cout << "inputCenterlinesPath : " << this->inputCenterlinesPath() << "\n";
     else if ( this->packageType() == "vmtk" )
-        std::cout << "area  : " << this->area() << "\n";
-    std::cout << "output path       : " << this->outputPath() << "\n"
+        std::cout << "area                 : " << this->area() << "\n";
+    std::cout << "output path          : " << this->outputPath() << "\n"
               << "---------------------------------------\n"
               << "---------------------------------------\n";
 
@@ -1569,7 +1569,7 @@ RemeshSTL::run()
 void
 RemeshSTL::runVMTK()
 {
-    CHECK( !this->inputPath().empty() ) << "inputPath is empty";
+    CHECK( !this->inputSurfacePath().empty() ) << "inputSurfacePath is empty";
 
     std::ostringstream __str;
     // source ~/packages/vmtk/vmtk.build2/Install/vmtk_env.sh
@@ -1578,7 +1578,7 @@ RemeshSTL::runVMTK()
     //std::string dirBaseVmtk = "/Users/vincentchabannes/packages/vmtk/vmtk.build2/Install/bin/";
     std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
     __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtksurfaceremeshing ";
-    __str << "-ifile " << this->inputPath() << " ";
+    __str << "-ifile " << this->inputSurfacePath() << " ";
     __str << "-ofile " << this->outputPath() << " ";
     __str << "-area " << this->area() << " ";
     __str << "-iterations " << M_nIterationVMTK << " ";
@@ -1590,22 +1590,22 @@ RemeshSTL::runVMTK()
 void
 RemeshSTL::runGMSH()
 {
-    CHECK( !this->inputPath().empty() ) << "inputPath is empty";
-    CHECK( !this->centerlinesFileName().empty() ) << "centerlinesFileName is empty";
+    CHECK( !this->inputSurfacePath().empty() ) << "inputSurfacePath is empty";
+    CHECK( !this->inputCenterlinesPath().empty() ) << "inputCenterlinesPath is empty";
 
     std::ostringstream geodesc;
     geodesc << "Mesh.Algorithm = 6; //(1=MeshAdapt, 5=Delaunay, 6=Frontal, 7=bamg, 8=delquad) \n"
             << "Mesh.Algorithm3D = 1; //(1=tetgen, 4=netgen, 7=MMG3D, 9=R-tree) \n";
 
     //geodesc << "Merge \"stl_remesh_vmtk/fluidskin3.stl\"\n";
-    geodesc << "Merge \""<< this->inputPath() <<"\";\n";
+    geodesc << "Merge \""<< this->inputSurfacePath() <<"\";\n";
 
     //geodesc << "Field[1] = Centerline;\n";
     geodesc << "Field[1] = AngioTkCenterline;\n";
 
 
     //geodesc << "Field[1].FileName = \"../centerlines/fluidskin3.vtk\"\n";
-    geodesc << "Field[1].FileName = \"" << this->centerlinesFileName() << "\";\n";
+    geodesc << "Field[1].FileName = \"" << this->inputCenterlinesPath() << "\";\n";
     geodesc << "Field[1].nbPoints = "<< this->remeshNbPointsInCircle() << ";//15//25 //number of mesh elements in a circle\n";
     //geodesc << "Field[1].nbPoints = 15;//25 //number of mesh elements in a circle\n";
 
