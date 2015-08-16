@@ -45,7 +45,7 @@ int main( int argc, char** argv )
 	    if ( doForceRebuild )
 	      remshVMTK.setForceRebuild(true);
 	    remshVMTK.setPackageType("vmtk");
-            remshVMTK.setInputPath( centerlines.inputPath() );
+            remshVMTK.setInputSurfacePath( centerlines.inputPath() );
 	    remshVMTK.updateOutputPathFromInputFileName();
             remshVMTK.run();
             centerlines.setStlFileName( remshVMTK.outputPath() );
@@ -60,12 +60,12 @@ int main( int argc, char** argv )
     remshGMSH.setPackageType("gmsh");
     if ( doRemeshSurface )
     {
-        if ( remshGMSH.inputPath().empty() )
+        if ( remshGMSH.inputSurfacePath().empty() )
 	{
-            remshGMSH.setInputPath( centerlines.inputPath() );
+            remshGMSH.setInputSurfacePath( centerlines.inputPath() );
 	    remshGMSH.updateOutputPathFromInputFileName();
 	}
-        remshGMSH.setCenterlinesFileName( centerlines.outputPath() );
+        remshGMSH.setInputCenterlinesPath( centerlines.outputPath() );
         remshGMSH.run();
     }
 
