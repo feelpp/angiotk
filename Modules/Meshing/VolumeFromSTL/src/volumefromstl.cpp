@@ -141,6 +141,7 @@ CenterlinesFromSTL::CenterlinesFromSTL( std::string prefix )
     M_inputPath( soption(_name="input.filename",_prefix=this->prefix()) ),
     M_inputCenterlinesPointSetPath( soption(_name="input.pointset.filename",_prefix=this->prefix()) ),
     M_inputInletOutletDescPath( soption(_name="input.desc.filename",_prefix=this->prefix()) ),
+    M_inputGeoCenterlinesPath( soption(_name="input.geo-centerlines.filename",_prefix=this->prefix()) ),
     M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
     M_costFunctionExpr( soption(_name="cost-function.expression",_prefix=this->prefix()) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
@@ -239,7 +240,7 @@ CenterlinesFromSTL::run()
             std::cout << "WARNING : centerlines computation not done because this input path not exist :" << this->inputPath() << "\n";
         return;
     }
-    if ( this->inputCenterlinesPointSetPath().empty() && this->sourceids().empty() && this->targetids().empty() )
+    if ( this->inputCenterlinesPointSetPath().empty() && this->sourceids().empty() && this->targetids().empty() && this->inputGeoCenterlinesPath().empty() )
     {
         if ( this->worldComm().isMasterRank() )
             std::cout << "WARNING : centerlines computation not done because this sourceids and targetids are empty\n";
@@ -264,6 +265,8 @@ CenterlinesFromSTL::run()
             coutStr << id << " ";
         coutStr << "\n";
     }
+    if ( !this->inputGeoCenterlinesPath().empty() )
+        coutStr << "inputGeoCenterlinesPath :" << this->inputGeoCenterlinesPath() << "\n";
     coutStr << "output path       : " << this->outputPath() << "\n"
             << "---------------------------------------\n"
             << "---------------------------------------\n";
@@ -287,7 +290,6 @@ CenterlinesFromSTL::run()
     // // wait all process
     this->worldComm().globalComm().barrier();
 
-
     //fs::path stlNamePath = fs::path(this->inputPath());
     fs::path outputFileNamePath = fs::path(this->outputPath());
     std::string name = outputFileNamePath.stem().string();
@@ -299,87 +301,103 @@ CenterlinesFromSTL::run()
 
     if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
     {
-        std::ostringstream __str;
-        __str << pythonExecutable << " ";
-        __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkcenterlines ";
-        //__str << "-usetetgen 1 -simplifyvoronoi 1 ";
+        if ( !this->inputGeoCenterlinesPath().empty() && fs::exists( this->inputGeoCenterlinesPath() ) )
+        {
+            GmshInitialize();
+            CTX::instance()->terminal = 1;
+            int verbosityLevel = 5;
+            Msg::SetVerbosity( verbosityLevel );
 
-        if ( M_useInteractiveSelection )
-        {
-            if ( false )
-            __str <<"-seedselector openprofiles ";
-            else
-            __str <<"-seedselector pickpoint ";
-        }
-        else if ( !this->inputCenterlinesPointSetPath().empty() )
-        {
-            auto pointset = loadFromCenterlinesPointSetFile();
-            __str <<"-seedselector pointlist ";
-            __str << "-sourcepoints ";
-            for ( std::vector<double> const& pt : std::get<0>(pointset) ) // source
-            {
-                __str << pt[0] << " " << pt[1] << " " << pt[2] << " ";
-            }
-            __str << "-targetpoints ";
-            for ( std::vector<double> const& pt : std::get<1>(pointset) ) // target
-            {
-                __str << pt[0] << " " << pt[1] << " " << pt[2] << " ";
-            }
-        }
-        else if ( !this->inputInletOutletDescPath().empty() )
-        {
-            InletOutletDesc iodesc( this->inputInletOutletDescPath() );
-
-            __str <<"-seedselector pointlist ";
-            __str << "-sourcepoints ";
-            for ( int id : this->sourceids() )
-            {
-                CHECK( id < iodesc.size() ) << "id : " << id << "not valid! must be < " << iodesc.size();
-                auto iodata = iodesc[id];
-                __str << iodata.nodeX() << " " << iodata.nodeY() << " " << iodata.nodeZ() << " ";;
-            }
-            __str << "-targetpoints ";
-            for ( int id : this->targetids() )
-            {
-                CHECK( id < iodesc.size() ) << "id : " << id << "not valid! must be < " << iodesc.size();
-                auto iodata = iodesc[id];
-                __str << iodata.nodeX() << " " << iodata.nodeY() << " " << iodata.nodeZ() << " ";;
-            }
+            AngioTkCenterline centerlinesTool;
+            centerlinesTool.createFromGeoCenterlinesFile( this->inputGeoCenterlinesPath(),this->inputPath() );
+            centerlinesTool.addFieldBranchIds();
+            centerlinesTool.addFieldRadiusMin("RadiusMin");
+            centerlinesTool.addFieldRadiusMin("MaximumInscribedSphereRadius");
+            centerlinesTool.writeCenterlinesVTK( this->outputPath() );
         }
         else
         {
-            __str <<"-seedselector profileidlist ";
-            __str << "-targetids ";
-            for ( int id : this->targetids() )
-                __str << id << " ";
-            __str << "-sourceids ";
-            for ( int id : this->sourceids() )
-                __str << id << " ";
-        }
+            std::ostringstream __str;
+            __str << pythonExecutable << " ";
+            __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkcenterlines ";
+            //__str << "-usetetgen 1 -simplifyvoronoi 1 ";
 
+            if ( M_useInteractiveSelection )
+            {
+                if ( false )
+                    __str <<"-seedselector openprofiles ";
+                else
+                    __str <<"-seedselector pickpoint ";
+            }
+            else if ( !this->inputCenterlinesPointSetPath().empty() )
+            {
+                auto pointset = loadFromCenterlinesPointSetFile();
+                __str <<"-seedselector pointlist ";
+                __str << "-sourcepoints ";
+                for ( std::vector<double> const& pt : std::get<0>(pointset) ) // source
+                {
+                    __str << pt[0] << " " << pt[1] << " " << pt[2] << " ";
+                }
+                __str << "-targetpoints ";
+                for ( std::vector<double> const& pt : std::get<1>(pointset) ) // target
+                {
+                    __str << pt[0] << " " << pt[1] << " " << pt[2] << " ";
+                }
+            }
+            else if ( !this->inputInletOutletDescPath().empty() )
+            {
+                InletOutletDesc iodesc( this->inputInletOutletDescPath() );
 
-        __str << " -costfunction " << M_costFunctionExpr << " ";
+                __str <<"-seedselector pointlist ";
+                __str << "-sourcepoints ";
+                for ( int id : this->sourceids() )
+                {
+                    CHECK( id < iodesc.size() ) << "id : " << id << "not valid! must be < " << iodesc.size();
+                    auto iodata = iodesc[id];
+                    __str << iodata.nodeX() << " " << iodata.nodeY() << " " << iodata.nodeZ() << " ";;
+                }
+                __str << "-targetpoints ";
+                for ( int id : this->targetids() )
+                {
+                    CHECK( id < iodesc.size() ) << "id : " << id << "not valid! must be < " << iodesc.size();
+                    auto iodata = iodesc[id];
+                    __str << iodata.nodeX() << " " << iodata.nodeY() << " " << iodata.nodeZ() << " ";;
+                }
+            }
+            else
+            {
+                __str <<"-seedselector profileidlist ";
+                __str << "-targetids ";
+                for ( int id : this->targetids() )
+                    __str << id << " ";
+                __str << "-sourceids ";
+                for ( int id : this->sourceids() )
+                    __str << id << " ";
+            }
+
+            __str << " -costfunction " << M_costFunctionExpr << " ";
 #if 0
-        //std::string costFunction = "1/R";
-        //std::string costFunction = "(R-0.5)*(R-0.5)";
-        //std::string costFunction = "R*R-R+0.25";
-        //std::string costFunction = "R*R-2*0.8*R+0.8*0.8";
-        std::string costFunction = "R*R-2*1.1*R+1.1*1.1";
-        __str << " -costfunction " << costFunction << " ";
-        //__str << " -delaunaytessellationfile " << costFunction << " ";
+            //std::string costFunction = "1/R";
+            //std::string costFunction = "(R-0.5)*(R-0.5)";
+            //std::string costFunction = "R*R-R+0.25";
+            //std::string costFunction = "R*R-2*0.8*R+0.8*0.8";
+            std::string costFunction = "R*R-2*1.1*R+1.1*1.1";
+            __str << " -costfunction " << costFunction << " ";
+            //__str << " -delaunaytessellationfile " << costFunction << " ";
 #endif
 
-        __str << " -ifile " << this->inputPath() << " ";
-        __str << " -ofile " << pathVTP << " " //name << ".vtp "
-              << " --pipe " << dirBaseVmtk << "/vmtksurfacewriter "
-              << " -ifile " << pathVTP << " " //name << ".vtp "
-              << " -ofile " << this->outputPath() << " " //name << ".vtk "
-              << " -mode ascii ";
+            __str << " -ifile " << this->inputPath() << " ";
+            __str << " -ofile " << pathVTP << " " //name << ".vtp "
+                  << " --pipe " << dirBaseVmtk << "/vmtksurfacewriter "
+                  << " -ifile " << pathVTP << " " //name << ".vtp "
+                  << " -ofile " << this->outputPath() << " " //name << ".vtk "
+                  << " -mode ascii ";
 
-        std::cout << "---------------------------------------\n"
-                  << "run in system : \n" << __str.str() << "\n"
-                  << "---------------------------------------\n";
-        auto err = ::system( __str.str().c_str() );
+            std::cout << "---------------------------------------\n"
+                      << "run in system : \n" << __str.str() << "\n"
+                      << "---------------------------------------\n";
+            auto err = ::system( __str.str().c_str() );
+        }
     }
     else
     {
@@ -421,6 +439,7 @@ CenterlinesFromSTL::options( std::string const& prefix )
         (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input filename" )
         (prefixvm(prefix,"input.pointset.filename").c_str(), po::value<std::string>()->default_value( "" ), "input.pointset.filename" )
         (prefixvm(prefix,"input.desc.filename").c_str(), po::value<std::string>()->default_value( "" ), "inletoutlet-desc.filename" )
+        (prefixvm(prefix,"input.geo-centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "geo-centerlines.filename" )
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
         (prefixvm(prefix,"use-interactive-selection").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) use-interactive-selection")
         (prefixvm(prefix,"cost-function.expression").c_str(), Feel::po::value<std::string>()->default_value("1/R"), "(string) cost-function")
@@ -591,7 +610,10 @@ CenterlinesManager::run()
             if ( surfaceMeshExist )
                 centerlinesTool.addFieldRadiusMin();
             if ( M_applyThresholdMinRadius > 0 )
-                centerlinesTool.applyThresholdRadius( M_applyThresholdMinRadius );
+            {
+                centerlinesTool.applyFieldThresholdMin( "RadiusMin",M_applyThresholdMinRadius );
+                centerlinesTool.applyFieldThresholdMin( "MaximumInscribedSphereRadius",M_applyThresholdMinRadius );
+            }
             centerlinesTool.writeCenterlinesVTK( this->outputPath() );
         }
     }
@@ -623,7 +645,10 @@ CenterlinesManager::run()
             if ( surfaceMeshExist && false )
                 centerlinesTool->addFieldRadiusMin();
             if ( M_applyThresholdMinRadius > 0 )
-                centerlinesTool->applyThresholdRadius( M_applyThresholdMinRadius );
+            {
+                centerlinesTool->applyFieldThresholdMin( "RadiusMin",M_applyThresholdMinRadius );
+                centerlinesTool->applyFieldThresholdMin( "MaximumInscribedSphereRadius",M_applyThresholdMinRadius );
+            }
             centerlinesTool->writeCenterlinesVTK( this->outputPath() );
         }
     }

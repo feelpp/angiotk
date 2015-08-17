@@ -129,6 +129,7 @@ public :
     std::string inputPath() const { return M_inputPath; }
     std::string inputCenterlinesPointSetPath() const { return M_inputCenterlinesPointSetPath; }
     std::string inputInletOutletDescPath() const { return M_inputInletOutletDescPath; }
+    std::string inputGeoCenterlinesPath() const { return M_inputGeoCenterlinesPath; }
     std::string outputPath() const { return M_outputPath; }
     void setOutputPath(std::string const& path) { M_outputPath=path; }
     std::set<int> const& targetids() const { return M_targetids; }
@@ -155,9 +156,11 @@ private :
 private :
     std::string M_prefix;
     std::string M_inputPath, M_inputCenterlinesPointSetPath, M_inputInletOutletDescPath, M_outputPath;
+    std::string M_inputGeoCenterlinesPath;
     std::string M_outputDirectory;
     std::set<int> M_targetids, M_sourceids;
     std::string M_costFunctionExpr;
+
     bool M_forceRebuild;
     bool M_useInteractiveSelection;
     bool M_viewResults,M_viewResultsWithSurface;
