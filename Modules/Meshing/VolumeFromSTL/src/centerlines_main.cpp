@@ -29,7 +29,7 @@ int main( int argc, char** argv )
     if ( preProcessSubdivideSurface )
       {
 	SubdivideSurface mySubdivideSurface("subdivide-surface");
-	mySubdivideSurface.setInputPath( centerlines.inputPath() );
+	mySubdivideSurface.setInputSurfacePath( centerlines.inputPath() );
 	mySubdivideSurface.setOutputDirectory( fs::path(centerlines.outputPath()).parent_path().string() );
 	mySubdivideSurface.updateOutputPathFromInputFileName();
 	mySubdivideSurface.run();

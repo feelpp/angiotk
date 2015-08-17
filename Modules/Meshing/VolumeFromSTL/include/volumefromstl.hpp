@@ -220,15 +220,16 @@ public :
 
     std::string prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }
-    std::string inputPath() const { return M_inputPath; }
+    std::string inputCenterlinesPath() const { return M_inputCenterlinesPath; }
     std::string outputPath() const { return M_outputPath; }
     bool forceRebuild() const { return M_forceRebuild; }
 
 private :
     std::string M_prefix;
-    std::string M_inputPath, M_outputDirectory,M_outputPath;
+    std::string M_inputCenterlinesPath, M_outputDirectory,M_outputPath;
     bool M_forceRebuild;
     int/*double*/ M_dimX,M_dimY,M_dimZ;
+    double M_dimSpacing;
     std::string M_radiusArrayName;
 };
 
@@ -252,6 +253,9 @@ public :
     std::string outputPath() const { return M_outputPath; }
     bool forceRebuild() const { return M_forceRebuild; }
 
+    void setOutputPath(std::string const& path) { M_outputPath=path; }
+    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
+
 private :
     std::string M_prefix;
     std::string M_inputPath, M_outputDirectory,M_outputPath;
@@ -267,7 +271,7 @@ class SubdivideSurface
 public :
 
     SubdivideSurface( std::string prefix );
-    SubdivideSurface( SubdivideSurface const& e );
+    SubdivideSurface( SubdivideSurface const& e ) = default;
 
     void updateOutputPathFromInputFileName();
 
@@ -275,18 +279,20 @@ public :
 
     std::string prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }
-    std::string inputPath() const { return M_inputPath; }
-    void setInputPath(std::string const& path) {M_inputPath=path; }
+    std::string inputSurfacePath() const { return M_inputSurfacePath; }
     std::string outputPath() const { return M_outputPath; }
+    bool forceRebuild() const { return M_forceRebuild; }
+
+    void setInputSurfacePath(std::string const& path) { M_inputSurfacePath=path; }
     void setOutputPath(std::string const& path) { M_outputPath=path; }
     void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
+    void setForceRebuild( bool b ) { M_forceRebuild=b; }
 
-    bool forceRebuild() const { return M_forceRebuild; }
     static po::options_description options( std::string const& prefix );
 
 private :
     std::string M_prefix;
-    std::string M_inputPath, M_outputDirectory, M_outputPath;
+    std::string M_inputSurfacePath, M_outputDirectory, M_outputPath;
     std::string M_method;
     int M_nSubdivisions;
     bool M_forceRebuild;
@@ -297,7 +303,7 @@ class SmoothSurface
 public :
 
     SmoothSurface( std::string prefix );
-    SmoothSurface( SmoothSurface const& e );
+    SmoothSurface( SmoothSurface const& e ) = default;
 
     void updateOutputPathFromInputFileName();
 
@@ -305,15 +311,20 @@ public :
 
     std::string prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }
-    std::string inputPath() const { return M_inputPath; }
+    std::string inputSurfacePath() const { return M_inputSurfacePath; }
     std::string outputPath() const { return M_outputPath; }
     bool forceRebuild() const { return M_forceRebuild; }
+
+    void setInputSurfacePath(std::string const& path) { M_inputSurfacePath=path; }
+    void setOutputPath(std::string const& path) { M_outputPath=path; }
+    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
+    void setForceRebuild( bool b ) { M_forceRebuild=b; }
 
     static po::options_description options( std::string const& prefix );
 
 private :
     std::string M_prefix;
-    std::string M_inputPath, M_outputDirectory, M_outputPath;
+    std::string M_inputSurfacePath, M_outputDirectory, M_outputPath;
     std::string M_method;
     int M_nIterations;
     double M_taubinPassBand;
@@ -345,6 +356,7 @@ public :
     void setInputSurfacePath(std::string const& s) { M_inputSurfacePath=s; }
     void setInputCenterlinesPath(std::string const& s) { M_inputCenterlinesPath=s; }
     void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
+    void setForceRebuild( bool b ) { M_forceRebuild=b; }
 
 private :
     std::string M_prefix;
@@ -373,6 +385,7 @@ public :
     int remeshNbPointsInCircle() const { return M_remeshNbPointsInCircle; }
     double area() const { return M_area; }
     std::string outputPath() const { if ( this->packageType() =="gmsh" ) return M_outputPathGMSH; else return M_outputPathVMTK; }
+    bool forceRebuild() const { return M_forceRebuild; }
 
     void setPackageType( std::string type)
     {
@@ -381,8 +394,9 @@ public :
     }
     void setInputSurfacePath(std::string const& s) { M_inputSurfacePath=s; }
     void setInputCenterlinesPath(std::string const& s) { M_inputCenterlinesPath=s; }
+    void setOutputPath(std::string const& path) { if ( this->packageType() =="gmsh" ) M_outputPathGMSH=path; else M_outputPathVMTK=path; }
+    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
 
-    bool forceRebuild() const { return M_forceRebuild; }
     void setForceRebuild( bool b ) { M_forceRebuild=b; }
 
     void updateOutputPathFromInputFileName();

@@ -13,6 +13,7 @@
 #include <vtkSTLWriter.h>
 #include <vtkImageTranslateExtent.h>
 #include <vtkPolyDataConnectivityFilter.h>
+#include <vtkPointData.h>
 
 //#include <vtkvmtkPolyBallModeller.h>
 #include <angiotkPolyBallModeller.h>
@@ -677,15 +678,16 @@ CenterlinesManager::options( std::string const& prefix )
 ImageFromCenterlines::ImageFromCenterlines( std::string prefix )
     :
     M_prefix( prefix ),
-    M_inputPath( soption(_name="input.filename",_prefix=this->prefix()) ),
+    M_inputCenterlinesPath( soption(_name="input.filename",_prefix=this->prefix()) ),
     M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
-    M_dimX( doption(_name="dim.x",_prefix=this->prefix() ) ),
-    M_dimY( doption(_name="dim.y",_prefix=this->prefix() ) ),
-    M_dimZ( doption(_name="dim.z",_prefix=this->prefix() ) ),
+    M_dimX( ioption(_name="dim.x",_prefix=this->prefix() ) ),
+    M_dimY( ioption(_name="dim.y",_prefix=this->prefix() ) ),
+    M_dimZ( ioption(_name="dim.z",_prefix=this->prefix() ) ),
+    M_dimSpacing( doption(_name="dim.spacing",_prefix=this->prefix() ) ),
     M_radiusArrayName( soption(_name="radius-array-name",_prefix=this->prefix() ) )
 {
-    if ( !M_inputPath.empty() && M_outputPath.empty() )
+    if ( !this->inputCenterlinesPath().empty() && M_outputPath.empty() )
     {
         this->updateOutputPathFromInputFileName();
     }
@@ -694,7 +696,7 @@ ImageFromCenterlines::ImageFromCenterlines( std::string prefix )
 void
 ImageFromCenterlines::updateOutputPathFromInputFileName()
 {
-    CHECK( !M_inputPath.empty() ) << "input path is empty";
+    CHECK( !this->inputCenterlinesPath().empty() ) << "input centerlines path is empty";
 
     // define output directory
     fs::path meshesdirectories;
@@ -706,10 +708,23 @@ ImageFromCenterlines::updateOutputPathFromInputFileName()
         meshesdirectories = fs::path(M_outputDirectory);
 
     // get filename without extension
-    fs::path gp = M_inputPath;
+    fs::path gp = this->inputCenterlinesPath();
     std::string nameMeshFile = gp.stem().string();
 
-    std::string newFileName = (boost::format("%1%_%2%-%3%-%4%.mha")%nameMeshFile %M_dimX %M_dimY %M_dimZ ).str();
+    std::string dimXTag = (M_dimX > 0 )? (boost::format("%1%")%M_dimX).str() : "x";
+    std::string dimYTag = (M_dimY > 0 )? (boost::format("%1%")%M_dimY).str() : "y";
+    std::string dimZTag = (M_dimZ > 0 )? (boost::format("%1%")%M_dimZ).str() : "z";
+
+    std::string dimComponentTag;
+    if ( M_dimX > 0 || M_dimY > 0 || M_dimZ > 0 )
+        dimComponentTag = "_" + dimXTag + "_" + dimYTag  + "_" + dimZTag;
+
+    std::string dimSpacingTag;
+    if ( std::abs(M_dimSpacing) > 1e-12 )
+        dimSpacingTag = (boost::format("_spacing%1%")%M_dimSpacing).str();
+
+    //std::string newFileName = (boost::format("%1%_%2%-%3%-%4%.mha")%nameMeshFile %M_dimX %M_dimY %M_dimZ ).str();
+    std::string newFileName = (boost::format("%1%%2%%3%.mha")%nameMeshFile %dimComponentTag %dimSpacingTag ).str();
     fs::path outputPath = meshesdirectories / fs::path(newFileName);
     M_outputPath = outputPath.string();
 }
@@ -717,10 +732,10 @@ ImageFromCenterlines::updateOutputPathFromInputFileName()
 void
 ImageFromCenterlines::run()
 {
-    if ( !fs::exists( this->inputPath() ) )
+    if ( !fs::exists( this->inputCenterlinesPath() ) )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : image building not done because this input path not exist :" << this->inputPath() << "\n";
+            std::cout << "WARNING : image building not done because this input path not exist :" << this->inputCenterlinesPath() << "\n";
         return;
     }
 
@@ -730,10 +745,13 @@ ImageFromCenterlines::run()
             << "---------------------------------------\n"
             << "run ImageFromCenterlines \n"
             << "---------------------------------------\n";
-    coutStr << "inputPath         : " << this->inputPath() << "\n";
-    coutStr << "dimensions        : [" << M_dimX << "," << M_dimY << "," << M_dimZ << "]\n";
-    coutStr << "radius array name :" << M_radiusArrayName << "\n";
-    coutStr << "output path       : " << this->outputPath() << "\n"
+    coutStr << "input centerlines   : " << this->inputCenterlinesPath() << "\n";
+    if ( std::abs(M_dimSpacing) > 1e-12 )
+        coutStr << "dimensions spacing  : " << M_dimSpacing << "\n";
+    if ( M_dimX > 0 || M_dimY > 0 || M_dimZ > 0 )
+        coutStr << "dimensions          : [" << M_dimX << "," << M_dimY << "," << M_dimZ << "]\n";
+    coutStr << "radius array name   : " << M_radiusArrayName << "\n";
+    coutStr << "output path         : " << this->outputPath() << "\n"
             << "---------------------------------------\n"
             << "---------------------------------------\n";
     std::cout << coutStr.str();
@@ -760,7 +778,7 @@ ImageFromCenterlines::run()
         __str << pythonExecutable << " ";
         __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkcenterlinemodeller ";
         //__str << "-ifile " << this->inputPath() << " -radiusarray MaximumInscribedSphereRadius "
-        __str << "-ifile " << this->inputPath() << " -radiusarray " << M_radiusArrayName << " "
+        __str << "-ifile " << this->inputCenterlinesPath() << " -radiusarray " << M_radiusArrayName << " "
               << "-negate 1 -dimensions " << M_dimX << " " << M_dimY << " " << M_dimZ << " ";
         __str << "-ofile " << this->outputPath();
 
@@ -771,7 +789,7 @@ ImageFromCenterlines::run()
 #else
 
         vtkSmartPointer<vtkPolyDataReader> readerVTK = vtkSmartPointer<vtkPolyDataReader>::New();
-        readerVTK->SetFileName(this->inputPath().c_str());
+        readerVTK->SetFileName(this->inputCenterlinesPath().c_str());
         readerVTK->Update();
 
         //vtkSmartPointer<vtkvmtkPolyBallModeller> modeller = vtkvmtkPolyBallModeller::New();
@@ -779,6 +797,22 @@ ImageFromCenterlines::run()
         modeller->SetInput( (vtkDataObject*)readerVTK->GetOutput() );
         modeller->SetRadiusArrayName(M_radiusArrayName.c_str());
         modeller->UsePolyBallLineOn();
+
+        if ( std::abs(M_dimSpacing) > 1e-12 )
+        {
+            vtkPolyData* inputCenterlines = vtkPolyData::SafeDownCast(readerVTK->GetOutput());
+            vtkDataArray* radiusArray = inputCenterlines->GetPointData()->GetArray(M_radiusArrayName.c_str());
+            double maxRadius = radiusArray->GetRange()[1];
+            double* bounds = inputCenterlines->GetBounds();
+            double maxDist = 2.0 * maxRadius;
+            if ( M_dimX == 0 )
+                M_dimX = static_cast<int>( std::floor( (bounds[1] - bounds[0] + 2*maxDist )/M_dimSpacing) ) + 1;
+            if ( M_dimY == 0 )
+                M_dimY = static_cast<int>( std::floor( (bounds[3] - bounds[2] + 2*maxDist )/M_dimSpacing) ) + 1;
+            if ( M_dimZ == 0 )
+                M_dimZ = static_cast<int>( std::floor( (bounds[5] - bounds[4] + 2*maxDist )/M_dimSpacing) ) + 1;
+        }
+        CHECK( M_dimX > 0 && M_dimY > 0 && M_dimZ > 2 ) << "M_dimX,M_dimY,M_dimZ must be > 0";
         int sampleDimensions[3] = { M_dimX,M_dimY,M_dimZ };
         modeller->SetSampleDimensions( sampleDimensions );
         modeller->SetNegateFunction(1);
@@ -802,9 +836,10 @@ ImageFromCenterlines::options( std::string const& prefix )
         (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
         (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
-        (prefixvm(prefix,"dim.x").c_str(), Feel::po::value<double>()->default_value(64), "(bool) force-rebuild")
-        (prefixvm(prefix,"dim.y").c_str(), Feel::po::value<double>()->default_value(64), "(bool) force-rebuild")
-        (prefixvm(prefix,"dim.z").c_str(), Feel::po::value<double>()->default_value(64), "(bool) force-rebuild")
+        (prefixvm(prefix,"dim.x").c_str(), Feel::po::value<int>()->default_value(0), "(int) dim.x")
+        (prefixvm(prefix,"dim.y").c_str(), Feel::po::value<int>()->default_value(0), "(int) dim.y")
+        (prefixvm(prefix,"dim.z").c_str(), Feel::po::value<int>()->default_value(0), "(int) dim.z")
+        (prefixvm(prefix,"dim.spacing").c_str(), Feel::po::value<double>()->default_value(0.), "(double) dim.spacing")
         (prefixvm(prefix,"radius-array-name").c_str(), Feel::po::value<std::string>()->default_value("MaximumInscribedSphereRadius"), "(std::string) radius-array-name")
         ;
     return myImageFromCenterlinesOptions;
@@ -1102,34 +1137,25 @@ SurfaceFromImage::options( std::string const& prefix )
 SubdivideSurface::SubdivideSurface( std::string prefix )
     :
     M_prefix( prefix ),
-    M_inputPath( soption(_name="input.filename",_prefix=this->prefix()) ),
+    M_inputSurfacePath( soption(_name="input.filename",_prefix=this->prefix()) ),
     M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_method( soption(_name="method",_prefix=this->prefix()) ),
     M_nSubdivisions( ioption(_name="subdivisions",_prefix=this->prefix()) )
 {
     CHECK( M_method == "linear" || M_method == "butterfly" || M_method == "loop" ) << "invalid method " << M_method << "\n";
-    if ( !M_inputPath.empty() && M_outputPath.empty() )
+    if ( !this->inputSurfacePath().empty() && M_outputPath.empty() )
     {
         this->updateOutputPathFromInputFileName();
     }
 }
 
 
-SubdivideSurface::SubdivideSurface( SubdivideSurface const& e )
-    :
-    M_prefix( e.M_prefix ),
-    M_inputPath( e.M_inputPath ),
-    M_outputDirectory( e.M_outputDirectory ), M_outputPath( e.M_outputPath ),
-    M_forceRebuild( e.M_forceRebuild ),
-    M_method( e.M_method ),
-    M_nSubdivisions( e.M_nSubdivisions )
-{}
 
 void
 SubdivideSurface::updateOutputPathFromInputFileName()
 {
-    CHECK( !M_inputPath.empty() ) << "input path is empty";
+    CHECK( !this->inputSurfacePath().empty() ) << "input path is empty";
 
     // define output directory
     fs::path meshesdirectories;
@@ -1142,7 +1168,7 @@ SubdivideSurface::updateOutputPathFromInputFileName()
 
     // get filename without extension
     //fs::path gp = M_inputPath;
-    std::string nameMeshFile = fs::path(this->inputPath()).stem().string();
+    std::string nameMeshFile = fs::path(this->inputSurfacePath()).stem().string();
 
     std::string newFileName = (boost::format("%1%_subdivide%2%%3%.stl")%nameMeshFile %M_nSubdivisions %M_method ).str();
     fs::path outputPath = meshesdirectories / fs::path(newFileName);
@@ -1152,10 +1178,10 @@ SubdivideSurface::updateOutputPathFromInputFileName()
 void
 SubdivideSurface::run()
 {
-    if ( !fs::exists( this->inputPath() ) )
+    if ( !fs::exists( this->inputSurfacePath() ) )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : smoothing surface not done because this input surface path not exist :" << this->inputPath() << "\n";
+            std::cout << "WARNING : smoothing surface not done because this input surface path not exist :" << this->inputSurfacePath() << "\n";
         return;
     }
 
@@ -1165,7 +1191,7 @@ SubdivideSurface::run()
             << "---------------------------------------\n"
             << "run SubdivideSurface \n"
             << "---------------------------------------\n";
-    coutStr << "inputPath     : " << this->inputPath() << "\n";
+    coutStr << "input surface : " << this->inputSurfacePath() << "\n";
     coutStr << "method        : " << M_method << "\n"
             << "nSubdivisions : " << M_nSubdivisions << "\n";
     coutStr << "output path   : " << this->outputPath() << "\n"
@@ -1193,7 +1219,7 @@ SubdivideSurface::run()
         std::ostringstream __str;
         __str << pythonExecutable << " ";
         __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtksurfacesubdivision ";
-        __str << "-ifile " << this->inputPath() << " "
+        __str << "-ifile " << this->inputSurfacePath() << " "
               << "-method " << M_method << " "
               << "-subdivisions " << M_nSubdivisions << " ";
         __str << "-ofile " << this->outputPath();
@@ -1224,7 +1250,7 @@ SubdivideSurface::options( std::string const& prefix )
 SmoothSurface::SmoothSurface( std::string prefix )
     :
     M_prefix( prefix ),
-    M_inputPath( soption(_name="input.filename",_prefix=this->prefix()) ),
+    M_inputSurfacePath( soption(_name="input.filename",_prefix=this->prefix()) ),
     M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_method( soption(_name="method",_prefix=this->prefix()) ),
@@ -1233,28 +1259,16 @@ SmoothSurface::SmoothSurface( std::string prefix )
     M_laplaceRelaxationFactor( doption(_name="laplace.relaxation",_prefix=this->prefix()) )
 {
     CHECK( M_method == "taubin" || M_method == "laplace" ) << "invalid method " << M_method << "\n";
-    if ( !M_inputPath.empty() && M_outputPath.empty() )
+    if ( !this->inputSurfacePath().empty() && M_outputPath.empty() )
     {
         this->updateOutputPathFromInputFileName();
     }
 }
 
-SmoothSurface::SmoothSurface( SmoothSurface const& e )
-    :
-    M_prefix( e.M_prefix ),
-    M_inputPath( e.M_inputPath ),
-    M_outputDirectory( e.M_outputDirectory ), M_outputPath( e.M_outputPath ),
-    M_forceRebuild( e.M_forceRebuild ),
-    M_method( e.M_method ),
-    M_nIterations( e.M_nIterations ),
-    M_taubinPassBand( e.M_taubinPassBand ),
-    M_laplaceRelaxationFactor( e.M_laplaceRelaxationFactor )
-{}
-
 void
 SmoothSurface::updateOutputPathFromInputFileName()
 {
-    CHECK( !M_inputPath.empty() ) << "input path is empty";
+    CHECK( !this->inputSurfacePath().empty() ) << "input path is empty";
 
     // define output directory
     fs::path meshesdirectories;
@@ -1266,7 +1280,7 @@ SmoothSurface::updateOutputPathFromInputFileName()
         meshesdirectories = fs::path(M_outputDirectory);
 
     // get filename without extension
-    fs::path gp = M_inputPath;
+    fs::path gp = this->inputSurfacePath();
     std::string nameMeshFile = gp.stem().string();
 
     std::string newFileName;
@@ -1281,10 +1295,10 @@ SmoothSurface::updateOutputPathFromInputFileName()
 void
 SmoothSurface::run()
 {
-    if ( !fs::exists( this->inputPath() ) )
+    if ( !fs::exists( this->inputSurfacePath() ) )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : smoothing surface not done because this input surface path not exist :" << this->inputPath() << "\n";
+            std::cout << "WARNING : smoothing surface not done because this input surface path not exist :" << this->inputSurfacePath() << "\n";
         return;
     }
 
@@ -1294,7 +1308,7 @@ SmoothSurface::run()
             << "---------------------------------------\n"
             << "run SmoothSurface \n"
             << "---------------------------------------\n";
-    coutStr << "inputPath     : " << this->inputPath() << "\n";
+    coutStr << "input surface : " << this->inputSurfacePath() << "\n";
     coutStr << "method        : " << M_method << "\n"
             << "nIterations   : " << M_nIterations << "\n";
     if ( M_method == "taubin" )
@@ -1326,7 +1340,7 @@ SmoothSurface::run()
         std::ostringstream __str;
         __str << pythonExecutable << " ";
         __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtksurfacesmoothing ";
-        __str << "-ifile " << this->inputPath() << " "
+        __str << "-ifile " << this->inputSurfacePath() << " "
               << "-iterations " << M_nIterations << " ";
         if ( M_method == "taubin" )
             __str << "-method taubin -passband " << M_taubinPassBand << " ";
