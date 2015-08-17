@@ -146,11 +146,15 @@ class AngioTkCenterline : public Field{
 
 
   void updateCenterlinesFromFile( std::string fileName );
+  void createFromGeoCenterlinesFile( std::string const& fileName, std::string const& inputSurfacePath );
+ private :
+  void updateCenterlinesForUse();
+ public:
   void updateCenterlinesFieldsFromFile(std::string fileName);
   void removeBranchIds( std::set<int> const& _removeBranchIds );
-  void addFieldBranchIds();
-  void addFieldRadiusMin();
-  void applyThresholdRadius(double valMinThreshold);
+  void addFieldBranchIds( std::string const& fieldName = "BranchIds" );
+  void addFieldRadiusMin( std::string const& fieldName = "RadiusMin" );
+  void applyFieldThresholdMin( std::string const& fieldName,double valMinThreshold );
   void writeCenterlinesVTK( std::string fileName );
 
   std::map<MVertex*, std::pair<int,int> > const&

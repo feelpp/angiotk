@@ -433,15 +433,30 @@ AngioTkCenterline::~AngioTkCenterline()
 void AngioTkCenterline::importSurfaceFromFile(std::string const& fileName )
 {
   current = GModel::current();
-  //if ( !current ) current = new GModel();
-
-  //mod = new GModel();
   current->load(fileName);
   current->removeDuplicateMeshVertices(1.e-8);
+
+  std::vector<GFace*> currentFaces(current->firstFace(), current->lastFace());
+  for (unsigned int i = 0; i < currentFaces.size(); i++){
+    GFace *gf = currentFaces[i];
+     if (gf->geomType() == GEntity::DiscreteSurface){
+     	for(unsigned int j = 0; j < gf->triangles.size(); j++)
+     	  triangles.push_back(gf->triangles[j]);
+	if (is_cut || is_clip_mesh ){
+	  gf->triangles.clear();
+	  gf->deleteVertexArrays();
+	  current->remove(gf);
+	}
+     }
+  }
+  //std::cout << "number of triangle : " << triangles.size() << "\n";
 #if 0
-      current->setAsCurrent();
-      current->setVisibility(1);
+  if(triangles.empty()){
+    Msg::Error("Current GModel has no triangles ...");
+    return;
+  }
 #endif
+
 }
 
 void AngioTkCenterline::importFile(std::string fileName)
@@ -777,68 +792,8 @@ void AngioTkCenterline::importFile(std::string fileName)
     }
 
 
-
-
-  //---------------------------------------------------------------------------------------------//
-  // create coloring
-
-  lines.clear();
-  colorp.clear();
-  colorl.clear();
-  int maxN = 0.0;
-
-  /*int nbModEdgeAddedFromMerging=0;
-  if ( newCenterlines )
-  nbModEdgeAddedFromMerging = std::distance( newCenterlines->mod->firstEdge(), newCenterlines->mod->lastEdge() );*/
-
-
-  // import first build previous centerlines (with maybe some mod) and after add new centerlines
-  //std::set<std::pair<MVertex*,MVertex*> > registerLinesBuildFromPointPair;
-  std::set<std::pair<int,int> > registerLinesBuildFromPointPair;
-  for (unsigned int i = 0; i < modEdges.size(); i++)
-    {
-      GEdge *ge = modEdges[i];
-      int geTag = ge->tag();
-      //std::cout<< "init my branch i "<<i<<" has " << ge->lines.size() << " lines \n";
- 
-      for(unsigned int j = 0; j < ge->lines.size(); j++)
-	{
-	  MLine *l = ge->lines[j];
-	  MVertex *v0 = l->getVertex(0); MVertex *v1 = l->getVertex(1);
-	  int v0Id = v0->getIndex(), v1Id = v1->getIndex();
-	  // after remove duplacte vertices, it is possible to have a wrong line with 2 same pts
-	  if ( v0 == v1 )
-	    {
-	      //std::cout << "ignore a wrong line\n";
-	      continue;
-	    }
-	  if ( M_registerLinesToRemoveFromPointIdPairInModelEdge.find( std::make_pair(v0Id,v1Id ) ) != M_registerLinesToRemoveFromPointIdPairInModelEdge.end() ||
-	       M_registerLinesToRemoveFromPointIdPairInModelEdge.find( std::make_pair(v1Id,v0Id ) ) != M_registerLinesToRemoveFromPointIdPairInModelEdge.end() )
-	    {
-	      //std::cout << "ignore a line\n";
-	      continue;
-	    }
-
-	  //if (it0 == colorp.end() || it1 == colorp.end()){
-	  if ( registerLinesBuildFromPointPair.find( std::make_pair(v0Id,v1Id) ) == registerLinesBuildFromPointPair.end() &&
-	       registerLinesBuildFromPointPair.find( std::make_pair(v1Id,v0Id) ) == registerLinesBuildFromPointPair.end() ) {
-	    lines.push_back(l);
-	    colorl.insert(std::make_pair(l, geTag));
-	    maxN = std::max(maxN, ge->tag());
-	    registerLinesBuildFromPointPair.insert( std::make_pair(v1Id,v0Id) );
-	    registerLinesBuildFromPointPair.insert( std::make_pair(v0Id,v1Id) );
-	  }
-	  std::map<MVertex*, int>::iterator it0 = colorp.find(v0);
-	  if (it0 == colorp.end()) colorp.insert(std::make_pair(v0, geTag));
-	  std::map<MVertex*, int>::iterator it1 = colorp.find(v1);
-	  if (it1 == colorp.end()) colorp.insert(std::make_pair(v1, geTag));
-	}
-    }
-  //std::cout << "colorl.size() " << colorl.size() << "\n" << "colorp.size() " << colorp.size() << "\n";
-
-  //---------------------------------------------------------------------------------------------//
-  // create centerlines branch
-  this->createBranches(maxN);
+  // update centerlines : data branch, extremities, kdtree,...
+  this->updateCenterlinesForUse();
 
   //---------------------------------------------------------------------------------------------//
 
@@ -926,9 +881,10 @@ void AngioTkCenterline::importFile(std::string fileName)
   lines.clear();
   colorp.clear();
   colorl.clear();
-  /*int*/ maxN = 0.0;
-  //std::set<std::pair<int,int> > registerLinesBuildFromPointPair;
-  registerLinesBuildFromPointPair.clear();
+  int maxN = 0.0;
+  //registerLinesBuildFromPointPair.clear();
+  std::set<std::pair<int,int> > registerLinesBuildFromPointPair;
+
   std::map<int,int> tagMap;
   for(int i = 0; i < edges.size(); i++)
     {
@@ -1053,6 +1009,133 @@ void AngioTkCenterline::importFile(std::string fileName)
   //this->updateCenterlinesFieldsFromFile(fileName);
 
   Msg::Info("AngioTkCenterline: finish importFile");
+
+}
+
+void AngioTkCenterline::createFromGeoCenterlinesFile( std::string const& fileName, std::string const& inputSurfacePath )
+{
+  Msg::Info("AngioTkCenterline: createFromGeoCenterlinesFile : %s",fileName.c_str());
+
+  std::vector<std::tuple<std::pair<GPoint,double>,std::pair<GPoint,double> > > geoLines;
+
+  std::ifstream fileLoaded( fileName, std::ios::in);
+  while ( !fileLoaded.eof() )
+    {
+      std::vector<double> pt(3);
+      std::string typeEntity;
+      double pointMeshSize = 0.;
+      fileLoaded >> typeEntity;
+      if ( fileLoaded.eof() ) break;
+
+      if ( typeEntity == "LINE" )
+	{
+	  fileLoaded >> pt[0] >> pt[1] >> pt[2] >> pointMeshSize;
+	  auto p1 = std::make_pair( GPoint(pt[0],pt[1],pt[2]),pointMeshSize );
+	  fileLoaded >> pt[0] >> pt[1] >> pt[2] >> pointMeshSize;
+	  auto p2 = std::make_pair( GPoint(pt[0],pt[1],pt[2]),pointMeshSize );
+	  geoLines.push_back( std::make_tuple(p1,p2) );
+	}
+      else
+	Msg::Error( "invalid typeEntity : %s",typeEntity.c_str());
+    }
+  fileLoaded.close();
+
+  mod.reset( new GModel() );
+  mod->setFactory("Gmsh");
+      
+  int curPhysicalTag = 1;
+  for ( auto const& linePts : geoLines )
+    {
+      auto const& p1 =  std::get<0>(linePts);
+      auto const& p2 =  std::get<1>(linePts);
+      GPoint const& gp1 = p1.first;
+      double pointMeshSize1 = p1.second;
+      GPoint const& gp2 = p2.first;
+      double pointMeshSize2 = p2.second;
+
+      GVertex * v1 = mod->addVertex(gp1.x(), gp1.y(), gp1.z(), pointMeshSize1 );
+      GVertex * v2 = mod->addVertex(gp2.x(), gp2.y(), gp2.z(), pointMeshSize2 );
+      GEdge *myLine = mod->addLine(v1,v2);
+      myLine->addPhysicalEntity(curPhysicalTag);
+      ++curPhysicalTag;
+    }
+  mod->mesh(1);
+
+  mod->removeDuplicateMeshVertices(1.e-8);
+  // call indexMeshVertices allow to assign id on vertices from 1
+  bool saveAll = false;//true;//false;
+  int numVerticesInCenterlinesGModel = mod->indexMeshVertices(saveAll);
+
+  modEdges.insert(modEdges.end(),mod->firstEdge(), mod->lastEdge());
+  this->importSurfaceFromFile( inputSurfacePath );
+
+  // update centerlines : data branch, extremities, kdtree,...
+  this->updateCenterlinesForUse();
+  this->updateRelationMapVertex();
+
+  Msg::Info("AngioTkCenterline: createFromGeoCenterlinesFile : finish");
+}
+
+void AngioTkCenterline::updateCenterlinesForUse()
+{
+  // create coloring
+  lines.clear();
+  colorp.clear();
+  colorl.clear();
+  int maxN = 0.0;
+
+  /*int nbModEdgeAddedFromMerging=0;
+    if ( newCenterlines )
+    nbModEdgeAddedFromMerging = std::distance( newCenterlines->mod->firstEdge(), newCenterlines->mod->lastEdge() );*/
+
+  // import first build previous centerlines (with maybe some mod) and after add new centerlines
+  //std::set<std::pair<MVertex*,MVertex*> > registerLinesBuildFromPointPair;
+  std::set<std::pair<int,int> > registerLinesBuildFromPointPair;
+  for (unsigned int i = 0; i < modEdges.size(); i++)
+    {
+      GEdge *ge = modEdges[i];
+      int geTag = ge->tag();
+      //std::cout<< "init my branch i "<<i<<" has " << ge->lines.size() << " lines \n";
+ 
+      for(unsigned int j = 0; j < ge->lines.size(); j++)
+	{
+	  MLine *l = ge->lines[j];
+	  MVertex *v0 = l->getVertex(0); MVertex *v1 = l->getVertex(1);
+	  int v0Id = v0->getIndex(), v1Id = v1->getIndex();
+	  // after remove duplacte vertices, it is possible to have a wrong line with 2 same pts
+	  if ( v0 == v1 )
+	    {
+	      //std::cout << "ignore a wrong line\n";
+	      continue;
+	    }
+	  if ( M_registerLinesToRemoveFromPointIdPairInModelEdge.find( std::make_pair(v0Id,v1Id ) ) != M_registerLinesToRemoveFromPointIdPairInModelEdge.end() ||
+	       M_registerLinesToRemoveFromPointIdPairInModelEdge.find( std::make_pair(v1Id,v0Id ) ) != M_registerLinesToRemoveFromPointIdPairInModelEdge.end() )
+	    {
+	      //std::cout << "ignore a line\n";
+	      continue;
+	    }
+
+	  //if (it0 == colorp.end() || it1 == colorp.end()){
+	  if ( registerLinesBuildFromPointPair.find( std::make_pair(v0Id,v1Id) ) == registerLinesBuildFromPointPair.end() &&
+	       registerLinesBuildFromPointPair.find( std::make_pair(v1Id,v0Id) ) == registerLinesBuildFromPointPair.end() ) {
+	    lines.push_back(l);
+	    colorl.insert(std::make_pair(l, geTag));
+	    maxN = std::max(maxN, ge->tag());
+	    registerLinesBuildFromPointPair.insert( std::make_pair(v1Id,v0Id) );
+	    registerLinesBuildFromPointPair.insert( std::make_pair(v0Id,v1Id) );
+	  }
+	  std::map<MVertex*, int>::iterator it0 = colorp.find(v0);
+	  if (it0 == colorp.end()) colorp.insert(std::make_pair(v0, geTag));
+	  std::map<MVertex*, int>::iterator it1 = colorp.find(v1);
+	  if (it1 == colorp.end()) colorp.insert(std::make_pair(v1, geTag));
+	}
+    }
+  //std::cout << "lines.size() " << lines.size() << " colorl.size() " << colorl.size() << "\n" << "colorp.size() " << colorp.size() << "\n";
+
+  //---------------------------------------------------------------------------------------------//
+  // create centerlines branch
+  this->createBranches(maxN);
+
 
 }
 
@@ -3231,13 +3314,13 @@ void AngioTkCenterline::updateCenterlinesFieldsFromFile(std::string fileName)
     }
 }
 
-void AngioTkCenterline::addFieldBranchIds()
+void AngioTkCenterline::addFieldBranchIds( std::string const& fieldName )
 {
   //if ( centerlinesFieldsPointData.find("BranchIds") != centerlinesFieldsPointData.end() )
   //  return;
-
+  Msg::Info("AngioTkCenterline: addFieldBranchIds");
   int numVertices = numberOfVertices(edges);
-  centerlinesFieldsPointData["BranchIds"].resize( numVertices );
+  centerlinesFieldsPointData[fieldName].resize( numVertices );
 
   std::vector<bool> ptDone(numVertices,false);
   int nBranch = edges.size();
@@ -3253,29 +3336,30 @@ void AngioTkCenterline::addFieldBranchIds()
       int v0Id = myvertex0->getIndex(), v1Id = myvertex1->getIndex();
       int v0VtkId = this->M_mapVertexGmshIdToVtkId[v0Id], v1VtkId = this->M_mapVertexGmshIdToVtkId[v1Id];
       if ( !ptDone[v0VtkId] )
-      {
-	centerlinesFieldsPointData["BranchIds"][v0VtkId] = { (double)i };
+	{
+	centerlinesFieldsPointData[fieldName][v0VtkId] = { (double)i };
 	ptDone[v0VtkId] = true;
       }
       if ( !ptDone[v1VtkId] )
       {
-	centerlinesFieldsPointData["BranchIds"][v1VtkId] = { (double)i };
+	centerlinesFieldsPointData[fieldName][v1VtkId] = { (double)i };
 	ptDone[v1VtkId] = true;
       }
     }
   }
-
 }
 
 void
-AngioTkCenterline::addFieldRadiusMin()
+AngioTkCenterline::addFieldRadiusMin( std::string const& fieldName )
 {
+  Msg::Info("AngioTkCenterline: addFieldRadiusMin");
+
   int numVertices = numberOfVertices(edges);
   if ( colorp.size() != numVertices ) 
-        Msg::Error("invalid container size");
+    Msg::Error("invalid container size colorp.size()=%d vs numVertices=%d", colorp.size(), numVertices );
 
-  centerlinesFieldsPointData["RadiusMin"].clear();
-  centerlinesFieldsPointData["RadiusMin"].resize( numVertices );
+  centerlinesFieldsPointData[fieldName].clear();
+  centerlinesFieldsPointData[fieldName].resize( numVertices );
   for ( auto& ptPair : colorp )
     {
       MVertex* myvertex = ptPair.first;
@@ -3287,7 +3371,7 @@ AngioTkCenterline::addFieldRadiusMin()
 
       int vId = myvertex->getIndex();
       int vVtkId = this->M_mapVertexGmshIdToVtkId[vId];
-      centerlinesFieldsPointData["RadiusMin"][vVtkId] = { (double)minRad };
+      centerlinesFieldsPointData[fieldName][vVtkId] = { (double)minRad };
     }
 }
 
@@ -3306,25 +3390,16 @@ AngioTkCenterline::minRadiusAtVertex( MVertex* myvertex )
 }
 
 void
-AngioTkCenterline::applyThresholdRadius(double valMinThreshold)
+AngioTkCenterline::applyFieldThresholdMin(std::string const& fieldName, double valMinThreshold)
 {
   int numVertices = numberOfVertices(edges);
-  if ( centerlinesFieldsPointData.find("RadiusMin") != centerlinesFieldsPointData.end() &&
-       centerlinesFieldsPointData.find("RadiusMin")->second.size() == numVertices )
+  if ( centerlinesFieldsPointData.find(fieldName) != centerlinesFieldsPointData.end() &&
+       centerlinesFieldsPointData.find(fieldName)->second.size() == numVertices )
     {
       for (int k=0;k<numVertices;++k)
 	{
-	  if ( centerlinesFieldsPointData["RadiusMin"][k][0] < valMinThreshold )
-	    centerlinesFieldsPointData["RadiusMin"][k][0] = valMinThreshold;
-	}
-    }
-  if ( centerlinesFieldsPointData.find("MaximumInscribedSphereRadius") != centerlinesFieldsPointData.end() &&
-       centerlinesFieldsPointData.find("MaximumInscribedSphereRadius")->second.size() == numVertices )
-    {
-      for (int k=0;k<numVertices;++k)
-	{
-	  if ( centerlinesFieldsPointData["MaximumInscribedSphereRadius"][k][0] < valMinThreshold )
-	    centerlinesFieldsPointData["MaximumInscribedSphereRadius"][k][0] = valMinThreshold;
+	  if ( centerlinesFieldsPointData[fieldName][k][0] < valMinThreshold )
+	    centerlinesFieldsPointData[fieldName][k][0] = valMinThreshold;
 	}
     }
 }
