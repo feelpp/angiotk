@@ -248,14 +248,17 @@ public :
     std::string prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }
     std::string inputPath() const { return M_inputPath; }
+    std::string method() { return M_method; }
     std::string outputPath() const { return M_outputPath; }
     bool forceRebuild() const { return M_forceRebuild; }
 
 private :
     std::string M_prefix;
     std::string M_inputPath, M_outputDirectory,M_outputPath;
+    std::string M_method;
     double M_thresholdLower,M_thresholdUpper;
     bool M_hasThresholdLower,M_hasThresholdUpper;
+    bool M_applyConnectivityLargestRegion;
     bool M_forceRebuild;
 };
 

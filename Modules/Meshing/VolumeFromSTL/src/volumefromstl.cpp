@@ -815,10 +815,14 @@ SurfaceFromImage::SurfaceFromImage( std::string prefix )
     M_prefix( prefix ),
     M_inputPath( soption(_name="input.filename",_prefix=this->prefix()) ),
     M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+    M_method( soption(_name="method",_prefix=this->prefix()) ),
     M_hasThresholdLower(false), M_hasThresholdUpper(false),
     M_thresholdLower(0.0),M_thresholdUpper(0.0),
+    M_applyConnectivityLargestRegion( boption(_name="apply-connectivity.largest-region",_prefix=this->prefix()) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
 {
+
+    CHECK( M_method == "threshold" || M_method == "isosurface" ) << "invalid method : " << M_method << " -> must be threshold or isosurface";
 
     if ( !M_inputPath.empty() && fs::path(M_inputPath).is_relative() )
         M_inputPath = (AngioTkEnvironment::pathInitial()/fs::path(M_inputPath) ).string();
@@ -920,11 +924,19 @@ SurfaceFromImage::run()
         std::ostringstream __str;
         __str << pythonExecutable << " ";
         __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkimageinitialization ";
-        __str << "-ifile " << this->inputPath() << " -interactive 0 -method threshold ";
-        if ( M_hasThresholdLower )
-            __str << " -lowerthreshold " << M_thresholdLower << " ";
-        if ( M_hasThresholdUpper )
-            __str << " -upperthreshold " << M_thresholdUpper << " ";
+        __str << "-ifile " << this->inputPath() << " -interactive 0 ";
+        if ( M_method == "threshold" )
+        {
+            __str << "-method threshold ";
+            if ( M_hasThresholdLower )
+                __str << " -lowerthreshold " << M_thresholdLower << " ";
+            if ( M_hasThresholdUpper )
+                __str << " -upperthreshold " << M_thresholdUpper << " ";
+        }
+        else if ( M_method == "isosurface" )
+        {
+            __str << "-method isosurface -isosurface 0 ";
+        }
 
         __str << "-olevelsetsfile " << outputPathImageInit;
 
@@ -954,8 +966,11 @@ SurfaceFromImage::run()
         std::ostringstream __str2;
         __str2 << pythonExecutable << " ";
         __str2 << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtklevelsetsegmentation ";
-        __str2 << "-ifile " << this->inputPath() << " -initiallevelsetsfile " << outputPathImageInit << " -iterations 1 "
-               << "-ofile " << outputPathImageLevelSetInit;
+        __str2 << "-ifile " << this->inputPath() << " ";
+        //__str2 << "-levelsetstype isosurface -isosurfacevalue 0 ";
+        __str2 << "-initiallevelsetsfile " << outputPathImageInit << " ";
+        //__str2 << "-initializationimagefile " << outputPathImageInit << " ";
+        __str2 << "-iterations 1 -ofile " << outputPathImageLevelSetInit;
         std::cout << "---------------------------------------\n"
                   << "run in system : \n" << __str2.str() << "\n"
                   << "---------------------------------------\n";
@@ -967,9 +982,12 @@ SurfaceFromImage::run()
         readerSegmentation->SetFileName(outputPathImageLevelSetInit.c_str());
         readerSegmentation->Update();
         //int* boundIMG = reader->GetWholeExtent();
-
         //vtkDataSet * hhh = reader->GetOutputAsDataSet();
-        //int boundIMG
+
+        // read initial image
+        vtkSmartPointer<vtkMetaImageReader> readerInitialImage = vtkSmartPointer<vtkMetaImageReader>::New();
+        readerInitialImage->SetFileName(this->inputPath().c_str());
+        readerInitialImage->Update();
 #if 0
         double boundIMG[6];
         readerSegmentation->GetOutput()->GetBounds(boundIMG);
@@ -977,12 +995,6 @@ SurfaceFromImage::run()
                   << boundIMG[0] << " , " << boundIMG[1] << "\n"
                   << boundIMG[2] << " , " << boundIMG[3] << "\n"
                   << boundIMG[4] << " , " << boundIMG[5] << "\n";
-#endif
-        // read initial image
-        vtkSmartPointer<vtkMetaImageReader> readerInitialImage = vtkSmartPointer<vtkMetaImageReader>::New();
-        readerInitialImage->SetFileName(this->inputPath().c_str());
-        readerInitialImage->Update();
-#if 0
         double boundIMG2[6];
         readerInitialImage->GetOutput()->GetBounds(boundIMG2);
         std::cout << " boundIMG2 : \n"
@@ -1044,16 +1056,21 @@ SurfaceFromImage::run()
 
         // keep only largest region
         vtkSmartPointer<vtkPolyDataConnectivityFilter> connectivityFilter = vtkSmartPointer<vtkPolyDataConnectivityFilter>::New();
-        connectivityFilter->SetInput(surface->GetOutput());
-        connectivityFilter->SetExtractionModeToLargestRegion();
-        connectivityFilter->Update();
+        if ( M_applyConnectivityLargestRegion )
+        {
+            connectivityFilter->SetInput(surface->GetOutput());
+            connectivityFilter->SetExtractionModeToLargestRegion();
+            connectivityFilter->Update();
+        }
 
         // save stl on disk
         vtkSmartPointer<vtkSTLWriter> stlWriter = vtkSmartPointer<vtkSTLWriter>::New();
         stlWriter->SetFileName(this->outputPath().c_str());
+        if ( M_applyConnectivityLargestRegion )
+            stlWriter->SetInput(connectivityFilter->GetOutput());
+        else
+            stlWriter->SetInput(surface->GetOutput());
         //stlWriter->SetInputConnection(surface->GetOutputPort());
-        //stlWriter->SetInput(surface->GetOutput());
-        stlWriter->SetInput(connectivityFilter->GetOutput());
         stlWriter->Write();
 
 #endif
@@ -1071,8 +1088,10 @@ SurfaceFromImage::options( std::string const& prefix )
     mySurfaceFromImageOptions.add_options()
         (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
+        (prefixvm(prefix,"method").c_str(), Feel::po::value<std::string>()->default_value("threshold"), "(string) method : threshold, isosurface")
         (prefixvm(prefix,"threshold.lower").c_str(), Feel::po::value<double>(), "(double) threshold lower")
         (prefixvm(prefix,"threshold.upper").c_str(), Feel::po::value<double>(), "(double) threshold upper")
+        (prefixvm(prefix,"apply-connectivity.largest-region").c_str(), Feel::po::value<bool>()->default_value(true), "(bool) apply-connectivity.largest-region")
         (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         ;
     return mySurfaceFromImageOptions;
