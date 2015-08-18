@@ -882,20 +882,23 @@ void AngioTkCenterline::importFile(std::string fileName)
   colorp.clear();
   colorl.clear();
   int maxN = 0.0;
-  //registerLinesBuildFromPointPair.clear();
-  std::set<std::pair<int,int> > registerLinesBuildFromPointPair;
+
 
   std::map<int,int> tagMap;
+  std::map<int,std::vector<int> > mapNewTagToBranchIds;
   for(int i = 0; i < edges.size(); i++)
     {
       //int geTag = i;
-      if (  tagMap.find( i ) == tagMap.end() )
+      if ( tagMap.find( i ) == tagMap.end() )
 	{
 	  tagMap[i]=i+1;
+	  auto itInsert = mapNewTagToBranchIds[ tagMap[i] ].begin();
+	  mapNewTagToBranchIds[ tagMap[i] ].insert( itInsert,i );
 
 	  bool branchIsClosedAtJunction = false;
 	  MVertex* currentVertexB = edges[i].vB;
 	  MVertex* currentVertexE = edges[i].vE;
+
 	  while ( !branchIsClosedAtJunction)
 	    {
 	      bool vBisJE = ( M_junctionsVertex.find( currentVertexB ) != M_junctionsVertex.end() ||
@@ -914,11 +917,15 @@ void AngioTkCenterline::importFile(std::string fileName)
 			  if ( currentVertexB == edges[ii].vB )
 			    {
 			      tagMap[ii] = tagMap[i];
+			      auto itInsert = mapNewTagToBranchIds[ tagMap[ii] ].begin();
+			      mapNewTagToBranchIds[ tagMap[ii] ].insert( itInsert,ii );
 			      currentVertexB = edges[ii].vE;
 			    }
 			  else if ( currentVertexB == edges[ii].vE )
 			    {
 			      tagMap[ii] = tagMap[i];
+			      auto itInsert = mapNewTagToBranchIds[ tagMap[ii] ].begin();
+			      mapNewTagToBranchIds[ tagMap[ii] ].insert( itInsert,ii );
 			      currentVertexB = edges[ii].vB;
 			    }
 			}
@@ -927,11 +934,15 @@ void AngioTkCenterline::importFile(std::string fileName)
 			  if ( currentVertexE == edges[ii].vB )
 			    {
 			      tagMap[ii] = tagMap[i];
+			      auto itInsert = mapNewTagToBranchIds[ tagMap[ii] ].end();
+			      mapNewTagToBranchIds[ tagMap[ii] ].insert( itInsert,ii );
 			      currentVertexE = edges[ii].vE;
 			    }
 			  else if ( currentVertexE == edges[ii].vE )
 			    {
 			      tagMap[ii] = tagMap[i];
+			      auto itInsert = mapNewTagToBranchIds[ tagMap[ii] ].end();
+			      mapNewTagToBranchIds[ tagMap[ii] ].insert( itInsert,ii );
 			      currentVertexE = edges[ii].vB;
 			    }
 			}
@@ -940,9 +951,120 @@ void AngioTkCenterline::importFile(std::string fileName)
 		}
 	    }
 	}
+    }
+
+
+  // add some information about vertex extremities
+  std::vector<std::pair<int,bool> > vertexExtrimityInLines;
+  for(int i = 0; i < edges.size(); i++)
+    {
+      MVertex* currentVertexB = edges[i].vB;
+      MVertex* currentVertexE = edges[i].vE;
+
+      int idPtInListB = -1;
+      bool isOnFrontLinesB = false;
+      if ( currentVertexB->getIndex() == edges[i].lines.front()->getVertex(0)->getIndex() )
+	{
+	  idPtInListB=0;
+	  isOnFrontLinesB=true;
+	}
+      else if ( currentVertexB->getIndex() == edges[i].lines.front()->getVertex(1)->getIndex() )
+	{
+	  idPtInListB=1;
+	  isOnFrontLinesB=true;
+	}
+      if ( idPtInListB == -1 ) Msg::Error("TODO");
+
+      vertexExtrimityInLines.push_back(std::make_pair(idPtInListB,isOnFrontLinesB));
+    }
+
+  // define if the line ordering must be reverse (in a composite branch )
+  std::set<int> branchIdToReverse;
+  for ( auto const& mapNewTagToBranchIdsPair : mapNewTagToBranchIds )
+    {
+#if 0
+      std::cout << "newTag " << mapNewTagToBranchIdsPair.first << " : ";
+      for ( int k=0;k<mapNewTagToBranchIdsPair.second.size();++k )
+	std::cout << " " << mapNewTagToBranchIdsPair.second[k];
+      std::cout << "\n";
+#endif
+      int lastVertexIdE = -1,lastVertexIdB = -1;
+      int lastVertexIdInLineE = -1, lastVertexIdInLineB = -1;
+      bool lastBranchIsReverted = false;
+      for ( int k=0;k<mapNewTagToBranchIdsPair.second.size();++k )
+	{
+	  int idBranch = mapNewTagToBranchIdsPair.second[k];
+	  int vertexIdInLineB = vertexExtrimityInLines[idBranch].first;
+	  int vertexIdInLineE = (int)((vertexIdInLineB+1)%2);
+	  bool isOnFrontLine = vertexExtrimityInLines[idBranch].second;
+	  MLine* myLineB = (isOnFrontLine)? edges[idBranch].lines.front() : edges[idBranch].lines.back();
+	  int vertexIdB = myLineB->getVertex(vertexIdInLineB)->getIndex();
+	  MLine* myLineE = (!isOnFrontLine)? edges[idBranch].lines.front() : edges[idBranch].lines.back();
+	  int vertexIdE = myLineE->getVertex( vertexIdInLineE )->getIndex();
+	  if ( lastVertexIdE > 0 )
+	    {
+	      if ( lastVertexIdE == vertexIdB ) 
+		{
+		  if ( (!lastBranchIsReverted && lastVertexIdInLineE == vertexIdInLineB ) ||
+		       ( lastBranchIsReverted && lastVertexIdInLineE != vertexIdInLineB ) )
+		    { branchIdToReverse.insert( idBranch ); lastBranchIsReverted=true; }
+		  lastVertexIdInLineE = vertexIdInLineE;
+		  lastVertexIdE = vertexIdE;
+		}
+	      else if ( lastVertexIdE == vertexIdE )
+		{
+		  if ( (!lastBranchIsReverted && lastVertexIdInLineE == vertexIdInLineE ) ||
+		       ( lastBranchIsReverted && lastVertexIdInLineE != vertexIdInLineE ) )
+		    { branchIdToReverse.insert( idBranch );lastBranchIsReverted=true; }
+		  lastVertexIdInLineE = vertexIdInLineB;
+		  lastVertexIdE = vertexIdB;
+		}
+	      else if ( lastVertexIdB ==  vertexIdE )
+		{
+		  if ( (!lastBranchIsReverted && lastVertexIdInLineB == vertexIdInLineE ) ||
+		       ( lastBranchIsReverted && lastVertexIdInLineB != vertexIdInLineE ) )
+		    { branchIdToReverse.insert( idBranch );lastBranchIsReverted=true; }
+		  lastVertexIdInLineB = vertexIdInLineB;
+		  lastVertexIdB = vertexIdB;
+		}
+	      else if ( lastVertexIdB ==  vertexIdB )
+		{
+		  if ( (!lastBranchIsReverted && lastVertexIdInLineB == vertexIdInLineB ) ||
+		       ( lastBranchIsReverted && lastVertexIdInLineB != vertexIdInLineB ) )
+		    { branchIdToReverse.insert( idBranch );lastBranchIsReverted=true; }
+		  lastVertexIdInLineB = vertexIdInLineE;
+		  lastVertexIdB = vertexIdE;
+		}
+	      else Msg::Error("invalid case");
+	    }
+	  else
+	    {
+	      lastVertexIdB = vertexIdB;
+	      lastVertexIdE = vertexIdE;
+	      lastVertexIdInLineB = vertexIdInLineB;
+	      lastVertexIdInLineE = vertexIdInLineE;
+	    }
+	}
+
+    }
+
+  // reverse lines necessary to have each new branch with a full line ordered
+  for ( int k : branchIdToReverse )
+    {
+      //std::cout << "branchIdToReverse : " << k << "\n";
+      for ( MLine* myline : edges[k].lines )
+	{
+	  myline->reverse();
+	}
+    }
+
+
+  //registerLinesBuildFromPointPair.clear();
+  std::set<std::pair<int,int> > registerLinesBuildFromPointPair;
+  for(int i = 0; i < edges.size(); i++)
+    {
       int geTag = tagMap[i];
       //std::cout << "geTag " << geTag << "\n";
-
       std::vector<MLine*> mylines = edges[i].lines;
       for (unsigned int j= 0; j < mylines.size(); j++){
 	MLine *l = mylines[j];
@@ -1096,12 +1218,12 @@ void AngioTkCenterline::updateCenterlinesForUse()
       GEdge *ge = modEdges[i];
       int geTag = ge->tag();
       //std::cout<< "init my branch i "<<i<<" has " << ge->lines.size() << " lines \n";
- 
       for(unsigned int j = 0; j < ge->lines.size(); j++)
 	{
 	  MLine *l = ge->lines[j];
 	  MVertex *v0 = l->getVertex(0); MVertex *v1 = l->getVertex(1);
 	  int v0Id = v0->getIndex(), v1Id = v1->getIndex();
+
 	  // after remove duplacte vertices, it is possible to have a wrong line with 2 same pts
 	  if ( v0 == v1 )
 	    {
@@ -3136,19 +3258,32 @@ int writeVTKPolyData( std::shared_ptr<GModel>/*GModel **/ gmodel,std::vector<Bra
     std::vector<MLine*> lines = edges[i].lines;
     bool firstPtDone = false;
 
+    int idPtInListStart = -1, idPtInListFinish=-1;
+    if ( edges[i].vB->getIndex() == lines.front()->getVertex(0)->getIndex() )
+      {
+       idPtInListStart=0;
+       idPtInListFinish=1;
+      }
+    else if ( edges[i].vB->getIndex() == lines.front()->getVertex(1)->getIndex() )
+      {
+       idPtInListStart=1;
+       idPtInListFinish=0;
+      }
+    if ( idPtInListStart==-1 ) Msg::Error("not found a good point to start");
+
     for(unsigned int k = 0; k < lines.size(); ++k){
       MLine *l = lines[k];
       if ( !firstPtDone )
 	{
 	  int nPointInBranch = lines.size() +1;
 	  fprintf(fp, "%d", nPointInBranch );
-	  if ( mapInputIdToVtkId.find(l->getVertex(0)->getIndex()) == mapInputIdToVtkId.end() ) std::cout << "AIE\n";
-	  fprintf(fp, " %d", mapInputIdToVtkId[l->getVertex(0)->getIndex()] );
+	  if ( mapInputIdToVtkId.find(l->getVertex(idPtInListStart)->getIndex()) == mapInputIdToVtkId.end() ) Msg::Error("error mapInputIdToVtkId did not contains this entry");
+	  fprintf(fp, " %d", mapInputIdToVtkId[l->getVertex(idPtInListStart)->getIndex()] );
 	  firstPtDone = true;
 	}
 
-      if ( mapInputIdToVtkId.find(l->getVertex(1)->getIndex()) == mapInputIdToVtkId.end() ) std::cout << "AIE\n";
-      fprintf(fp, " %d", mapInputIdToVtkId[l->getVertex(1)->getIndex()] );
+      if ( mapInputIdToVtkId.find(l->getVertex(idPtInListFinish)->getIndex()) == mapInputIdToVtkId.end() ) Msg::Error("error mapInputIdToVtkId did not contains this entry");
+      fprintf(fp, " %d", mapInputIdToVtkId[l->getVertex(idPtInListFinish)->getIndex()] );
       //std::cout << "l->getVertex(1)->getIndex() " << l->getVertex(1)->getIndex() << "\n";
     }
     //std::cout << "edges[i].vB->getIndex() " << edges[i].vB->getIndex() << "\n";
