@@ -1962,7 +1962,7 @@ VolumeMeshing::options( std::string const& prefix )
         ( prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
         ( prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         ( prefixvm(prefix,"nb-points-in-circle").c_str(), po::value<int>()->default_value( 15 ), "nb-points-in-circle" )
-        ( prefixvm(prefix,"extrude-wall").c_str(),po::value<bool>()->default_value( true ), "extrude-wall" )
+        ( prefixvm(prefix,"extrude-wall").c_str(),po::value<bool>()->default_value( false ), "extrude-wall" )
         ( prefixvm(prefix,"extrude-wall.nb-elt-layer").c_str(), po::value<int>()->default_value( 2 ), "nb-elt-layer" )
         ( prefixvm(prefix,"extrude-wall.h-layer").c_str(), po::value<double>()->default_value( 0.2 ), "h-layer" )
         ;
