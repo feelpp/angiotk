@@ -12,12 +12,13 @@ int main( int argc, char** argv )
     myoptions.add_options()
       ("pre-process.subdivide-surface", Feel::po::value<bool>()->default_value(false), "use subdivide-surface ")
       ("post-process.convert-centerlines", Feel::po::value<bool>()->default_value(true), "convert-centerlines ");
-      myoptions.add( SubdivideSurface::options("subdivide-surface") ).add( CenterlinesManager::options("convert-centerlines") );
-    Environment env( _argc=argc, _argv=argv,
-                     _desc=myoptions,
-		     _about=about(_name="meshing_centerlines",
-				  _author="Feel++ Consortium",
-				  _email="feelpp-devel@feelpp.org"));
+    myoptions.add( SubdivideSurface::options("subdivide-surface") ).add( CenterlinesManager::options("convert-centerlines") );
+
+    AngioTkEnvironment env( _argc=argc, _argv=argv,
+			    _desc=myoptions,
+			    _about=about(_name="meshing_centerlines",
+					 _author="Feel++ Consortium",
+					 _email="feelpp-devel@feelpp.org"));
 
     bool preProcessSubdivideSurface = boption(_name="pre-process.subdivide-surface");
     bool postProcessConvertCenterlines = boption(_name="post-process.convert-centerlines");

@@ -13,11 +13,11 @@ int main( int argc, char** argv )
       ("pre-process.open-surface", Feel::po::value<bool>()->default_value(false), "preprocess : open-surface ");
     myoptions.add( OpenSurface::options("open-surface") );
 
-    Environment env( _argc=argc, _argv=argv,
-                     _desc=myoptions,
-		     _about=about(_name="meshing_remeshstl",
-				  _author="Feel++ Consortium",
-				  _email="feelpp-devel@feelpp.org"));
+    AngioTkEnvironment env( _argc=argc, _argv=argv,
+			    _desc=myoptions,
+			    _about=about(_name="meshing_remeshstl",
+					 _author="Feel++ Consortium",
+					 _email="feelpp-devel@feelpp.org"));
 
     bool preProcessOpenSurface = boption(_name="pre-process.open-surface");
 

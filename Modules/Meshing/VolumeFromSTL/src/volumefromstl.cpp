@@ -139,11 +139,11 @@ InletOutletDesc::save( std::string outputPath )
 CenterlinesFromSTL::CenterlinesFromSTL( std::string prefix )
     :
     M_prefix( prefix ),
-    M_inputPath( soption(_name="input.filename",_prefix=this->prefix()) ),
-    M_inputCenterlinesPointSetPath( soption(_name="input.pointset.filename",_prefix=this->prefix()) ),
-    M_inputInletOutletDescPath( soption(_name="input.desc.filename",_prefix=this->prefix()) ),
-    M_inputGeoCenterlinesPath( soption(_name="input.geo-centerlines.filename",_prefix=this->prefix()) ),
-    M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+    M_inputPath( AngioTkEnvironment::expand( soption(_name="input.filename",_prefix=this->prefix()) ) ),
+    M_inputCenterlinesPointSetPath( AngioTkEnvironment::expand( soption(_name="input.pointset.filename",_prefix=this->prefix()) ) ),
+    M_inputInletOutletDescPath( AngioTkEnvironment::expand( soption(_name="input.desc.filename",_prefix=this->prefix()) ) ),
+    M_inputGeoCenterlinesPath( AngioTkEnvironment::expand( soption(_name="input.geo-centerlines.filename",_prefix=this->prefix()) ) ),
+    M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
     M_costFunctionExpr( soption(_name="cost-function.expression",_prefix=this->prefix()) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_useInteractiveSelection( boption(_name="use-interactive-selection",_prefix=this->prefix()) ),
@@ -254,21 +254,27 @@ CenterlinesFromSTL::run()
             << "---------------------------------------\n"
             << "run CenterlinesFromSTL \n"
             << "---------------------------------------\n";
-    coutStr << "inputPath          : " << this->inputPath() << "\n";
+    coutStr << "input surface path   : " << this->inputPath() << "\n";
     if ( !M_useInteractiveSelection )
     {
-        coutStr << "targetids : ";
-        for ( int id : this->targetids() )
-            coutStr << id << " ";
-        coutStr << "\n";
-        coutStr << "sourceids : ";
-        for ( int id : this->sourceids() )
-            coutStr << id << " ";
-        coutStr << "\n";
+        if ( !this->inputGeoCenterlinesPath().empty() )
+            coutStr << "input GeoCenterlines : " << this->inputGeoCenterlinesPath() << "\n";
+        else if ( !this->inputCenterlinesPointSetPath().empty() )
+            coutStr << "input GeoCenterlines : " << this->inputCenterlinesPointSetPath() << "\n";
+        else
+        {
+            coutStr << "targetids            : ";
+            for ( int id : this->targetids() )
+                coutStr << id << " ";
+            coutStr << "\n";
+            coutStr << "sourceids            : ";
+            for ( int id : this->sourceids() )
+                coutStr << id << " ";
+            coutStr << "\n";
+        }
     }
-    if ( !this->inputGeoCenterlinesPath().empty() )
-        coutStr << "inputGeoCenterlinesPath :" << this->inputGeoCenterlinesPath() << "\n";
-    coutStr << "output path       : " << this->outputPath() << "\n"
+
+    coutStr << "output path          : " << this->outputPath() << "\n"
             << "---------------------------------------\n"
             << "---------------------------------------\n";
     std::cout << coutStr.str();
@@ -459,9 +465,9 @@ CenterlinesManager::CenterlinesManager( std::string prefix )
     :
     M_prefix( prefix ),
     M_inputCenterlinesPath(),// 1, soption(_name="input.centerlines.filename",_prefix=this->prefix()) ),
-    M_inputSurfacePath( soption(_name="input.surface.filename",_prefix=this->prefix()) ),
-    M_inputPointSetPath( soption(_name="input.point-set.filename",_prefix=this->prefix()) ),
-    M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+    M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.surface.filename",_prefix=this->prefix()) ) ),
+    M_inputPointSetPath( AngioTkEnvironment::expand( soption(_name="input.point-set.filename",_prefix=this->prefix()) ) ),
+    M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_useWindowInteractor( boption(_name="use-window-interactor",_prefix=this->prefix() ) ),
     M_applyThresholdMinRadius( doption(_name="apply-threshold-min-radius",_prefix=this->prefix() ) )
@@ -477,6 +483,7 @@ CenterlinesManager::CenterlinesManager( std::string prefix )
 
     for (int k = 0;k<this->inputCenterlinesPath().size();++k)
     {
+        M_inputCenterlinesPath[k] = AngioTkEnvironment::expand( M_inputCenterlinesPath[k] );
         if ( !this->inputCenterlinesPath(k).empty() && fs::path(this->inputCenterlinesPath(k)).is_relative() )
             M_inputCenterlinesPath[k] = (AngioTkEnvironment::pathInitial()/fs::path(this->inputCenterlinesPath(k)) ).string();
     }
@@ -678,8 +685,8 @@ CenterlinesManager::options( std::string const& prefix )
 ImageFromCenterlines::ImageFromCenterlines( std::string prefix )
     :
     M_prefix( prefix ),
-    M_inputCenterlinesPath( soption(_name="input.filename",_prefix=this->prefix()) ),
-    M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+    M_inputCenterlinesPath( AngioTkEnvironment::expand( soption(_name="input.filename",_prefix=this->prefix()) ) ),
+    M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_dimX( ioption(_name="dim.x",_prefix=this->prefix() ) ),
     M_dimY( ioption(_name="dim.y",_prefix=this->prefix() ) ),
@@ -848,8 +855,8 @@ ImageFromCenterlines::options( std::string const& prefix )
 SurfaceFromImage::SurfaceFromImage( std::string prefix )
     :
     M_prefix( prefix ),
-    M_inputPath( soption(_name="input.filename",_prefix=this->prefix()) ),
-    M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+    M_inputPath( AngioTkEnvironment::expand( soption(_name="input.filename",_prefix=this->prefix()) ) ),
+    M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
     M_method( soption(_name="method",_prefix=this->prefix()) ),
     M_hasThresholdLower(false), M_hasThresholdUpper(false),
     M_thresholdLower(0.0),M_thresholdUpper(0.0),
@@ -1137,8 +1144,8 @@ SurfaceFromImage::options( std::string const& prefix )
 SubdivideSurface::SubdivideSurface( std::string prefix )
     :
     M_prefix( prefix ),
-    M_inputSurfacePath( soption(_name="input.filename",_prefix=this->prefix()) ),
-    M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+    M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.filename",_prefix=this->prefix()) ) ),
+    M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_method( soption(_name="method",_prefix=this->prefix()) ),
     M_nSubdivisions( ioption(_name="subdivisions",_prefix=this->prefix()) )
@@ -1250,8 +1257,8 @@ SubdivideSurface::options( std::string const& prefix )
 SmoothSurface::SmoothSurface( std::string prefix )
     :
     M_prefix( prefix ),
-    M_inputSurfacePath( soption(_name="input.filename",_prefix=this->prefix()) ),
-    M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+    M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.filename",_prefix=this->prefix()) ) ),
+    M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_method( soption(_name="method",_prefix=this->prefix()) ),
     M_nIterations( ioption(_name="iterations",_prefix=this->prefix()) ),
@@ -1378,9 +1385,9 @@ SmoothSurface::options( std::string const& prefix )
 OpenSurface::OpenSurface( std::string prefix )
     :
     M_prefix( prefix ),
-    M_inputSurfacePath( soption(_name="input.surface.filename",_prefix=this->prefix()) ),
-    M_inputCenterlinesPath( soption(_name="input.centerlines.filename",_prefix=this->prefix()) ),
-    M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+    M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.surface.filename",_prefix=this->prefix()) ) ),
+    M_inputCenterlinesPath( AngioTkEnvironment::expand( soption(_name="input.centerlines.filename",_prefix=this->prefix()) ) ),
+    M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_distanceClipScalingFactor( doption(_name="distance-clip.scaling-factor",_prefix=this->prefix() ) )
 {
@@ -1539,8 +1546,8 @@ RemeshSTL::RemeshSTL( std::string prefix )
     :
     M_prefix( prefix ),
     M_packageType(soption(_name="package-type",_prefix=this->prefix())),
-    M_inputSurfacePath(soption(_name="input.filename",_prefix=this->prefix())),
-    M_inputCenterlinesPath(soption(_name="centerlines.filename",_prefix=this->prefix())),
+    M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.filename",_prefix=this->prefix())) ),
+    M_inputCenterlinesPath( AngioTkEnvironment::expand(soption(_name="centerlines.filename",_prefix=this->prefix())) ),
     M_remeshNbPointsInCircle( ioption(_name="nb-points-in-circle",_prefix=this->prefix()) ),
     M_area( doption(_name="area",_prefix=this->prefix()) ),
     M_nIterationVMTK( ioption(_name="vmtk.n-iteration",_prefix=this->prefix()) ),
@@ -1792,9 +1799,9 @@ generateMeshFromGeo( std::string inputGeoName,std::string outputMeshName,int dim
 VolumeMeshing::VolumeMeshing( std::string prefix )
     :
     M_prefix( prefix ),
-    M_inputSTLPath(soption(_name="input.stl.filename",_prefix=this->prefix()) ),
-    M_inputCenterlinesPath(soption(_name="input.centerlines.filename",_prefix=this->prefix())),
-    M_inputInletOutletDescPath(soption(_name="input.desc.filename",_prefix=this->prefix())),
+    M_inputSTLPath( AngioTkEnvironment::expand( soption(_name="input.stl.filename",_prefix=this->prefix()) ) ),
+    M_inputCenterlinesPath( AngioTkEnvironment::expand( soption(_name="input.centerlines.filename",_prefix=this->prefix())) ),
+    M_inputInletOutletDescPath( AngioTkEnvironment::expand( soption(_name="input.desc.filename",_prefix=this->prefix())) ),
     M_remeshNbPointsInCircle( ioption(_name="nb-points-in-circle",_prefix=this->prefix() ) ),
     M_extrudeWall( boption(_name="extrude-wall",_prefix=this->prefix() ) ),
     M_extrudeWallNbElemLayer( ioption(_name="extrude-wall.nb-elt-layer",_prefix=this->prefix() ) ),
@@ -1808,21 +1815,6 @@ VolumeMeshing::VolumeMeshing( std::string prefix )
         this->updateOutputPathFromInputFileName();
     }
 }
-
-VolumeMeshing::VolumeMeshing( VolumeMeshing const& e )
-    :
-    M_prefix( e.M_prefix ),
-    M_inputSTLPath( e.M_inputSTLPath ),
-    M_inputCenterlinesPath( e.M_inputCenterlinesPath ),
-    M_inputInletOutletDescPath( e.M_inputInletOutletDescPath ),
-    M_remeshNbPointsInCircle( e.M_remeshNbPointsInCircle ),
-    M_extrudeWall( e.M_extrudeWall ),
-    M_extrudeWallNbElemLayer( e.M_extrudeWallNbElemLayer ),
-    M_extrudeWallhLayer( e.M_extrudeWallhLayer ),
-    M_outputPath( e.M_outputPath ),
-    M_outputDirectory( e.M_outputDirectory ),
-    M_forceRebuild( e.M_forceRebuild )
-{}
 
 
 void

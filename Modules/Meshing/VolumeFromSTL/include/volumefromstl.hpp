@@ -60,6 +60,8 @@ public:
           //( directory,( std::string ) )
         ) ) // no semicolon
     //{}
+
+    static std::string expand( std::string const& expr ) { return Feel::Environment::expand( expr ); }
 };
 namespace Feel
 {
@@ -429,7 +431,7 @@ class VolumeMeshing
 public :
 
     VolumeMeshing( std::string prefix );
-    VolumeMeshing( VolumeMeshing const& e );
+    VolumeMeshing( VolumeMeshing const& e ) = default;
 
     std::string prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }

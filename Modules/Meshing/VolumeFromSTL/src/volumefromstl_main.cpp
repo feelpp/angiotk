@@ -21,11 +21,11 @@ int main( int argc, char** argv )
       .add( RemeshSTL::options("mesh-surface") )
       .add( VolumeMeshing::options("mesh-volume") );
 
-    Environment env( _argc=argc, _argv=argv,
-                     _desc=myoptions,
-		     _about=about(_name="meshing_volumefromstl",
-				  _author="Feel++ Consortium",
-				  _email="feelpp-devel@feelpp.org"));
+    AngioTkEnvironment env( _argc=argc, _argv=argv,
+			    _desc=myoptions,
+			    _about=about(_name="meshing_volumefromstl",
+					 _author="Feel++ Consortium",
+					 _email="feelpp-devel@feelpp.org"));
 
 
     bool doForceRebuild = boption(_name="force-rebuild");
