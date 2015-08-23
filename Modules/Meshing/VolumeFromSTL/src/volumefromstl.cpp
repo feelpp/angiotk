@@ -470,7 +470,11 @@ CenterlinesManager::CenterlinesManager( std::string prefix )
     M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_useWindowInteractor( boption(_name="use-window-interactor",_prefix=this->prefix() ) ),
-    M_applyThresholdMinRadius( doption(_name="apply-threshold-min-radius",_prefix=this->prefix() ) )
+    M_applyThresholdMinRadius( doption(_name="threshold-radius.min",_prefix=this->prefix() ) ),
+    M_applyThresholdMaxRadius( doption(_name="threshold-radius.max",_prefix=this->prefix() ) ),
+    M_applyThresholdZonePointSetPath( AngioTkEnvironment::expand( soption(_name="thresholdzone-radius.point-set.filename",_prefix=this->prefix()) ) ),
+    M_applyThresholdZoneMinRadius( doption(_name="thresholdzone-radius.min",_prefix=this->prefix() ) ),
+    M_applyThresholdZoneMaxRadius( doption(_name="thresholdzone-radius.max",_prefix=this->prefix() ) )
 {
     if ( Environment::vm().count(prefixvm(this->prefix(),"input.centerlines.filename").c_str()) )
         M_inputCenterlinesPath = Environment::vm()[prefixvm(this->prefix(),"input.centerlines.filename").c_str()].as<std::vector<std::string> >();
@@ -515,6 +519,26 @@ CenterlinesManager::updateOutputPathFromInputFileName()
     std::string newFileName = (boost::format("%1%_up.vtk")%nameMeshFile ).str();
     fs::path outputPath = meshesdirectories / fs::path(newFileName);
     M_outputPath = outputPath.string();
+}
+
+std::map<int,std::vector<std::tuple<double,double,double> > >
+CenterlinesManager::loadPointSetFile( std::string const& filepath )
+{
+    CHECK( fs::exists(filepath) ) << "inputTubularColisionPointSetPath not exists : " << filepath;
+    std::ifstream fileLoaded( filepath.c_str(), std::ios::in);
+    std::map<int,std::vector<std::tuple<double,double,double> > > pointPair;
+    while ( !fileLoaded.eof() )
+      {
+          std::vector<double> pt(3);
+          double radius;
+          int typePt = -1;
+          fileLoaded >> typePt;
+          if ( fileLoaded.eof() ) break;
+          fileLoaded >> pt[0] >> pt[1] >> pt[2] >> radius;
+          pointPair[typePt].push_back( std::make_tuple(pt[0],pt[1],pt[2]) );
+      }
+    fileLoaded.close();
+    return pointPair;
 }
 
 void
@@ -577,7 +601,23 @@ CenterlinesManager::run()
             coutStr << " " << id;
         coutStr << "\n";
     }
-    coutStr << "output path       : " << this->outputPath() << "\n"
+    if ( M_applyThresholdMinRadius > 0 )
+        coutStr << "threshold min-radius     : " << M_applyThresholdMinRadius << "\n";
+    if ( M_applyThresholdMaxRadius > 0 )
+        coutStr << "threshold max-radius     : " << M_applyThresholdMaxRadius << "\n";
+
+    bool hasThresholdZonePointSetPath = !M_applyThresholdZonePointSetPath.empty() && fs::exists( M_applyThresholdZonePointSetPath );
+    if ( hasThresholdZonePointSetPath )
+    {
+        coutStr << "thresholdzonezone point set path : " << M_applyThresholdZonePointSetPath << "\n";
+        if ( M_applyThresholdZoneMinRadius > 0 )
+            coutStr << "thresholdzone min-radius         : " << M_applyThresholdZoneMinRadius << "\n";
+        if ( M_applyThresholdZoneMaxRadius > 0 )
+            coutStr << "thresholdzone max-radius         : " << M_applyThresholdZoneMaxRadius << "\n";
+    }
+
+
+    coutStr << "output path              : " << this->outputPath() << "\n"
             << "---------------------------------------\n"
             << "---------------------------------------\n";
     std::cout << coutStr.str();
@@ -597,7 +637,7 @@ CenterlinesManager::run()
 
     bool surfaceMeshExist = !this->inputSurfacePath().empty() && fs::exists( this->inputSurfacePath() );
 
-    if ( this->inputCenterlinesPath().size() == 1 )
+    if ( false && this->inputCenterlinesPath().size() == 1 )
     {
         if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
         {
@@ -621,6 +661,11 @@ CenterlinesManager::run()
             {
                 centerlinesTool.applyFieldThresholdMin( "RadiusMin",M_applyThresholdMinRadius );
                 centerlinesTool.applyFieldThresholdMin( "MaximumInscribedSphereRadius",M_applyThresholdMinRadius );
+            }
+            if ( M_applyThresholdMaxRadius > 0 )
+            {
+                centerlinesTool.applyFieldThresholdMax( "RadiusMin",M_applyThresholdMaxRadius );
+                centerlinesTool.applyFieldThresholdMax( "MaximumInscribedSphereRadius",M_applyThresholdMaxRadius );
             }
             centerlinesTool.writeCenterlinesVTK( this->outputPath() );
         }
@@ -649,14 +694,35 @@ CenterlinesManager::run()
                 //else
                 centerlinesTool->importFile( this->inputCenterlinesPath(k) );
             }
+            centerlinesTool->removeBranchIds( M_removeBranchIds );
+
             centerlinesTool->addFieldBranchIds();
-            if ( surfaceMeshExist && false )
+            if ( surfaceMeshExist /*&& false*/ )
                 centerlinesTool->addFieldRadiusMin();
-            if ( M_applyThresholdMinRadius > 0 )
+#if 0
+            if ( !M_inputTubularColisionPointSetPath.empty() && fs::exists(M_inputTubularColisionPointSetPath) )
+                centerlinesTool->applyTubularColisionFix( this->loadTubularColisionPointSetFile(M_inputTubularColisionPointSetPath) );
+            if ( false )//true )
+                centerlinesTool->removeDuplicateBranch();
+#endif
+            if ( M_applyThresholdMinRadius > 0 || M_applyThresholdMaxRadius > 0 )
             {
-                centerlinesTool->applyFieldThresholdMin( "RadiusMin",M_applyThresholdMinRadius );
-                centerlinesTool->applyFieldThresholdMin( "MaximumInscribedSphereRadius",M_applyThresholdMinRadius );
+                std::vector<std::string> fieldnames = { "RadiusMin","MaximumInscribedSphereRadius" };
+                if ( M_applyThresholdMinRadius > 0 )
+                    centerlinesTool->applyFieldThresholdMin( fieldnames,M_applyThresholdMinRadius );
+                if ( M_applyThresholdMaxRadius > 0 )
+                    centerlinesTool->applyFieldThresholdMax( fieldnames,M_applyThresholdMaxRadius );
             }
+            if ( hasThresholdZonePointSetPath )
+            {
+                auto pointSetData = this->loadPointSetFile( M_applyThresholdZonePointSetPath );
+                std::vector<std::string> fieldnames = { "RadiusMin","MaximumInscribedSphereRadius" };
+                if ( M_applyThresholdZoneMinRadius > 0 )
+                    centerlinesTool->applyFieldThresholdZoneMin( fieldnames,M_applyThresholdZoneMinRadius,pointSetData );
+                if ( M_applyThresholdZoneMaxRadius > 0 )
+                    centerlinesTool->applyFieldThresholdZoneMax( fieldnames,M_applyThresholdZoneMaxRadius,pointSetData );
+            }
+
             centerlinesTool->writeCenterlinesVTK( this->outputPath() );
         }
     }
@@ -675,7 +741,11 @@ CenterlinesManager::options( std::string const& prefix )
         (prefixvm(prefix,"remove-branch-ids").c_str(), po::value<std::vector<int> >()->multitoken(), "(vector of int) remove branch ids" )
         (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         (prefixvm(prefix,"use-window-interactor").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) use-window-interactor")
-        (prefixvm(prefix,"apply-threshold-min-radius").c_str(), Feel::po::value<double>()->default_value(-1), "(double) apply-threshold-min-radius")
+        (prefixvm(prefix,"threshold-radius.min").c_str(), Feel::po::value<double>()->default_value(-1), "(double) threshold-radius.min")
+        (prefixvm(prefix,"threshold-radius.max").c_str(), Feel::po::value<double>()->default_value(-1), "(double) threshold-radius.max")
+        (prefixvm(prefix,"thresholdzone-radius.point-set.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input point-set filename" )
+        (prefixvm(prefix,"thresholdzone-radius.max").c_str(), Feel::po::value<double>()->default_value(-1), "(double) threshold-radius.max")
+        (prefixvm(prefix,"thresholdzone-radius.min").c_str(), Feel::po::value<double>()->default_value(-1), "(double) threshold-radius.max")
         ;
     return myCenterlinesManagerOptions;
 }
