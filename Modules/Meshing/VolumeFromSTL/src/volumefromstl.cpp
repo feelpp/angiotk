@@ -616,7 +616,6 @@ CenterlinesManager::run()
             coutStr << "thresholdzone max-radius         : " << M_applyThresholdZoneMaxRadius << "\n";
     }
 
-
     coutStr << "output path              : " << this->outputPath() << "\n"
             << "---------------------------------------\n"
             << "---------------------------------------\n";
@@ -637,96 +636,54 @@ CenterlinesManager::run()
 
     bool surfaceMeshExist = !this->inputSurfacePath().empty() && fs::exists( this->inputSurfacePath() );
 
-    if ( false && this->inputCenterlinesPath().size() == 1 )
+    if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
     {
-        if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
+        std::shared_ptr<AngioTkCenterline> centerlinesTool;
+        for ( int k=0;k<this->inputCenterlinesPath().size();++k)
         {
-            GmshInitialize();
-            // if(!Msg::GetGmshClient())
-            CTX::instance()->terminal = 1;
-            //GmshBatch();
-
-            int verbosityLevel = 5;
-            Msg::SetVerbosity( verbosityLevel );
-
-            AngioTkCenterline centerlinesTool;
-            if ( surfaceMeshExist )
-                centerlinesTool.importSurfaceFromFile( this->inputSurfacePath() );
-            centerlinesTool.updateCenterlinesFromFile( this->inputCenterlinesPath(0) );
-            centerlinesTool.removeBranchIds( M_removeBranchIds );
-            centerlinesTool.addFieldBranchIds();
-            if ( surfaceMeshExist )
-                centerlinesTool.addFieldRadiusMin();
-            if ( M_applyThresholdMinRadius > 0 )
+            if ( !centerlinesTool )
             {
-                centerlinesTool.applyFieldThresholdMin( "RadiusMin",M_applyThresholdMinRadius );
-                centerlinesTool.applyFieldThresholdMin( "MaximumInscribedSphereRadius",M_applyThresholdMinRadius );
-            }
-            if ( M_applyThresholdMaxRadius > 0 )
-            {
-                centerlinesTool.applyFieldThresholdMax( "RadiusMin",M_applyThresholdMaxRadius );
-                centerlinesTool.applyFieldThresholdMax( "MaximumInscribedSphereRadius",M_applyThresholdMaxRadius );
-            }
-            centerlinesTool.writeCenterlinesVTK( this->outputPath() );
-        }
-    }
-    else
-    {
-        if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
-        {
-            std::shared_ptr<AngioTkCenterline> centerlinesTool;
-            for ( int k=0;k<this->inputCenterlinesPath().size();++k)
-            {
-                if ( !centerlinesTool )
+                if ( true )
                 {
-                    if ( true )
-                    {
-                        CTX::instance()->terminal = 1;
-                        int verbosityLevel = 5;
-                        Msg::SetVerbosity( verbosityLevel );
-                    }
-                    centerlinesTool.reset( new AngioTkCenterline );
-                    if ( surfaceMeshExist )
-                        centerlinesTool->importSurfaceFromFile( this->inputSurfacePath() );
-
-                    //centerlinesTool->updateCenterlinesFromFile( this->inputCenterlinesPath(k) );
+                    CTX::instance()->terminal = 1;
+                    int verbosityLevel = 5;
+                    Msg::SetVerbosity( verbosityLevel );
                 }
-                //else
-                centerlinesTool->importFile( this->inputCenterlinesPath(k) );
+                centerlinesTool.reset( new AngioTkCenterline );
+                if ( surfaceMeshExist )
+                    centerlinesTool->importSurfaceFromFile( this->inputSurfacePath() );
             }
-            centerlinesTool->removeBranchIds( M_removeBranchIds );
-
-            centerlinesTool->addFieldBranchIds();
-            if ( surfaceMeshExist /*&& false*/ )
-                centerlinesTool->addFieldRadiusMin();
-#if 0
-            if ( !M_inputTubularColisionPointSetPath.empty() && fs::exists(M_inputTubularColisionPointSetPath) )
-                centerlinesTool->applyTubularColisionFix( this->loadTubularColisionPointSetFile(M_inputTubularColisionPointSetPath) );
-            if ( false )//true )
-                centerlinesTool->removeDuplicateBranch();
-#endif
-            if ( M_applyThresholdMinRadius > 0 || M_applyThresholdMaxRadius > 0 )
-            {
-                std::vector<std::string> fieldnames = { "RadiusMin","MaximumInscribedSphereRadius" };
-                if ( M_applyThresholdMinRadius > 0 )
-                    centerlinesTool->applyFieldThresholdMin( fieldnames,M_applyThresholdMinRadius );
-                if ( M_applyThresholdMaxRadius > 0 )
-                    centerlinesTool->applyFieldThresholdMax( fieldnames,M_applyThresholdMaxRadius );
-            }
-            if ( hasThresholdZonePointSetPath )
-            {
-                auto pointSetData = this->loadPointSetFile( M_applyThresholdZonePointSetPath );
-                std::vector<std::string> fieldnames = { "RadiusMin","MaximumInscribedSphereRadius" };
-                if ( M_applyThresholdZoneMinRadius > 0 )
-                    centerlinesTool->applyFieldThresholdZoneMin( fieldnames,M_applyThresholdZoneMinRadius,pointSetData );
-                if ( M_applyThresholdZoneMaxRadius > 0 )
-                    centerlinesTool->applyFieldThresholdZoneMax( fieldnames,M_applyThresholdZoneMaxRadius,pointSetData );
-            }
-
-            centerlinesTool->writeCenterlinesVTK( this->outputPath() );
+            centerlinesTool->importFile( this->inputCenterlinesPath(k) );
         }
+        centerlinesTool->removeBranchIds( M_removeBranchIds );
+
+        centerlinesTool->addFieldBranchIds();
+        if ( surfaceMeshExist )
+            centerlinesTool->addFieldRadiusMin();
+
+        if ( M_applyThresholdMinRadius > 0 || M_applyThresholdMaxRadius > 0 )
+        {
+            std::vector<std::string> fieldnames = { "RadiusMin","MaximumInscribedSphereRadius" };
+            if ( M_applyThresholdMinRadius > 0 )
+                centerlinesTool->applyFieldThresholdMin( fieldnames,M_applyThresholdMinRadius );
+            if ( M_applyThresholdMaxRadius > 0 )
+                centerlinesTool->applyFieldThresholdMax( fieldnames,M_applyThresholdMaxRadius );
+        }
+        if ( hasThresholdZonePointSetPath )
+        {
+            auto pointSetData = this->loadPointSetFile( M_applyThresholdZonePointSetPath );
+            std::vector<std::string> fieldnames = { "RadiusMin","MaximumInscribedSphereRadius" };
+            if ( M_applyThresholdZoneMinRadius > 0 )
+                centerlinesTool->applyFieldThresholdZoneMin( fieldnames,M_applyThresholdZoneMinRadius,pointSetData );
+            if ( M_applyThresholdZoneMaxRadius > 0 )
+                centerlinesTool->applyFieldThresholdZoneMax( fieldnames,M_applyThresholdZoneMaxRadius,pointSetData );
+        }
+
+        centerlinesTool->writeCenterlinesVTK( this->outputPath() );
     }
+
 }
+
 po::options_description
 CenterlinesManager::options( std::string const& prefix )
 {
