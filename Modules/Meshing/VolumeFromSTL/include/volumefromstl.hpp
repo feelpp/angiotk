@@ -177,6 +177,10 @@ public :
 
     void updateOutputPathFromInputFileName();
 
+    std::map<int,std::vector<std::tuple<double,double,double> > >
+    loadPointSetFile( std::string const& filepath );
+
+
     void run();
 
     static po::options_description options( std::string const& prefix );
@@ -204,7 +208,9 @@ private :
     bool M_forceRebuild;
     bool M_useWindowInteractor;
     std::set<int> M_removeBranchIds;
-    double M_applyThresholdMinRadius;
+    double M_applyThresholdMinRadius,M_applyThresholdMaxRadius;
+    std::string M_applyThresholdZonePointSetPath;
+    double M_applyThresholdZoneMinRadius,M_applyThresholdZoneMaxRadius;
 };
 
 class ImageFromCenterlines

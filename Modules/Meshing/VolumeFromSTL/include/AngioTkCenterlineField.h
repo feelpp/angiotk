@@ -148,13 +148,33 @@ class AngioTkCenterline : public Field{
   void updateCenterlinesFromFile( std::string fileName );
   void createFromGeoCenterlinesFile( std::string const& fileName, std::string const& inputSurfacePath );
  private :
-  void updateCenterlinesForUse();
+  void updateCenterlinesForUse(std::vector<GEdge*> const& _modEdges);
+  void updateCenterlinesForUse(std::map<int,std::vector<MLine*> > const& _modEdges);
+  //void fixBranchConnectivity();
+  void checkCenterlinesConnectivity();
  public:
   void updateCenterlinesFieldsFromFile(std::string fileName);
+  void updateCenterlinesFields();
+
   void removeBranchIds( std::set<int> const& _removeBranchIds );
+  void removeDuplicateBranch();
   void addFieldBranchIds( std::string const& fieldName = "BranchIds" );
   void addFieldRadiusMin( std::string const& fieldName = "RadiusMin" );
-  void applyFieldThresholdMin( std::string const& fieldName,double valMinThreshold );
+
+  void applyFieldThresholdMin( std::string const& fieldName,double value );
+  void applyFieldThresholdMax( std::string const& fieldName,double value );
+  void applyFieldThresholdMin( std::vector<std::string> const& fieldName,double value );
+  void applyFieldThresholdMax( std::vector<std::string> const& fieldName,double value );
+  void applyFieldThresholdZoneMin(std::string const& fieldName, double value, std::map<int,std::vector<std::tuple<double,double,double> > > const& mapPointPair );
+  void applyFieldThresholdZoneMax(std::string const& fieldName, double value, std::map<int,std::vector<std::tuple<double,double,double> > > const& mapPointPair );
+  void applyFieldThresholdZoneMin(std::vector<std::string> const& fieldName, double value, std::map<int,std::vector<std::tuple<double,double,double> > > const& mapPointPair );
+  void applyFieldThresholdZoneMax(std::vector<std::string> const& fieldName, double value, std::map<int,std::vector<std::tuple<double,double,double> > > const& mapPointPair );
+  void applyFieldThresholdZoneImpl(std::vector<std::string> const& fieldName, double value, std::map<int,std::vector<std::tuple<double,double,double> > > const& mapPointPair, int type );
+
+
+  void applyTubularColisionFix( std::map<int,std::vector<std::tuple<double,double,double> > > const& pointPair );
+  void applyTubularColisionFix2();
+
   void writeCenterlinesVTK( std::string fileName );
 
   std::map<MVertex*, std::pair<int,int> > const&
@@ -162,8 +182,11 @@ class AngioTkCenterline : public Field{
   std::vector<Branch> const& centerlinesBranch() const { return edges; }
   Branch const& centerlinesBranch(int k) const { return edges[k]; }
 
-  std::map<MLine*,double> /*const&*/ centerlinesRadiusl() const { return radiusl; }
-  double minRadiusAtVertex( MVertex* myvertex );
+  std::tuple<MVertex*,double> foundClosestPointInCenterlines( double ptToLocalize[3]);
+  std::tuple< std::vector<MLine*> , std::map<MVertex*,int> > pathBetweenVertex( MVertex* vertexA, MVertex* vertexB );
+
+  std::map<MLine*,double> const& centerlinesRadiusl() const { return radiusl; }
+  double minRadiusAtVertex( MVertex* myvertex ) const;
 
   //double centerlinesRadiusFromLine() const { 
     //auto itr = M_angioTkCenterlines->centerlinesRadiusl().find( mylines[lineIdInBranch]/*mylines.front()*/);
