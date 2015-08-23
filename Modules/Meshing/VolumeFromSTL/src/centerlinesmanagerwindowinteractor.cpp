@@ -900,8 +900,21 @@ CenterlinesManagerWindowInteractor::run()
       vtkSmartPointer<vtkActor> actorVTK = vtkSmartPointer<vtkActor>::New();
       actorVTK->SetMapper(mapperVTK);
 
-      //actorVTK->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
-      actorVTK->GetProperty()->SetColor(0.0, 1.0, 0.0); //(R,G,B)
+      if (k%8==0)
+	actorVTK->GetProperty()->SetColor(0.0, 1.0, 0.0); //(R,G,B)
+      if (k%8==1)
+	actorVTK->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
+      if (k%8==2)
+	actorVTK->GetProperty()->SetColor(0.0, 0.0, 1.0); //(R,G,B)
+      if (k%8==3)
+	actorVTK->GetProperty()->SetColor(0.5, 0.5, 0.0); //(R,G,B)
+      if (k%8==5)
+	actorVTK->GetProperty()->SetColor(0.5, 0.0, 0.5); //(R,G,B)
+      if (k%8==6)
+	actorVTK->GetProperty()->SetColor(0.0, 0.5, 0.5); //(R,G,B)
+      if (k%8==7)
+	actorVTK->GetProperty()->SetColor(0.5, 0.5, 0.5); //(R,G,B)
+
       actorVTK->GetProperty()->SetLineWidth(3.0);
       // Add the actor to the scene
       renderer->AddActor(actorVTK);
