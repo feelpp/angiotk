@@ -67,7 +67,7 @@ int main( int argc, char** argv )
 	if ( !postProcessRemeshSurface )
 	  mySmoothSurface.setOutputPath( finalOutputPath );
 	else
-	  mySubdivideSurface.setOutputPath( (fs::path(finalOutputPath).parent_path()/ fs::path(finalOutputFileName+"_smoothSurface.stl")).string() );
+	  mySmoothSurface.setOutputPath( (fs::path(finalOutputPath).parent_path()/ fs::path(finalOutputFileName+"_smoothSurface.stl")).string() );
 
 	if ( surfaceFromImage.forceRebuild() || ( postProcessSubdivideSurface && mySubdivideSurface.forceRebuild() ) )
 	  mySmoothSurface.setForceRebuild( true );
