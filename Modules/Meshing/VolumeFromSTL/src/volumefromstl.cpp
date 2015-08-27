@@ -14,6 +14,7 @@
 #include <vtkImageTranslateExtent.h>
 #include <vtkPolyDataConnectivityFilter.h>
 #include <vtkPointData.h>
+#include <vtkCleanPolyData.h>
 
 //#include <vtkvmtkPolyBallModeller.h>
 #include <angiotkPolyBallModeller.h>
@@ -1123,11 +1124,17 @@ SurfaceFromImage::run()
         std::cout<<"Number of points: " << marched->GetNumberOfPoints() << std::endl;
 #endif
 
+         // clean surface : ensure that mesh has no duplicate entities
+        vtkSmartPointer<vtkCleanPolyData> cleanPolyData = vtkSmartPointer<vtkCleanPolyData>::New();
+        //cleanPolyData->SetInputConnection(surface->GetOutputPort());
+        cleanPolyData->SetInput(surface->GetOutput());
+        cleanPolyData->Update();
+
         // keep only largest region
         vtkSmartPointer<vtkPolyDataConnectivityFilter> connectivityFilter = vtkSmartPointer<vtkPolyDataConnectivityFilter>::New();
         if ( M_applyConnectivityLargestRegion )
         {
-            connectivityFilter->SetInput(surface->GetOutput());
+            connectivityFilter->SetInput(/*surface*/cleanPolyData->GetOutput());
             connectivityFilter->SetExtractionModeToLargestRegion();
             connectivityFilter->Update();
         }
@@ -1138,7 +1145,7 @@ SurfaceFromImage::run()
         if ( M_applyConnectivityLargestRegion )
             stlWriter->SetInput(connectivityFilter->GetOutput());
         else
-            stlWriter->SetInput(surface->GetOutput());
+            stlWriter->SetInput(/*surface*/cleanPolyData->GetOutput());
         //stlWriter->SetInputConnection(surface->GetOutputPort());
         stlWriter->Write();
 
@@ -1285,6 +1292,7 @@ SmoothSurface::SmoothSurface( std::string prefix )
     :
     M_prefix( prefix ),
     M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.filename",_prefix=this->prefix()) ) ),
+    M_inputCenterlinesPath( AngioTkEnvironment::expand( soption(_name="input.centerlines.filename",_prefix=this->prefix()) ) ),
     M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_method( soption(_name="method",_prefix=this->prefix()) ),
@@ -1292,7 +1300,7 @@ SmoothSurface::SmoothSurface( std::string prefix )
     M_taubinPassBand( doption(_name="taubin.passband",_prefix=this->prefix()) ),
     M_laplaceRelaxationFactor( doption(_name="laplace.relaxation",_prefix=this->prefix()) )
 {
-    CHECK( M_method == "taubin" || M_method == "laplace" ) << "invalid method " << M_method << "\n";
+    CHECK( M_method == "taubin" || M_method == "laplace" || M_method == "centerlines" ) << "invalid method " << M_method << "\n";
     if ( !this->inputSurfacePath().empty() && M_outputPath.empty() )
     {
         this->updateOutputPathFromInputFileName();
@@ -1396,6 +1404,7 @@ SmoothSurface::options( std::string const& prefix )
 
     mySmoothSurfaceOptions.add_options()
         (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
+        (prefixvm(prefix,"input.centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
         (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         (prefixvm(prefix,"method").c_str(), Feel::po::value<std::string>()->default_value("taubin"), "(string) taubin or laplace")
@@ -1575,13 +1584,14 @@ RemeshSTL::RemeshSTL( std::string prefix )
     M_packageType(soption(_name="package-type",_prefix=this->prefix())),
     M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.filename",_prefix=this->prefix())) ),
     M_inputCenterlinesPath( AngioTkEnvironment::expand(soption(_name="centerlines.filename",_prefix=this->prefix())) ),
-    M_remeshNbPointsInCircle( ioption(_name="nb-points-in-circle",_prefix=this->prefix()) ),
-    M_area( doption(_name="area",_prefix=this->prefix()) ),
-    M_nIterationVMTK( ioption(_name="vmtk.n-iteration",_prefix=this->prefix()) ),
+    M_gmshRemeshNbPointsInCircle( ioption(_name="nb-points-in-circle",_prefix=this->prefix()) ),
+    M_gmshRemeshPartitionForceRebuild( boption(_name="gmsh.remesh-partition.force-rebuild",_prefix=this->prefix()) ),
+    M_vmtkArea( doption(_name="area",_prefix=this->prefix()) ),
+    M_vmtkNumberOfIteration( ioption(_name="vmtk.n-iteration",_prefix=this->prefix()) ),
     M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
 {
-    CHECK( M_packageType == "gmsh" || M_packageType == "vmtk" ) << "error on packageType : " << M_packageType;
+    CHECK( M_packageType == "gmsh" || M_packageType == "gmsh-executable" || M_packageType == "vmtk" ) << "error on packageType : " << M_packageType;
     if ( !this->inputSurfacePath().empty() && M_outputPathGMSH.empty() )
     {
         this->updateOutputPathFromInputFileName();
@@ -1626,7 +1636,7 @@ RemeshSTL::run()
               << "---------------------------------------\n";
     std::cout << "type                 : " << M_packageType << "\n"
               << "inputSurfacePath     : " << this->inputSurfacePath() << "\n";
-    if ( this->packageType() == "gmsh" )
+    if ( this->packageType() == "gmsh" || this->packageType() == "gmsh-executable" )
         std::cout << "inputCenterlinesPath : " << this->inputCenterlinesPath() << "\n";
     else if ( this->packageType() == "vmtk" )
         std::cout << "area                 : " << this->area() << "\n";
@@ -1655,6 +1665,8 @@ RemeshSTL::run()
 
 
     if ( this->packageType() == "gmsh" )
+        this->runGMSH2();
+    else if ( this->packageType() == "gmsh-executable" )
         this->runGMSH();
     else if ( this->packageType() == "vmtk" )
         this->runVMTK();
@@ -1677,7 +1689,7 @@ RemeshSTL::runVMTK()
     __str << "-ifile " << this->inputSurfacePath() << " ";
     __str << "-ofile " << this->outputPath() << " ";
     __str << "-area " << this->area() << " ";
-    __str << "-iterations " << M_nIterationVMTK << " ";
+    __str << "-iterations " << M_vmtkNumberOfIteration << " ";
     auto err = ::system( __str.str().c_str() );
 
     //std::cout << "hola\n"<< __str.str() <<"\n";
@@ -1722,6 +1734,45 @@ RemeshSTL::runGMSH()
     detail::generateMeshFromGeo(geoname/*remeshGeoFileName*/,this->outputPath()/*remeshMshFileName*/,2);
 }
 
+void
+RemeshSTL::runGMSH2()
+{
+    CHECK( !this->inputSurfacePath().empty() && fs::exists(this->inputSurfacePath()) ) << "inputSurfacePath is empty or not exist";
+    CHECK( !this->inputCenterlinesPath().empty() && fs::exists(this->inputCenterlinesPath()) ) << "inputCenterlinesPath is empty or not exist";
+
+    if ( true )
+        {
+            GmshInitialize();
+            CTX::instance()->terminal = 1;
+            int verbosityLevel = 5;
+            Msg::SetVerbosity( verbosityLevel );
+            CTX::instance()->geom.tolerance=1e-8;
+        }
+    //CTX::instance()->mesh.randFactor = 1e-10;//1e-8;//1e-14;//1e-10;
+    CTX::instance()->mesh.algo2d = ALGO_2D_FRONTAL;//ALGO_2D_DELAUNAY;//ALGO_2D_FRONTAL //ALGO_2D_BAMG
+
+    GModel * gmodel = new GModel();
+    // add new model as current (important if this function is called more than 1 time)
+    GModel::current(GModel::list.size() - 1);
+
+    std::shared_ptr<AngioTkCenterline> centerlinesTool( new AngioTkCenterline );
+    centerlinesTool->setIsCut(true);
+    centerlinesTool->setRemeshNbPoints( this->remeshNbPointsInCircle() );
+    centerlinesTool->importSurfaceFromFile( this->inputSurfacePath() );
+    centerlinesTool->importFile( this->inputCenterlinesPath() );
+    //centerlinesTool->cutMesh();
+
+    fs::path gp = this->inputSurfacePath();
+    std::string remeshPartitionMeshFileName = gp.stem().string() + "_remeshpartition.msh";
+    fs::path directory = fs::path(this->outputPath()).parent_path();
+    std::string remeshPartitionMeshFilePath = (directory/fs::path(remeshPartitionMeshFileName)).string();
+    centerlinesTool->runSurfaceRemesh(remeshPartitionMeshFilePath,M_gmshRemeshPartitionForceRebuild);
+    centerlinesTool->saveSurfaceRemeshSTL(this->outputPath(), CTX::instance()->mesh.binary );
+
+    delete gmodel;
+}
+
+
 po::options_description
 RemeshSTL::options( std::string const& prefix )
 {
@@ -1729,17 +1780,16 @@ RemeshSTL::options( std::string const& prefix )
     myMeshSurfaceOptions.add_options()
 
         ( prefixvm(prefix,"package-type").c_str(), po::value<std::string>()->default_value( "vmtk" ), "force-remesh" )
-        //( prefixvm(prefix,"force-remesh").c_str(), po::value<bool>()->default_value( false ), "force-remesh" )
+        ( prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "stl.filename" )
+        ( prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
+        ( prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
+        // gmsh options
+        ( prefixvm(prefix,"centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "centerlines.filename" )
         ( prefixvm(prefix,"nb-points-in-circle").c_str(), po::value<int>()->default_value( 15 ), "nb-points-in-circle" )
+        ( prefixvm(prefix,"gmsh.remesh-partition.force-rebuild").c_str(), Feel::po::value<bool>()->default_value(true), "(bool) force-rebuild")
+        // vmtk options
         ( prefixvm(prefix,"area").c_str(), po::value<double>()->default_value( 0.5 ), "area" )
         ( prefixvm(prefix,"vmtk.n-iteration").c_str(), po::value<int>()->default_value( 10 ), "maxit" )
-
-        ( prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "stl.filename" )
-        ( prefixvm(prefix,"centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "centerlines.filename" )
-
-        (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
-        (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
-
         ;
     return myMeshSurfaceOptions;
 }
@@ -1773,8 +1823,8 @@ generateMeshFromGeo( std::string inputGeoName,std::string outputMeshName,int dim
     int verbosityLevel = 5;
     Msg::SetVerbosity( verbosityLevel );
 
-    //CTX::instance()->mesh.randFactor = 1e-14;//1e-10;
-
+    //CTX::instance()->mesh.randFactor = 1e-10;//1e-8;//1e-14;//1e-10;
+    //CTX::instance()->mesh.algo2d = ALGO_2D_DELAUNAY;//ALGO_2D_BAMG
 
 #if 0
   if(GModel::current()->empty()){
@@ -1811,7 +1861,7 @@ generateMeshFromGeo( std::string inputGeoName,std::string outputMeshName,int dim
     if ( outputMeshNamePath.extension() == ".msh" )
         M_gmodel->writeMSH( outputMeshName, 2.2, CTX::instance()->mesh.binary );
     else if ( outputMeshNamePath.extension() == ".stl" )
-        M_gmodel->writeSTL( outputMeshName, CTX::instance()->mesh.binary );
+        M_gmodel->writeSTL( outputMeshName, 1/*CTX::instance()->mesh.binary*/ );
     else
         CHECK( false ) << "error \n";
 

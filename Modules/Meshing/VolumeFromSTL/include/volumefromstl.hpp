@@ -332,7 +332,7 @@ public :
 
 private :
     std::string M_prefix;
-    std::string M_inputSurfacePath, M_outputDirectory, M_outputPath;
+    std::string M_inputSurfacePath, M_inputCenterlinesPath, M_outputDirectory, M_outputPath;
     std::string M_method;
     int M_nIterations;
     double M_taubinPassBand;
@@ -390,19 +390,29 @@ public :
     std::string packageType() const { return M_packageType; }
     std::string inputSurfacePath() const { return M_inputSurfacePath; }
     std::string inputCenterlinesPath() const { return M_inputCenterlinesPath; }
-    int remeshNbPointsInCircle() const { return M_remeshNbPointsInCircle; }
-    double area() const { return M_area; }
-    std::string outputPath() const { if ( this->packageType() =="gmsh" ) return M_outputPathGMSH; else return M_outputPathVMTK; }
+    int remeshNbPointsInCircle() const { return M_gmshRemeshNbPointsInCircle; }
+    double area() const { return M_vmtkArea; }
+    std::string outputPath() const
+    {
+        if ( this->packageType() =="gmsh" || this->packageType() == "gmsh-executable" )
+            return M_outputPathGMSH;
+        else return M_outputPathVMTK;
+    }
     bool forceRebuild() const { return M_forceRebuild; }
 
     void setPackageType( std::string type)
     {
-        CHECK( type == "gmsh" || type == "vmtk" ) << "error on packageType : " << type;
+        CHECK( type == "gmsh" || type == "gmsh-executable" || type == "vmtk" ) << "error on packageType : " << type;
         M_packageType=type;
     }
     void setInputSurfacePath(std::string const& s) { M_inputSurfacePath=s; }
     void setInputCenterlinesPath(std::string const& s) { M_inputCenterlinesPath=s; }
-    void setOutputPath(std::string const& path) { if ( this->packageType() =="gmsh" ) M_outputPathGMSH=path; else M_outputPathVMTK=path; }
+    void setOutputPath(std::string const& path)
+    {
+        if ( this->packageType() =="gmsh" || this->packageType() == "gmsh-executable" )
+            M_outputPathGMSH=path;
+        else M_outputPathVMTK=path;
+    }
     void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
 
     void setForceRebuild( bool b ) { M_forceRebuild=b; }
@@ -412,6 +422,7 @@ public :
     void run();
     void runVMTK();
     void runGMSH();
+    void runGMSH2();
 
     static po::options_description options( std::string const& prefix );
 
@@ -421,10 +432,11 @@ private :
     std::string M_inputSurfacePath;
     // with gmsh
     std::string M_inputCenterlinesPath;
-    int M_remeshNbPointsInCircle;
+    int M_gmshRemeshNbPointsInCircle;
+    bool M_gmshRemeshPartitionForceRebuild;
     // with vmtk
-    double M_area;
-    int M_nIterationVMTK;
+    double M_vmtkArea;
+    int M_vmtkNumberOfIteration;
 
     std::string M_outputPathGMSH, M_outputPathVMTK;
     std::string M_outputDirectory;

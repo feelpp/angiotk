@@ -68,6 +68,7 @@ class AngioTkCenterline : public Field{
   int nbPoints;
   double recombine;
   int NF, NV, NE, NR;
+  bool useGmshExecutable;
   int is_cut, is_closed, is_extruded;
   int is_clip_mesh;
   double M_clipMeshScalingFactor;
@@ -232,7 +233,7 @@ class AngioTkCenterline : public Field{
   void initPhysicalMarkerFromDescFile( std::vector<GEdge*> boundEdges );
 
   // Cut the mesh in different parts of small aspect ratio
-  void cutMesh();
+  void cutMesh( std::string const& remeshPartitionMeshFile="" );
   //Create In and Outlet Planar Faces
   void createClosedVolume(GEdge *gin, std::vector<GEdge*> boundEdges);
   //extrude outer wall
@@ -251,6 +252,13 @@ class AngioTkCenterline : public Field{
  
   SMetric3 metricBasedOnSurfaceCurvature(SVector3 dMin, SVector3 dMax, double cMin, double cMax,
 					  double lc_n, double lc_t1, double lc_t2);
+
+  // properties of remesh
+  void setIsCut(bool b) { is_cut = b; }
+  void setRemeshNbPoints( int i ) { nbPoints=i; }
+
+  void runSurfaceRemesh( std::string const& remeshPartitionMeshFile="", bool forceRebuildPartition=true );
+  void saveSurfaceRemeshSTL(std::string const outputPath, bool binary );
 
 };
 #else
