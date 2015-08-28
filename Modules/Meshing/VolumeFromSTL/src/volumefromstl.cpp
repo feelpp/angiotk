@@ -1982,11 +1982,15 @@ VolumeMeshing::run()
               << "---------------------------------------\n"
               << "run VolumeMeshing \n"
               << "---------------------------------------\n";
-    std::cout << "input path             : " << this->inputSTLPath() << "\n"
-              << "centerlinesFileName     : " << this->inputCenterlinesPath() << "\n"
-              << "inletOutletDescFileName : " << this->inputInletOutletDescPath() << "\n"
-              << "output path          : " << this->outputPath() << "\n"
-              << "output file type     : " << std::string((M_saveOutputVolumeBinary)? "binary" : "ascii") << "\n"
+    std::cout << "input path              : " << this->inputSTLPath() << "\n"
+              << "centerlines path        : " << this->inputCenterlinesPath() << "\n"
+              << "inletoutlet desc path   : " << this->inputInletOutletDescPath() << "\n"
+              << "extrude arterial wall   : " << std::boolalpha << M_extrudeWall << "\n";
+    if ( M_extrudeWall )
+        std::cout << "arterial wall thickness (radius percent) : " << M_extrudeWallhLayer << "\n"
+                  << "arterial wall number of layer            : " << M_extrudeWallNbElemLayer <<"\n";
+    std::cout << "output path             : " << this->outputPath() << "\n"
+              << "output file type        : " << std::string((M_saveOutputVolumeBinary)? "binary" : "ascii") << "\n"
               << "---------------------------------------\n"
               << "---------------------------------------\n";
 
