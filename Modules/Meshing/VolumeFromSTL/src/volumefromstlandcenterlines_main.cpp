@@ -20,13 +20,16 @@ int main( int argc, char** argv )
     if ( myMeshingVolume.inputInletOutletDescPath().empty() )
       {
 	std::string inputSurfacePath = myMeshingVolume.inputSTLPath();
-	InletOutletDesc ioDesc;
-	ioDesc.loadFromSTL( inputSurfacePath );
-
 	std::string nameWithoutExt = fs::path(inputSurfacePath).stem().string();
-	std::string outputPath = (fs::path(myMeshingVolume.outputPath()).parent_path()/fs::path(nameWithoutExt+".desc")).string();
-	ioDesc.save(outputPath);
-	myMeshingVolume.setInputInletOutletDescPath(outputPath);
+	std::string outputDescPath = (fs::path(myMeshingVolume.outputPath()).parent_path()/fs::path(nameWithoutExt+".desc")).string();
+
+	if ( !fs::exists( outputDescPath ) || myMeshingVolume.forceRebuild() )
+	  {
+	    InletOutletDesc ioDesc;
+	    ioDesc.loadFromSTL( inputSurfacePath );
+	    ioDesc.save(outputDescPath);
+	  }
+	myMeshingVolume.setInputInletOutletDescPath(outputDescPath);
       }
     myMeshingVolume.run();
 
