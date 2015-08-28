@@ -499,7 +499,7 @@ private :
     std::string M_outputDirectory;
     bool M_forceRebuild;
 
-    bool M_saveOutputSurfaceBinary;
+    bool M_saveOutputVolumeBinary;
 
 };
 

@@ -1548,7 +1548,8 @@ OpenSurface::runGMSHwithExecutable()
 {
     std::ostringstream geodesc;
     geodesc << "Mesh.Algorithm = 6; //(1=MeshAdapt, 5=Delaunay, 6=Frontal, 7=bamg, 8=delquad) \n"
-            << "Mesh.Algorithm3D = 1; //(1=tetgen, 4=netgen, 7=MMG3D, 9=R-tree) \n";
+            << "Mesh.Algorithm3D = 1; //(1=tetgen, 4=netgen, 7=MMG3D, 9=R-tree) \n"
+            << "Mesh.Binary = " << M_saveOutputSurfaceBinary <<";\n";
 
     geodesc << "Merge \""<< this->inputSurfacePath() <<"\";\n";
     geodesc << "Field[1] = AngioTkCenterline;\n";
@@ -1680,8 +1681,10 @@ RemeshSTL::run()
         std::cout << "inputCenterlinesPath : " << this->inputCenterlinesPath() << "\n";
     else if ( this->packageType() == "vmtk" )
         std::cout << "area                 : " << this->area() << "\n";
-    std::cout << "output path          : " << this->outputPath() << "\n"
-              << "---------------------------------------\n"
+    std::cout << "output path          : " << this->outputPath() << "\n";
+    if ( this->packageType() == "gmsh" || this->packageType() == "gmsh-executable" )
+        std::cout << "output file type     : " << std::string((M_saveOutputSurfaceBinary)? "binary" : "ascii") << "\n";
+    std::cout << "---------------------------------------\n"
               << "---------------------------------------\n";
 
     if ( !this->forceRebuild() && fs::exists( this->outputPath() ) )
@@ -1743,7 +1746,8 @@ RemeshSTL::runGMSHwithExecutable()
 
     std::ostringstream geodesc;
     geodesc << "Mesh.Algorithm = 6; //(1=MeshAdapt, 5=Delaunay, 6=Frontal, 7=bamg, 8=delquad) \n"
-            << "Mesh.Algorithm3D = 1; //(1=tetgen, 4=netgen, 7=MMG3D, 9=R-tree) \n";
+            << "Mesh.Algorithm3D = 1; //(1=tetgen, 4=netgen, 7=MMG3D, 9=R-tree) \n"
+            << "Mesh.Binary = " << M_saveOutputSurfaceBinary <<";\n";
 
     //geodesc << "Merge \"stl_remesh_vmtk/fluidskin3.stl\"\n";
     geodesc << "Merge \""<< this->inputSurfacePath() <<"\";\n";
@@ -1927,7 +1931,7 @@ VolumeMeshing::VolumeMeshing( std::string prefix )
     M_outputPath(),
     M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
-    M_saveOutputSurfaceBinary( boption(_name="output.save-binary",_prefix=this->prefix() ) )
+    M_saveOutputVolumeBinary( boption(_name="output.save-binary",_prefix=this->prefix() ) )
 {
     if ( !M_inputSTLPath.empty() && M_outputPath.empty() )
     {
@@ -1982,6 +1986,7 @@ VolumeMeshing::run()
               << "centerlinesFileName     : " << this->inputCenterlinesPath() << "\n"
               << "inletOutletDescFileName : " << this->inputInletOutletDescPath() << "\n"
               << "output path          : " << this->outputPath() << "\n"
+              << "output file type     : " << std::string((M_saveOutputVolumeBinary)? "binary" : "ascii") << "\n"
               << "---------------------------------------\n"
               << "---------------------------------------\n";
 
@@ -2024,7 +2029,7 @@ VolumeMeshing::generateGeoFor3dVolumeFromSTLAndCenterlines(std::string geoname)
     geodesc << "General.ExpertMode=1;\n";
     geodesc << "Mesh.Algorithm = 6; //(1=MeshAdapt, 5=Delaunay, 6=Frontal, 7=bamg, 8=delquad) \n"
             << "Mesh.Algorithm3D = 1; //(1=tetgen, 4=netgen, 7=MMG3D, 9=R-tree) \n"
-            << "Mesh.Binary = " << M_saveOutputSurfaceBinary <<";\n";
+            << "Mesh.Binary = " << M_saveOutputVolumeBinary <<";\n";
 
     //CTX::instance()->mesh.binary = M_saveOutputSurfaceBinary;
 
