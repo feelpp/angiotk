@@ -2600,16 +2600,11 @@ void AngioTkCenterline::runClipMesh()
   current->createTopologyFromFaces(discFaces);
   current->exportDiscreteGEOInternals();
 
+#if 0
   //write
   Msg::Info("AngioTkCenterline: writing splitted mesh 'myCLIPPARTS.msh'");
   current->writeMSH("myCLIPPARTS.msh", 2.2, false, false);
-
-#if 0
-  //create compounds
-  createSplitCompounds();
-  Msg::Info("Done splitting mesh by centerlines");
 #endif
-
 
 }
 
@@ -3022,6 +3017,11 @@ void AngioTkCenterline::saveSurfaceRemeshSTL(std::string const outputPath, bool 
   if (!current) { Msg::Error("not model available");return; }
   bool saveAll=false; double scalingFactor=1.0;
   current->writeSTL( outputPath,binary,saveAll,scalingFactor );
+}
+
+void AngioTkCenterline::saveClipMeshSTL(std::string const outputPath, bool binary )
+{
+  this->saveSurfaceRemeshSTL( outputPath, binary );
 }
 
 

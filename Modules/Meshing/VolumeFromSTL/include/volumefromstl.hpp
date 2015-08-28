@@ -351,6 +351,8 @@ public :
 
     void run();
     void runGMSH();
+    void runGMSHwithExecutable();
+    void runVMTK();
 
     static po::options_description options( std::string const& prefix );
 
@@ -371,6 +373,7 @@ private :
     std::string M_inputSurfacePath, M_inputCenterlinesPath, M_outputDirectory, M_outputPath;
     bool M_forceRebuild;
     double M_distanceClipScalingFactor;
+    bool M_saveOutputSurfaceBinary;
 };
 
 namespace detail
@@ -422,7 +425,7 @@ public :
     void run();
     void runVMTK();
     void runGMSH();
-    void runGMSH2();
+    void runGMSHwithExecutable();
 
     static po::options_description options( std::string const& prefix );
 
@@ -442,6 +445,7 @@ private :
     std::string M_outputDirectory;
     bool M_forceRebuild;
 
+    bool M_saveOutputSurfaceBinary;
 }; // class RemeshSTL
 
 class VolumeMeshing

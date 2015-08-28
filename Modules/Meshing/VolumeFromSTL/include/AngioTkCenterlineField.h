@@ -226,9 +226,6 @@ class AngioTkCenterline : public Field{
   //actions
   void run();
 
-  void runClipMesh();
-  void createFacesFromClip();
-
   //load desc file and define marker which are close to a point
   void initPhysicalMarkerFromDescFile( std::vector<GEdge*> boundEdges );
 
@@ -245,6 +242,7 @@ class AngioTkCenterline : public Field{
 
   //create discrete faces
   void createFaces();
+  void createFacesFromClip();
   void createSplitCompounds();
 
   //Print for debugging
@@ -253,12 +251,19 @@ class AngioTkCenterline : public Field{
   SMetric3 metricBasedOnSurfaceCurvature(SVector3 dMin, SVector3 dMax, double cMin, double cMax,
 					  double lc_n, double lc_t1, double lc_t2);
 
-  // properties of remesh
+  // mode remesh
   void setIsCut(bool b) { is_cut = b; }
   void setRemeshNbPoints( int i ) { nbPoints=i; }
-
   void runSurfaceRemesh( std::string const& remeshPartitionMeshFile="", bool forceRebuildPartition=true );
   void saveSurfaceRemeshSTL(std::string const outputPath, bool binary );
+
+  // mode clip mesh
+  void setModeClipMesh(bool b) { is_clip_mesh = b; }
+  void setClipMeshScalingFactor( double d ) { M_clipMeshScalingFactor = d; }
+  void runClipMesh();
+  void saveClipMeshSTL(std::string const outputPath, bool binary );
+
+
 
 };
 #else

@@ -1425,7 +1425,8 @@ OpenSurface::OpenSurface( std::string prefix )
     M_inputCenterlinesPath( AngioTkEnvironment::expand( soption(_name="input.centerlines.filename",_prefix=this->prefix()) ) ),
     M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
-    M_distanceClipScalingFactor( doption(_name="distance-clip.scaling-factor",_prefix=this->prefix() ) )
+    M_distanceClipScalingFactor( doption(_name="distance-clip.scaling-factor",_prefix=this->prefix() ) ),
+    M_saveOutputSurfaceBinary( boption(_name="output.save-binary",_prefix=this->prefix() ) )
 {
     if ( !M_inputSurfacePath.empty() && M_outputPath.empty() )
     {
@@ -1482,6 +1483,7 @@ OpenSurface::run()
     coutStr << "inputSurfacePath     : " << this->inputSurfacePath() << "\n";
     coutStr << "inputCenterlinesPath : " << this->inputCenterlinesPath() << "\n";
     coutStr << "output path          : " << this->outputPath() << "\n"
+            << "output file type     : " << std::string((M_saveOutputSurfaceBinary)? "binary" : "ascii") << "\n"
             << "---------------------------------------\n"
             << "---------------------------------------\n";
     std::cout << coutStr.str();
@@ -1497,45 +1499,52 @@ OpenSurface::run()
     }
     // wait all process
     this->worldComm().globalComm().barrier();
-
+    std::string method = "gmsh";
     if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
     {
-        if ( true )
-        {
+        if ( method == "gmsh" )
             this->runGMSH();
-        }
-        else
-        {
-            std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
-            std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
-
-            std::ostringstream __str;
-            __str << pythonExecutable << " ";
-            __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkendpointextractor ";
-            __str << "-ifile " << this->inputCenterlinesPath() << " "
-                  << "-radiusarray MaximumInscribedSphereRadius -numberofendpointspheres 1 ";
-            __str << "--pipe ";
-            __str << dirBaseVmtk << "/vmtkbranchclipper "
-                  << "-ifile " << this->inputSurfacePath() << " "
-                  << "-groupidsarray TractIds -blankingarray Blanking -radiusarray MaximumInscribedSphereRadius -insideout 0 -interactive 0 ";
-            __str << "--pipe ";
-            __str << dirBaseVmtk << "/vmtksurfaceconnectivity "
-                  << " -cleanoutput 1 ";
-            __str << "--pipe "
-                  <<  dirBaseVmtk << "/vmtksurfacewriter "
-                  << "-ofile " << this->outputPath();
-            std::cout << "---------------------------------------\n"
-                      << "run in system : \n" << __str.str() << "\n"
-                      << "---------------------------------------\n";
-            auto err = ::system( __str.str().c_str() );
-        }
+        else if ( method == "gmsh-executable" )
+            this->runGMSHwithExecutable();
+        else if ( method == "vmtk" )
+            this->runVMTK();
     }
 
-    // vmtkendpointextractor -ifile ~/Desktop/MaillagesOdysée/meshing2/centerlines/cut6_centerlines.vtk -radiusarray MaximumInscribedSphereRadius -numberofendpointspheres 1 --pipe vmtkbranchclipper -interactive 0 -ifile ~/feel/blabll/hh128.stl -groupidsarray TractIds -blankingarray Blanking -radiusarray MaximumInscribedSphereRadius   -insideout 0 --pipe vmtksurfaceconnectivity -cleanoutput 1 --pipe vmtksurfacewriter -ofile hola3.stl
 }
+
 
 void
 OpenSurface::runGMSH()
+{
+    CHECK( !this->inputSurfacePath().empty() && fs::exists(this->inputSurfacePath()) ) << "inputSurfacePath is empty or not exist";
+    CHECK( !this->inputCenterlinesPath().empty() && fs::exists(this->inputCenterlinesPath()) ) << "inputCenterlinesPath is empty or not exist";
+
+    if ( true )
+        {
+            GmshInitialize();
+            CTX::instance()->terminal = 1;
+            int verbosityLevel = 5;
+            Msg::SetVerbosity( verbosityLevel );
+            CTX::instance()->geom.tolerance=1e-8;
+        }
+    GModel * gmodel = new GModel();
+    // add new model as current (important if this function is called more than 1 time)
+    GModel::current(GModel::list.size() - 1);
+
+    std::shared_ptr<AngioTkCenterline> centerlinesTool( new AngioTkCenterline );
+    centerlinesTool->setModeClipMesh(true);
+    centerlinesTool->setClipMeshScalingFactor( M_distanceClipScalingFactor );
+    centerlinesTool->importSurfaceFromFile( this->inputSurfacePath() );
+    centerlinesTool->importFile( this->inputCenterlinesPath() );
+    centerlinesTool->runClipMesh();
+    //CTX::instance()->mesh.binary = M_saveOutputSurfaceBinary;
+    centerlinesTool->saveClipMeshSTL(this->outputPath(), M_saveOutputSurfaceBinary );
+
+    delete gmodel;
+}
+
+void
+OpenSurface::runGMSHwithExecutable()
 {
     std::ostringstream geodesc;
     geodesc << "Mesh.Algorithm = 6; //(1=MeshAdapt, 5=Delaunay, 6=Frontal, 7=bamg, 8=delquad) \n"
@@ -1560,6 +1569,35 @@ OpenSurface::runGMSH()
     detail::generateMeshFromGeo(geoname,this->outputPath(),2);
 }
 
+void
+OpenSurface::runVMTK()
+{
+    std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
+    std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+
+    std::ostringstream __str;
+    __str << pythonExecutable << " ";
+    __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkendpointextractor ";
+    __str << "-ifile " << this->inputCenterlinesPath() << " "
+          << "-radiusarray MaximumInscribedSphereRadius -numberofendpointspheres 1 ";
+    __str << "--pipe ";
+    __str << dirBaseVmtk << "/vmtkbranchclipper "
+          << "-ifile " << this->inputSurfacePath() << " "
+          << "-groupidsarray TractIds -blankingarray Blanking -radiusarray MaximumInscribedSphereRadius -insideout 0 -interactive 0 ";
+    __str << "--pipe ";
+    __str << dirBaseVmtk << "/vmtksurfaceconnectivity "
+          << " -cleanoutput 1 ";
+    __str << "--pipe "
+          <<  dirBaseVmtk << "/vmtksurfacewriter "
+          << "-ofile " << this->outputPath();
+    std::cout << "---------------------------------------\n"
+              << "run in system : \n" << __str.str() << "\n"
+              << "---------------------------------------\n";
+    auto err = ::system( __str.str().c_str() );
+}
+
+
+
 po::options_description
 OpenSurface::options( std::string const& prefix )
 {
@@ -1571,6 +1609,7 @@ OpenSurface::options( std::string const& prefix )
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
         (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         (prefixvm(prefix,"distance-clip.scaling-factor").c_str(), Feel::po::value<double>()->default_value(0.0), "(double) scaling-factor")
+        (prefixvm(prefix,"output.save-binary").c_str(), Feel::po::value<bool>()->default_value(true), "(bool) save-binary")
         ;
     return myOpenSurfaceOptions;
 }
@@ -1589,7 +1628,8 @@ RemeshSTL::RemeshSTL( std::string prefix )
     M_vmtkArea( doption(_name="area",_prefix=this->prefix()) ),
     M_vmtkNumberOfIteration( ioption(_name="vmtk.n-iteration",_prefix=this->prefix()) ),
     M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
-    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
+    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
+    M_saveOutputSurfaceBinary( boption(_name="output.save-binary",_prefix=this->prefix() ) )
 {
     CHECK( M_packageType == "gmsh" || M_packageType == "gmsh-executable" || M_packageType == "vmtk" ) << "error on packageType : " << M_packageType;
     if ( !this->inputSurfacePath().empty() && M_outputPathGMSH.empty() )
@@ -1663,11 +1703,10 @@ RemeshSTL::run()
     // // wait all process
     this->worldComm().globalComm().barrier();
 
-
     if ( this->packageType() == "gmsh" )
-        this->runGMSH2();
-    else if ( this->packageType() == "gmsh-executable" )
         this->runGMSH();
+    else if ( this->packageType() == "gmsh-executable" )
+        this->runGMSHwithExecutable();
     else if ( this->packageType() == "vmtk" )
         this->runVMTK();
 
@@ -1695,8 +1734,9 @@ RemeshSTL::runVMTK()
     //std::cout << "hola\n"<< __str.str() <<"\n";
 }
 
+
 void
-RemeshSTL::runGMSH()
+RemeshSTL::runGMSHwithExecutable()
 {
     CHECK( !this->inputSurfacePath().empty() ) << "inputSurfacePath is empty";
     CHECK( !this->inputCenterlinesPath().empty() ) << "inputCenterlinesPath is empty";
@@ -1735,7 +1775,7 @@ RemeshSTL::runGMSH()
 }
 
 void
-RemeshSTL::runGMSH2()
+RemeshSTL::runGMSH()
 {
     CHECK( !this->inputSurfacePath().empty() && fs::exists(this->inputSurfacePath()) ) << "inputSurfacePath is empty or not exist";
     CHECK( !this->inputCenterlinesPath().empty() && fs::exists(this->inputCenterlinesPath()) ) << "inputCenterlinesPath is empty or not exist";
@@ -1760,14 +1800,14 @@ RemeshSTL::runGMSH2()
     centerlinesTool->setRemeshNbPoints( this->remeshNbPointsInCircle() );
     centerlinesTool->importSurfaceFromFile( this->inputSurfacePath() );
     centerlinesTool->importFile( this->inputCenterlinesPath() );
-    //centerlinesTool->cutMesh();
 
     fs::path gp = this->inputSurfacePath();
     std::string remeshPartitionMeshFileName = gp.stem().string() + "_remeshpartition.msh";
     fs::path directory = fs::path(this->outputPath()).parent_path();
     std::string remeshPartitionMeshFilePath = (directory/fs::path(remeshPartitionMeshFileName)).string();
     centerlinesTool->runSurfaceRemesh(remeshPartitionMeshFilePath,M_gmshRemeshPartitionForceRebuild);
-    centerlinesTool->saveSurfaceRemeshSTL(this->outputPath(), CTX::instance()->mesh.binary );
+    //CTX::instance()->mesh.binary = M_saveOutputSurfaceBinary;
+    centerlinesTool->saveSurfaceRemeshSTL(this->outputPath(), M_saveOutputSurfaceBinary );
 
     delete gmodel;
 }
@@ -1783,6 +1823,7 @@ RemeshSTL::options( std::string const& prefix )
         ( prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "stl.filename" )
         ( prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
         ( prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
+        ( prefixvm(prefix,"output.save-binary").c_str(), Feel::po::value<bool>()->default_value(true), "(bool) save-binary")
         // gmsh options
         ( prefixvm(prefix,"centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "centerlines.filename" )
         ( prefixvm(prefix,"nb-points-in-circle").c_str(), po::value<int>()->default_value( 15 ), "nb-points-in-circle" )
