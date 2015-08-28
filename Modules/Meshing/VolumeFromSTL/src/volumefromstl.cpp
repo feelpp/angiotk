@@ -1924,9 +1924,10 @@ VolumeMeshing::VolumeMeshing( std::string prefix )
     M_extrudeWall( boption(_name="extrude-wall",_prefix=this->prefix() ) ),
     M_extrudeWallNbElemLayer( ioption(_name="extrude-wall.nb-elt-layer",_prefix=this->prefix() ) ),
     M_extrudeWallhLayer( doption(_name="extrude-wall.h-layer",_prefix=this->prefix()) ),
-                                                M_outputPath(),
-                                                M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
-                                                M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
+    M_outputPath(),
+    M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
+    M_saveOutputSurfaceBinary( boption(_name="output.save-binary",_prefix=this->prefix() ) )
 {
     if ( !M_inputSTLPath.empty() && M_outputPath.empty() )
     {
@@ -2022,7 +2023,10 @@ VolumeMeshing::generateGeoFor3dVolumeFromSTLAndCenterlines(std::string geoname)
     std::ostringstream geodesc;
     geodesc << "General.ExpertMode=1;\n";
     geodesc << "Mesh.Algorithm = 6; //(1=MeshAdapt, 5=Delaunay, 6=Frontal, 7=bamg, 8=delquad) \n"
-            << "Mesh.Algorithm3D = 1; //(1=tetgen, 4=netgen, 7=MMG3D, 9=R-tree) \n";
+            << "Mesh.Algorithm3D = 1; //(1=tetgen, 4=netgen, 7=MMG3D, 9=R-tree) \n"
+            << "Mesh.Binary = " << M_saveOutputSurfaceBinary <<";\n";
+
+    //CTX::instance()->mesh.binary = M_saveOutputSurfaceBinary;
 
     //Mesh.CharacteristicLengthFactor=0.015;
 
@@ -2070,6 +2074,7 @@ VolumeMeshing::options( std::string const& prefix )
         ( prefixvm(prefix,"input.centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "centerlines.filename" )
         ( prefixvm(prefix,"input.desc.filename").c_str(), po::value<std::string>()->default_value( "" ), "inletoutlet-desc.filename" )
         ( prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
+        ( prefixvm(prefix,"output.save-binary").c_str(), Feel::po::value<bool>()->default_value(true), "(bool) save-binary")
         ( prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         ( prefixvm(prefix,"nb-points-in-circle").c_str(), po::value<int>()->default_value( 15 ), "nb-points-in-circle" )
         ( prefixvm(prefix,"extrude-wall").c_str(),po::value<bool>()->default_value( false ), "extrude-wall" )
