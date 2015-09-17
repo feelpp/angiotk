@@ -22,10 +22,7 @@
 #include "boost/tuple/tuple_comparison.hpp"
 #include "boost/tuple/tuple_io.hpp"*/
 
-
-namespace detail
-{
-class AngioTkEnvironment
+class AngioTkEnvironment : boost::noncopyable
 {
 public :
     template <class ArgumentPack>
@@ -36,20 +33,16 @@ public :
                                                        Feel::_desc=args[Feel::_desc|Feel::feel_nooptions()],
                                                        Feel::_about=args[Feel::_about| Feel::makeAboutDefault/*detail::makeAbout*/( args[Feel::_argv][0] )] ) );
     }
+    ~AngioTkEnvironment()
+    {
+        //std::cout << "use_count() " << S_feelEnvironment.use_count()  <<"\n";
+        S_feelEnvironment.reset();
+    }
     static Feel::fs::path pathInitial() { return S_pathInitial; }
     static Feel::Environment const& feelEnvironment() { return *S_feelEnvironment; }
 
-private :
-    static Feel::fs::path S_pathInitial;
-    static boost::shared_ptr<Feel::Environment> S_feelEnvironment;
-};
-} // namespace detail
-
-class AngioTkEnvironment : public detail::AngioTkEnvironment
-{
-public:
     BOOST_PARAMETER_CONSTRUCTOR(
-    AngioTkEnvironment, ( detail::AngioTkEnvironment ), Feel::tag,
+    AngioTkEnvironment, ( AngioTkEnvironment ), Feel::tag,
         ( required
           ( argc,* )
           ( argv,* ) )
@@ -60,9 +53,14 @@ public:
           //( directory,( std::string ) )
         ) ) // no semicolon
     //{}
-
     static std::string expand( std::string const& expr ) { return Feel::Environment::expand( expr ); }
+
+private :
+    static Feel::fs::path S_pathInitial;
+    static boost::shared_ptr<Feel::Environment> S_feelEnvironment;
 };
+
+
 namespace Feel
 {
 

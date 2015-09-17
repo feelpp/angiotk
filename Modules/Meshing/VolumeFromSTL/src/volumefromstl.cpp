@@ -19,11 +19,8 @@
 //#include <vtkvmtkPolyBallModeller.h>
 #include <angiotkPolyBallModeller.h>
 
-namespace detail
-{
 Feel::fs::path AngioTkEnvironment::S_pathInitial;
 boost::shared_ptr<Feel::Environment> AngioTkEnvironment::S_feelEnvironment;
-}
 
 namespace Feel
 {
@@ -1693,7 +1690,6 @@ RemeshSTL::run()
                   << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n";
         return;
     }
-
 
     fs::path directory;
     // build directories if necessary
