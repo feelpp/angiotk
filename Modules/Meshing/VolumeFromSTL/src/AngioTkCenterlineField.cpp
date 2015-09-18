@@ -2163,7 +2163,6 @@ void AngioTkCenterline::createClosedVolume(GEdge *gin, std::vector<GEdge*> bound
   std::vector<std::vector<GFace *> > myFaceLoops;
   std::vector<GFace *> myFaces;
 
-  int currentTagPhysicalMark = 100;
   std::map<std::string,int> mapMarkerToTag;
 
   for (unsigned int i = 0; i<  boundEdges.size(); i++){
@@ -2178,18 +2177,20 @@ void AngioTkCenterline::createClosedVolume(GEdge *gin, std::vector<GEdge*> bound
 
     if ( mapBoundEdgeIdToPhysicalMarkerLumen.find( boundEdges[i]->tag() ) != mapBoundEdgeIdToPhysicalMarkerLumen.end() )
       {
-	std::string marker = mapBoundEdgeIdToPhysicalMarkerLumen.find( boundEdges[i]->tag() )->second;
-	int thetag = currentTagPhysicalMark;
-	if ( mapMarkerToTag.find(marker) != mapMarkerToTag.end() )
-	  thetag = mapMarkerToTag.find(marker)->second;
-	else
-	  {
-	    mapMarkerToTag[marker] = thetag;
-	    ++currentTagPhysicalMark;
-	  }
+	std::string markerFace = mapBoundEdgeIdToPhysicalMarkerLumen.find( boundEdges[i]->tag() )->second;
+	std::string markerEdge = "edge_"+markerFace;
 
-	newFace->addPhysicalEntity( thetag);
-	current->setPhysicalName(marker, 2, thetag);//tag 2
+	int thetagFace = current->getMaxPhysicalNumber(-1)+1;
+	if ( mapMarkerToTag.find(markerFace) != mapMarkerToTag.end() )
+	  thetagFace = mapMarkerToTag.find(markerFace)->second;
+	else
+	    mapMarkerToTag[markerFace] = thetagFace;
+	newFace->addPhysicalEntity( thetagFace );
+	current->setPhysicalName(markerFace, 2, thetagFace);
+
+	int thetagEdge = current->getMaxPhysicalNumber(-1)+1;
+	gec->addPhysicalEntity( thetagEdge );
+	current->setPhysicalName(markerEdge, 1, thetagEdge);
       }
     else
       {
@@ -2217,8 +2218,9 @@ void AngioTkCenterline::createClosedVolume(GEdge *gin, std::vector<GEdge*> bound
   }
   myFaceLoops.push_back(myFaces);
   GRegion *reg = current->addVolume(myFaceLoops);
-  reg->addPhysicalEntity(reg->tag());
-  current->setPhysicalName("lumenVolume", 3, reg->tag());
+  int thePhysicalTagVolume = current->getMaxPhysicalNumber(-1)+1;
+  reg->addPhysicalEntity(thePhysicalTagVolume);
+  current->setPhysicalName("lumenVolume", 3, thePhysicalTagVolume);
 
   Msg::Info("AngioTkCenterline: action (closeVolume) has created volume %d ", reg->tag());
 
@@ -2271,11 +2273,13 @@ void AngioTkCenterline::extrudeBoundaryLayerWall(GEdge* gin, std::vector<GEdge*>
     std::vector<GEntity*> extrudedE = current->extrudeBoundaryLayer
       (gfc, nbElemLayer,  hLayer, dir, -5);
     GFace *eFace = (GFace*) extrudedE[0];
-    eFace->addPhysicalEntity(5);
-    current->setPhysicalName("outerWall", 2, 5);//dim 2 tag 5
+    int currentPhysicalTag = current->getMaxPhysicalNumber(-1)+1;
+    eFace->addPhysicalEntity(currentPhysicalTag);
+    current->setPhysicalName("outerWall", 2, currentPhysicalTag);//dim 2
     GRegion *eRegion = (GRegion*) extrudedE[1];
-    eRegion->addPhysicalEntity(6);
-    current->setPhysicalName("wallVolume", 3, 6);//dim 3 tag 6
+    currentPhysicalTag = current->getMaxPhysicalNumber(-1)+1;
+    eRegion->addPhysicalEntity(currentPhysicalTag);
+    current->setPhysicalName("wallVolume", 3, currentPhysicalTag);//dim 3
 
     //if double extruded layer
     if (nbElemSecondLayer > 0){
@@ -2291,7 +2295,6 @@ void AngioTkCenterline::extrudeBoundaryLayerWall(GEdge* gin, std::vector<GEdge*>
     //end double extrusion
 
 
-    int currentTagPhysicalMark = 500;
     std::map<std::string,int> mapMarkerToTag;
     for (unsigned int j = 2; j < extrudedE.size(); j++){
       GFace *elFace = (GFace*) extrudedE[j];
@@ -2303,17 +2306,16 @@ void AngioTkCenterline::extrudeBoundaryLayerWall(GEdge* gin, std::vector<GEdge*>
 
 	  if ( mapBoundEdgeIdToPhysicalMarkerArerialWall.find( myEdge->tag() ) != mapBoundEdgeIdToPhysicalMarkerArerialWall.end() )
 	    {
-	      std::string marker = mapBoundEdgeIdToPhysicalMarkerArerialWall.find( myEdge->tag() )->second;
-	      int thetag=currentTagPhysicalMark;
-	      if ( mapMarkerToTag.find(marker) != mapMarkerToTag.end() )
-		thetag = mapMarkerToTag.find(marker)->second;
+	      std::string markerFace = mapBoundEdgeIdToPhysicalMarkerArerialWall.find( myEdge->tag() )->second;
+	      int thetagFace = current->getMaxPhysicalNumber(-1)+1;
+
+	      if ( mapMarkerToTag.find(markerFace) != mapMarkerToTag.end() )
+		thetagFace = mapMarkerToTag.find(markerFace)->second;
 	      else
-		{
-		  mapMarkerToTag[marker] = thetag;
-		  ++currentTagPhysicalMark;
-		}
-	      elFace->addPhysicalEntity( thetag);
-	      current->setPhysicalName(marker, 2, thetag);//tag 2
+		  mapMarkerToTag[markerFace] = thetagFace;
+
+	      elFace->addPhysicalEntity( thetagFace);
+	      current->setPhysicalName(markerFace, 2, thetagFace);
 	    }
 	  else
 	    {
@@ -2361,8 +2363,9 @@ void AngioTkCenterline::run()
   if (is_cut) this->runSurfaceRemesh("");/*cutMesh();*/
   else{
     GFace *gf = current->getFaceByTag(1);
-    gf->addPhysicalEntity(4);
-    current->setPhysicalName("wall", 2, 4);//tag 1
+    int currentPhysicalTag = current->getMaxPhysicalNumber(-1)+1;
+    gf->addPhysicalEntity(currentPhysicalTag);
+    current->setPhysicalName("wall", 2, currentPhysicalTag);
     current->createTopologyFromMesh();
     ((GFaceCompound*)gf)->coherenceNormals();
     NV = current->getMaxElementaryNumber(0);
