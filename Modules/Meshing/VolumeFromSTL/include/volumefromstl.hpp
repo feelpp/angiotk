@@ -164,6 +164,9 @@ private :
     bool M_forceRebuild;
     bool M_useInteractiveSelection;
     bool M_viewResults,M_viewResultsWithSurface;
+
+    std::string M_delaunayTessellationOutputDirectory;
+    bool M_delaunayTessellationForceRebuild;
 };
 
 class CenterlinesManager

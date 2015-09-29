@@ -19,6 +19,14 @@
 //#include <vtkvmtkPolyBallModeller.h>
 #include <angiotkPolyBallModeller.h>
 
+#include <vtkvmtkPolyDataCenterlines.h>
+#include <vtkSTLReader.h>
+#include <vtkPointLocator.h>
+#include <vtkIdList.h>
+#include <vtkUnstructuredGridWriter.h>
+#include <vtkUnstructuredGridReader.h>
+
+
 Feel::fs::path AngioTkEnvironment::S_pathInitial;
 boost::shared_ptr<Feel::Environment> AngioTkEnvironment::S_feelEnvironment;
 
@@ -146,7 +154,9 @@ CenterlinesFromSTL::CenterlinesFromSTL( std::string prefix )
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_useInteractiveSelection( boption(_name="use-interactive-selection",_prefix=this->prefix()) ),
     M_viewResults( boption(_name="view-results",_prefix=this->prefix() ) ),
-    M_viewResultsWithSurface( boption(_name="view-results.with-surface",_prefix=this->prefix() ) )
+    M_viewResultsWithSurface( boption(_name="view-results.with-surface",_prefix=this->prefix() ) ),
+    M_delaunayTessellationOutputDirectory( AngioTkEnvironment::expand( soption(_name="delaunay-tessellation.output.directory",_prefix=this->prefix()) ) ),
+    M_delaunayTessellationForceRebuild( boption(_name="delaunay-tessellation.force-rebuild",_prefix=this->prefix() ) )
 {
     std::vector<int> sids,tids;
     if ( Environment::vm().count(prefixvm(this->prefix(),"source-ids").c_str()) )
@@ -246,6 +256,21 @@ CenterlinesFromSTL::run()
         return;
     }
 
+
+    fs::path directory = fs::path(this->outputPath()).parent_path();
+    fs::path outputFileNamePath = fs::path(this->outputPath());
+    std::string name = outputFileNamePath.stem().string();
+
+    fs::path directoryDelaunayTessellation = M_delaunayTessellationOutputDirectory;
+    if ( M_delaunayTessellationOutputDirectory.empty() )
+        directoryDelaunayTessellation = directory;
+    else if ( fs::path(M_delaunayTessellationOutputDirectory).is_relative() )
+        directoryDelaunayTessellation = fs::path(Environment::rootRepository())/fs::path(M_delaunayTessellationOutputDirectory);
+    std::string fileNameDelaunayTessellation = (boost::format("%1%_DelaunayTessellation" )%name ).str();
+    std::string pathDelaunayTessellation = (directoryDelaunayTessellation/fs::path(fileNameDelaunayTessellation+".vtk")).string();
+    bool rebuildDelaunayTessellation = M_delaunayTessellationForceRebuild || !fs::exists(pathDelaunayTessellation);
+
+
     std::ostringstream coutStr;
     coutStr << "\n"
             << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
@@ -270,34 +295,30 @@ CenterlinesFromSTL::run()
                 coutStr << id << " ";
             coutStr << "\n";
         }
+        coutStr << "DelaunayTessellation path  : " << pathDelaunayTessellation << "\n"
+                << "DelaunayTessellation build : " << std::string(( rebuildDelaunayTessellation )? "true":"false") << "\n";
     }
 
     coutStr << "output path          : " << this->outputPath() << "\n"
             << "---------------------------------------\n"
             << "---------------------------------------\n";
     std::cout << coutStr.str();
-#if 0
-    if ( fs::exists( this->outputPath() ) && !this->forceRebuild() )
-    {
-        std::cout << "already file exist, ignore centerline\n"
-                  << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n";
-        return;
-    }
-#endif
-    fs::path directory;
+
+
     // build directories if necessary
-    if ( !this->outputPath().empty() && this->worldComm().isMasterRank() )
+    if ( this->worldComm().isMasterRank() )
     {
-        directory = fs::path(this->outputPath()).parent_path();
         if ( !fs::exists( directory ) )
             fs::create_directories( directory );
+        if ( !fs::exists( directoryDelaunayTessellation ) )
+            fs::create_directories( directoryDelaunayTessellation );
     }
     // // wait all process
     this->worldComm().globalComm().barrier();
 
+
+
     //fs::path stlNamePath = fs::path(this->inputPath());
-    fs::path outputFileNamePath = fs::path(this->outputPath());
-    std::string name = outputFileNamePath.stem().string();
     std::string pathVTP = (directory/fs::path(name+".vtp")).string();
 
     // source ~/packages/vmtk/vmtk.build2/Install/vmtk_env.sh
@@ -320,7 +341,103 @@ CenterlinesFromSTL::run()
             centerlinesTool.addFieldRadiusMin("MaximumInscribedSphereRadius");
             centerlinesTool.writeCenterlinesVTK( this->outputPath() );
         }
-        else
+        else if ( !this->inputCenterlinesPointSetPath().empty() || !this->inputInletOutletDescPath().empty() ) // use c++ vmtkcenterlines
+        {
+            vtkSmartPointer<vtkSTLReader> readerSTL = vtkSmartPointer<vtkSTLReader>::New();
+            readerSTL->SetFileName( this->inputPath().c_str());
+            readerSTL->Update();
+
+            vtkSmartPointer<vtkvmtkPolyDataCenterlines> centerlineFilter = vtkvmtkPolyDataCenterlines::New();
+            centerlineFilter->SetInput( readerSTL->GetOutput() );
+
+            vtkSmartPointer<vtkIdList> sourceIdList = vtkSmartPointer<vtkIdList>::New();
+            vtkSmartPointer<vtkIdList> targetIdList = vtkSmartPointer<vtkIdList>::New();
+            vtkSmartPointer<vtkPointLocator> pointLocator = vtkSmartPointer<vtkPointLocator>::New();
+            pointLocator->SetDataSet( readerSTL->GetOutput() );
+            pointLocator->BuildLocator();
+            if ( !this->inputCenterlinesPointSetPath().empty() )
+            {
+                auto pointset = loadFromCenterlinesPointSetFile();
+                for ( std::vector<double> const& pt : std::get<0>(pointset) ) // source
+                {
+                    double point[3] = { pt[0], pt[1], pt[2] };
+                    vtkIdType vtkid = pointLocator->FindClosestPoint(point);
+                    sourceIdList->InsertNextId(vtkid);
+                }
+                for ( std::vector<double> const& pt : std::get<1>(pointset) ) // target
+                {
+                    double point[3] = { pt[0], pt[1], pt[2] };
+                    vtkIdType vtkid = pointLocator->FindClosestPoint(point);
+                    targetIdList->InsertNextId(vtkid);
+                }
+            }
+            else if ( !this->inputInletOutletDescPath().empty() )
+            {
+                InletOutletDesc iodesc( this->inputInletOutletDescPath() );
+                for ( int id : this->sourceids() )
+                {
+                    CHECK( id < iodesc.size() ) << "id : " << id << "not valid! must be < " << iodesc.size();
+                    auto iodata = iodesc[id];
+                    double point[3] = { iodata.nodeX(), iodata.nodeY(), iodata.nodeZ() };
+                    vtkIdType vtkid = pointLocator->FindClosestPoint(point);
+                    sourceIdList->InsertNextId(vtkid);
+                }
+                for ( int id : this->targetids() )
+                {
+                    CHECK( id < iodesc.size() ) << "id : " << id << "not valid! must be < " << iodesc.size();
+                    auto iodata = iodesc[id];
+                    double point[3] = { iodata.nodeX(), iodata.nodeY(), iodata.nodeZ() };
+                    vtkIdType vtkid = pointLocator->FindClosestPoint(point);
+                    targetIdList->InsertNextId(vtkid);
+                }
+            }
+            else
+                CHECK(false) << "TODO get id from inlet/outlet cap";
+
+            centerlineFilter->SetSourceSeedIds( sourceIdList );
+            centerlineFilter->SetTargetSeedIds( targetIdList );
+
+            if ( rebuildDelaunayTessellation )
+            {
+                centerlineFilter->GenerateDelaunayTessellationOn();
+                //centerlineFilter->SetDelaunayTolerance(1e-3);
+            }
+            else
+            {
+                vtkSmartPointer<vtkUnstructuredGridReader> delaunayTessellationReader = vtkSmartPointer<vtkUnstructuredGridReader>::New();
+                delaunayTessellationReader->SetFileName( pathDelaunayTessellation.c_str() );
+                delaunayTessellationReader->Update();
+                centerlineFilter->GenerateDelaunayTessellationOff();
+                centerlineFilter->SetDelaunayTessellation( delaunayTessellationReader->GetOutput() );
+            }
+
+            std::string radiusArrayName = "MaximumInscribedSphereRadius";
+            centerlineFilter->SetRadiusArrayName( radiusArrayName.c_str() );
+            centerlineFilter->SetCostFunction( M_costFunctionExpr.c_str() );
+            centerlineFilter->SetFlipNormals( 0 );
+            centerlineFilter->SetAppendEndPointsToCenterlines( 0 );
+            centerlineFilter->SetSimplifyVoronoi( 0 );
+            centerlineFilter->SetCenterlineResampling( 0 );
+            centerlineFilter->SetResamplingStepLength( 1.0 );
+            centerlineFilter->Update();
+
+            vtkSmartPointer<vtkPolyDataWriter> centerlineWriter  = vtkSmartPointer<vtkPolyDataWriter>::New();
+            centerlineWriter->SetInput( centerlineFilter->GetOutput() );
+            centerlineWriter->SetFileName( this->outputPath().c_str() );
+            //centerlineWriter->SetFileTypeToBinary();
+            centerlineWriter->SetFileTypeToASCII();
+            centerlineWriter->Write();
+
+            if ( rebuildDelaunayTessellation )
+            {
+                vtkSmartPointer<vtkUnstructuredGridWriter> delaunayTessellationWriter = vtkSmartPointer<vtkUnstructuredGridWriter>::New();
+                delaunayTessellationWriter->SetInput( centerlineFilter->GetDelaunayTessellation() );
+                delaunayTessellationWriter->SetFileName( pathDelaunayTessellation.c_str() );
+                delaunayTessellationWriter->SetFileTypeToBinary();
+                delaunayTessellationWriter->Write();
+            }
+        }
+        else // use script python vmtkcenterlines
         {
             std::ostringstream __str;
             __str << pythonExecutable << " ";
@@ -388,7 +505,7 @@ CenterlinesFromSTL::run()
             //std::string costFunction = "R*R-2*0.8*R+0.8*0.8";
             std::string costFunction = "R*R-2*1.1*R+1.1*1.1";
             __str << " -costfunction " << costFunction << " ";
-            //__str << " -delaunaytessellationfile " << costFunction << " ";
+            //__str << " -delaunaytessellationfile " << "toto.vtk ";
 #endif
 
             __str << " -ifile " << this->inputPath() << " ";
@@ -446,6 +563,7 @@ CenterlinesFromSTL::options( std::string const& prefix )
         (prefixvm(prefix,"input.desc.filename").c_str(), po::value<std::string>()->default_value( "" ), "inletoutlet-desc.filename" )
         (prefixvm(prefix,"input.geo-centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "geo-centerlines.filename" )
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
+
         (prefixvm(prefix,"use-interactive-selection").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) use-interactive-selection")
         (prefixvm(prefix,"cost-function.expression").c_str(), Feel::po::value<std::string>()->default_value("1/R"), "(string) cost-function")
         (prefixvm(prefix,"source-ids").c_str(), po::value<std::vector<int> >()->multitoken(), "(vector of int) source ids" )
@@ -454,6 +572,9 @@ CenterlinesFromSTL::options( std::string const& prefix )
 
         (prefixvm(prefix,"view-results").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) view-results")
         (prefixvm(prefix,"view-results.with-surface").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) view-results with surface")
+
+        (prefixvm(prefix,"delaunay-tessellation.output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
+        (prefixvm(prefix,"delaunay-tessellation.force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         ;
     return myCenterlinesOptions;
 }
