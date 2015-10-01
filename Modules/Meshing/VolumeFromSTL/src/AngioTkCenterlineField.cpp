@@ -3015,17 +3015,28 @@ void AngioTkCenterline::runSurfaceRemesh( std::string const& remeshPartitionMesh
   this->createSplitCompounds();
 }
 
-void AngioTkCenterline::saveSurfaceRemeshSTL(std::string const outputPath, bool binary )
+void AngioTkCenterline::saveCurrentGModelSTL(std::string const outputPath, bool binary )
 {
   if (!current) { Msg::Error("not model available");return; }
   bool saveAll=false; double scalingFactor=1.0;
   current->writeSTL( outputPath,binary,saveAll,scalingFactor );
 }
 
+void AngioTkCenterline::saveSurfaceRemeshSTL(std::string const outputPath, bool binary )
+{
+  this->saveCurrentGModelSTL( outputPath, binary );
+}
+
 void AngioTkCenterline::saveClipMeshSTL(std::string const outputPath, bool binary )
 {
-  this->saveSurfaceRemeshSTL( outputPath, binary );
+  this->saveCurrentGModelSTL( outputPath, binary );
 }
+
+void AngioTkCenterline::saveTubularExtensionSTL(std::string const outputPath, bool binary )
+{
+  this->saveCurrentGModelSTL( outputPath, binary );
+}
+
 
 
 bool AngioTkCenterline::cutByDisk(SVector3 &PT, SVector3 &NORM, double &maxRad, int tag)
@@ -4545,6 +4556,107 @@ void AngioTkCenterline::applyTubularColisionFix2()
     }
 
 
+}
+
+
+// tubular extension
+void AngioTkCenterline::runTubularExtension()
+{
+    current->createTopologyFromMesh();
+
+    //identify the boundary edges by looping over all discreteFaces
+    std::vector<GEdge*> boundEdges;
+    int NF = current->getMaxElementaryNumber(2);
+    for (int i= 0; i< NF; i++)
+    {
+        GFace *gf = current->getFaceByTag(i+1);
+        std::list<GEdge*> l_edges = gf->edges();
+        for(std::list<GEdge*>::iterator it = l_edges.begin(); it != l_edges.end(); it++)
+        {
+            std::vector<GEdge*>::iterator ite = std::find(boundEdges.begin(),boundEdges.end(), *it);
+            if (ite != boundEdges.end())
+	      boundEdges.erase(ite);
+            else
+	      boundEdges.push_back(*it);
+        }
+    }
+
+#if 0
+    // this code below allow to generate the extrusion of inlet edge in the mesh
+    if ( !boundEdges.empty() )
+    for ( int i=0;i<1;++i)
+    {
+        std::vector<double> p1( { 0,0,0 } );
+        std::vector<double> p2( { 1,1,0 } );
+        //current->extrude( boundEdges[i],p1,p2 );
+        GEdge * gec = current->getEdgeByTag(boundEdges[i]->tag());
+        std::vector<MLine*> lines = gec->lines;
+        //std::cout << "lines.size() " << lines.size() << "\n";
+        int numEdge = current->getMaxElementaryNumber(1) + 1;
+        discreteEdge *discEdge = new discreteEdge(current,numEdge,0,0);
+        current->add(discEdge);
+        GEntity* discEntity = (GEntity*)discEdge;
+        discEdge->setTag( 12345/*itNewTag->second*/ );
+
+        std::map<MVertex*,MVertex*> vertexExtruded;
+        for ( int l=0;l< lines.size();++l)
+        {
+            MVertex * v0 = lines[l]->getVertex(0);
+            MVertex * v1 = lines[l]->getVertex(1);
+            MVertex * v0New;
+            if ( vertexExtruded.find(v0) != vertexExtruded.end() )
+                v0New = vertexExtruded.find(v0)->second;
+            else
+            {
+                v0New = new MVertex( v0->x()+0.,v0->y()+0.,v0->z()-1., discEntity/*gec*//*NULL*/ );
+                v0New->setIndex( v0New->getNum() );
+                vertexExtruded[v0]=v0New;
+                discEdge->addMeshVertex(v0New);
+            }
+            MVertex * v1New;
+            if ( vertexExtruded.find(v1) != vertexExtruded.end() )
+                v1New = vertexExtruded.find(v1)->second;
+            else
+            {
+                v1New = new MVertex( v1->x()+0.,v1->y()+0.,v1->z()-1., discEntity/*gec*/ );
+                v1New->setIndex( v1New->getNum() );
+                vertexExtruded[v1]=v1New;
+                discEdge->addMeshVertex(v1New);
+            }
+            //std::cout << "v0New->getIndex() " << v0New->getIndex() << " v0New->getNum() " << v0New->getNum() << "\n";
+            //std::cout << "v1New->getIndex() " << v1New->getIndex() << " v1New->getNum() " << v1New->getNum() << "\n";
+            CHECK( v0New ) << " not has v0New";
+            CHECK( v1New ) << " not has v1New";
+            //MLine * lineNew = new MLine(v0New,v1New);
+            //discEdge->lines.push_back(lineNew);
+            discEdge->lines.push_back(new MLine(v0New,v1New) );
+        }
+    }
+    //current->removeDuplicateMeshVertices(1.e-8);
+    current->createTopologyFromMesh();
+#endif
+
+    std::vector<std::vector<GEdge *> > myEdgeLoops;
+    std::vector<GEdge *> myEdges;
+    GEdge * gec = current->getEdgeByTag( /*12345*/boundEdges[0]->tag() );
+    myEdges.push_back(gec);
+    myEdgeLoops.push_back(myEdges);
+    GFace *newFace = current->addPlanarFace(myEdgeLoops);
+
+    int nbElemLayer=3;double hLayer=-0.7;  int dir = 0;
+    std::vector<GEntity*> extrudedE = current->extrudeBoundaryLayer(newFace, nbElemLayer,  hLayer, dir, -1/* -5*/);
+
+    current->mesh(2);
+    current->remove( (GRegion*) extrudedE[1]);
+    current->remove( (GFace*) extrudedE[0]);
+    current->remove( (GFace*) newFace);
+
+    //current->exportDiscreteGEOInternals();
+    //current->createTopologyFromMesh();
+#if 0
+    //current->writeSTL( this->outputPath(),  false, false);
+    current->writeMSH("myCLIPPARTS.msh", 2.2, false/*binary*/, true/*false*//*saveAll*/);
+#endif
 }
 
 

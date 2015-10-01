@@ -1956,6 +1956,125 @@ RemeshSTL::options( std::string const& prefix )
     return myMeshSurfaceOptions;
 }
 
+
+TubularExtension::TubularExtension( std::string prefix )
+    :
+    M_prefix( prefix ),
+    M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.surface.filename",_prefix=this->prefix()) ) ),
+    M_inputCenterlinesPath( AngioTkEnvironment::expand( soption(_name="input.centerlines.filename",_prefix=this->prefix()) ) ),
+    M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
+    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
+    M_saveOutputSurfaceBinary( boption(_name="output.save-binary",_prefix=this->prefix() ) )
+{
+    if ( !M_inputSurfacePath.empty() && M_outputPath.empty() )
+    {
+        this->updateOutputPathFromInputFileName();
+    }
+}
+
+void
+TubularExtension::updateOutputPathFromInputFileName()
+{
+    CHECK( !M_inputSurfacePath.empty() ) << "input path is empty";
+
+    // define output directory
+    fs::path meshesdirectories;
+    if ( M_outputDirectory.empty() )
+        meshesdirectories = fs::current_path();
+    else if ( fs::path(M_outputDirectory).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(M_outputDirectory);
+    else
+        meshesdirectories = fs::path(M_outputDirectory);
+
+    // get filename without extension
+    fs::path gp = M_inputSurfacePath;
+    std::string nameMeshFile = gp.stem().string();
+
+    std::string newFileName = (boost::format("%1%_tubeext.stl")%nameMeshFile ).str();
+    fs::path outputPath = meshesdirectories / fs::path(newFileName);
+    M_outputPath = outputPath.string();
+}
+
+void
+TubularExtension::run()
+{
+
+    if ( !fs::exists( this->inputSurfacePath() ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : opening surface not done because this input surface path for centerlines not exist :" << this->inputSurfacePath() << "\n";
+        return;
+    }
+#if 0
+    if ( !fs::exists( this->inputCenterlinesPath() ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : opening surface not done because this input centerlines path for centerlines not exist :" << this->inputCenterlinesPath() << "\n";
+        return;
+    }
+#endif
+    std::ostringstream coutStr;
+    coutStr << "\n"
+            << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
+            << "---------------------------------------\n"
+            << "run TubularExtension \n"
+            << "---------------------------------------\n";
+    coutStr << "inputSurfacePath     : " << this->inputSurfacePath() << "\n";
+    coutStr << "inputCenterlinesPath : " << this->inputCenterlinesPath() << "\n";
+    coutStr << "output path          : " << this->outputPath() << "\n"
+            << "---------------------------------------\n"
+            << "---------------------------------------\n";
+    std::cout << coutStr.str();
+
+    fs::path directory;
+    // build directories if necessary
+    if ( !this->outputPath().empty() && this->worldComm().isMasterRank() )
+    {
+        directory = fs::path(this->outputPath()).parent_path();
+        if ( !fs::exists( directory ) )
+            fs::create_directories( directory );
+    }
+    // // wait all process
+    this->worldComm().globalComm().barrier();
+
+
+    if ( true )
+    {
+        GmshInitialize();
+        CTX::instance()->terminal = 1;
+        int verbosityLevel = 5;
+        Msg::SetVerbosity( verbosityLevel );
+        CTX::instance()->geom.tolerance=1e-8;
+        CTX::instance()->mesh.algo2d = ALGO_2D_FRONTAL;//ALGO_2D_DELAUNAY;//ALGO_2D_FRONTAL //ALGO_2D_BAMG
+    }
+    GModel * gmodel = new GModel();
+    // add new model as current (important if this function is called more than 1 time)
+    GModel::current(GModel::list.size() - 1);
+
+    std::shared_ptr<AngioTkCenterline> centerlinesTool( new AngioTkCenterline );
+    centerlinesTool->importSurfaceFromFile( this->inputSurfacePath() );
+    centerlinesTool->importFile( this->inputCenterlinesPath() );
+    centerlinesTool->runTubularExtension();
+    centerlinesTool->saveTubularExtensionSTL( this->outputPath(), M_saveOutputSurfaceBinary );
+
+    delete gmodel;
+}
+
+po::options_description
+TubularExtension::options( std::string const& prefix )
+{
+    po::options_description myTubularExtensionOptions( "Extension of inlet/outlet options" );
+    myTubularExtensionOptions.add_options()
+        ( prefixvm(prefix,"input.centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
+        ( prefixvm(prefix,"input.surface.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
+        ( prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
+        ( prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
+        ( prefixvm(prefix,"output.save-binary").c_str(), Feel::po::value<bool>()->default_value(true), "(bool) save-binary")
+        ;
+
+    return myTubularExtensionOptions;
+}
+
 namespace detail
 {
 void

@@ -263,7 +263,12 @@ class AngioTkCenterline : public Field{
   void runClipMesh();
   void saveClipMeshSTL(std::string const outputPath, bool binary );
 
+  // tubular extension
+  void runTubularExtension();
+  void saveTubularExtensionSTL(std::string const outputPath, bool binary );
 
+ private :
+  void saveCurrentGModelSTL(std::string const outputPath, bool binary );
 
 };
 #else

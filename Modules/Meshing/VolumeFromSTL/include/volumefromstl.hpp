@@ -449,6 +449,39 @@ private :
     bool M_saveOutputSurfaceBinary;
 }; // class RemeshSTL
 
+class TubularExtension
+{
+public :
+
+    TubularExtension( std::string prefix );
+    TubularExtension( TubularExtension const& e ) = default;
+
+    void updateOutputPathFromInputFileName();
+    void run();
+
+    std::string prefix() const { return M_prefix; }
+    WorldComm const& worldComm() const { return Environment::worldComm(); }
+    std::string inputSurfacePath() const { return M_inputSurfacePath; }
+    std::string inputCenterlinesPath() const { return M_inputCenterlinesPath; }
+    std::string outputPath() const { return M_outputPath; }
+    bool forceRebuild() const { return M_forceRebuild; }
+
+    void setInputSurfacePath(std::string const& path) { M_inputSurfacePath=path; }
+    void setInputCenterlinesPath(std::string const& s) { M_inputCenterlinesPath=s; }
+    void setOutputPath(std::string const& path) { M_outputPath=path; }
+    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
+    void setForceRebuild( bool b ) { M_forceRebuild=b; }
+
+    static po::options_description options( std::string const& prefix );
+
+private :
+    std::string M_prefix;
+    std::string M_inputSurfacePath, M_inputCenterlinesPath;
+    std::string M_outputDirectory, M_outputPath;
+    bool M_forceRebuild;
+    bool M_saveOutputSurfaceBinary;
+};
+
 class VolumeMeshing
 {
 public :
