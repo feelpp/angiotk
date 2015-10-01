@@ -15,6 +15,7 @@
 #include <vtkRenderWindowInteractor.h>
 #include <vtkActor.h>
 #include <vtkInteractorStyleTrackballCamera.h>
+
 #include <vtkObjectFactory.h>
 
 
@@ -33,6 +34,11 @@
 #include <vtkRenderWindowInteractor.h>
 
 #include <vtkProperty.h>
+
+#include <vtkTextActor.h>
+#include <vtkTextProperty.h>
+#include <vtkTextWidget.h>
+#include <vtkTextRepresentation.h>
 
 #include <vtkAxesActor.h>
 #include <vtkOrientationMarkerWidget.h>
@@ -118,7 +124,8 @@ class MouseInteractorStyle : public vtkInteractorStyleTrackballCamera
 {
   public:
     static MouseInteractorStyle* New();
-    vtkTypeMacro(MouseInteractorStyle, vtkInteractorStyleTrackballCamera);
+vtkTypeMacro(MouseInteractorStyle, vtkInteractorStyleTrackballCamera);
+
  
   MouseInteractorStyle()
     :
@@ -130,6 +137,30 @@ class MouseInteractorStyle : public vtkInteractorStyleTrackballCamera
   {
     M_LastPickedActor = NULL;
     M_LastPickedProperty = vtkProperty::New();
+
+    M_widgetTextCommandHelp = vtkSmartPointer<vtkTextWidget>::New();
+    M_widgetTextCommandHelp->SelectableOff();
+    vtkSmartPointer<vtkTextActor> textActorCommandHelpCommon = vtkSmartPointer<vtkTextActor>::New();
+    std::ostringstream helpCommandStr;
+    helpCommandStr << "Help Commands :\n"
+		   << "q : exit  \n"
+		   << "h : enable/disable help commands  \n"
+		   << "a : enable/disable orientation axis\n"
+		   << "w : change representation (surface,wireframe)\n"
+		   << "s : save points selection on disk\n";
+    textActorCommandHelpCommon->SetInput ( helpCommandStr.str().c_str() );
+    vtkSmartPointer<vtkTextRepresentation> textRepresentation = vtkSmartPointer<vtkTextRepresentation>::New();
+    //textRepresentation->GetPositionCoordinate()->SetValue( .15, .15 );
+    //textRepresentation->GetPosition2Coordinate()->SetValue( .7, .2 );
+    M_widgetTextCommandHelp->SetRepresentation( textRepresentation );
+    textRepresentation->SetTextActor( textActorCommandHelpCommon );
+    textRepresentation->SetPosition(0.7,0.2);
+    textRepresentation->SetPosition2(0.3,0.8);
+    textActorCommandHelpCommon->GetTextProperty()->SetColor ( 0.0,0.0,0.0 );
+    textActorCommandHelpCommon->GetTextProperty()->SetJustificationToLeft();
+    textActorCommandHelpCommon->GetTextProperty()->SetFontSize( 24 );
+
+
     M_widgetOrientationAxis = vtkSmartPointer<vtkOrientationMarkerWidget>::New();
     M_widgetOrientationAxis->SetOutlineColor( 0.9300, 0.5700, 0.1300 );
     vtkSmartPointer<vtkAxesActor> axes = vtkSmartPointer<vtkAxesActor>::New();
@@ -466,6 +497,10 @@ int hasActor( vtkActor * _actor ) const
        vtkInteractorStyleTrackballCamera::OnLeftButtonDown();
     }
 
+  // allow to remove all preconfigure key (define in vtkInteractorStyle.cxx)
+  virtual void OnChar()
+  {}	
+
   virtual void OnKeyPress() 
     {
       // Get the keypress
@@ -476,13 +511,34 @@ int hasActor( vtkActor * _actor ) const
       if ( false )
 	std::cout << "Pressed " << key << std::endl;
 
+      if ( key == "q" )
+	{
+	  rwi->ExitCallback();
+	}
+
       if ( key == "Escape" )
+	{
 	this->deactivateSphereActorSelection();
+	}
 
       // save current state on disk
       if ( key == "s" )
 	{
-	  this->saveOnDisk( M_outputPathPointSetFile /*nameFile*/ );
+	  this->saveOnDisk( M_outputPathPointSetFile );
+	}
+
+      // display/remove help commands
+      if ( key == "h" )
+	{
+	  static bool isInitTextCommandHelpInteractor = false;
+	  if ( !isInitTextCommandHelpInteractor )
+	    {
+	      M_widgetTextCommandHelp->SetInteractor(this->Interactor);
+	      isInitTextCommandHelpInteractor = true;
+	    }
+	  M_widgetTextCommandHelp->SetEnabled( (M_widgetTextCommandHelp->GetEnabled()+1)%2 );
+
+	  this->Interactor->GetRenderWindow()->Render();
 	}
 
       // display/remove axis orientation
@@ -501,141 +557,32 @@ int hasActor( vtkActor * _actor ) const
 	  this->Interactor->GetRenderWindow()->Render();
       }
 
+      if ( key == "w" )
+	{
+	  int currentRep = M_actorSTL->GetProperty()->GetRepresentation();
+	  if (currentRep == VTK_SURFACE )
+	    M_actorSTL->GetProperty()->SetRepresentation( VTK_WIREFRAME );
+	  else
+	    M_actorSTL->GetProperty()->SetRepresentation( VTK_SURFACE );
+	  this->Interactor->GetRenderWindow()->Render();
+	}
+
       // increase (p) decrease (m) current sphere radius
       if(key == "p")
         {
-	  //std::cout << "The up arrow was pressed." << std::endl;
-	  //if ( !M_vectorSphereSourceObject.empty() && M_vectorSphereSourceObject.back().geometry() != NULL )
 	  if ( 	M_sphereActorSelectionId >=0 )
 	    {
-	      //double step = M_lenghtSTL/50.;
-	      double step = M_lenghtSTL/500.;
-	      //double step = 50./M_lenghtSTL;
-	      double scaleValue = 1+M_lenghtSTL/50.;
-#if 1
 	      double prevRadius = M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry()->GetRadius();
-	      //std::cout << "new radius " << prevRadius+step << "\n";
+	      double step = M_lenghtSTL/500.;
 	      M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry()->SetRadius(prevRadius+step);
-	      //M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry()->SetRadius(prevRadius*scaleValue);
-#else
-	      vtkSmartPointer<vtkTransform> t = vtkSmartPointer<vtkTransform>::New();
-	      M_widgetBoxAroundSphere->GetTransform(t);
-
-	      //double * previousScaleValue = t->GetScale();
-	      double * scaleVec = new double[3];
-	      scaleVec[0] = scaleValue;scaleVec[1] = scaleValue;scaleVec[2] = scaleValue;
-	      //scaleVec[0] = scaleValue;scaleVec[1] = 1;scaleVec[2] = 1;
-	      //scaleVec[0] = previousScaleValue[0]+step;scaleVec[1] = scaleVec[0];scaleVec[2] = scaleVec[0];
-
-	      //double *p = M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry()->GetCenter();
-	      double * p=M_widgetBoxAroundSphere->GetProp3D()->GetCenter();
-	      double * pBis = new double[3];
-	      /*2*x^2 = step^2
-		x^2= step^2/2.
-		x = sqrt(step^2/2.);*/
-	      //pBis[0] = -p[0]*scaleValue;pBis[1] = -p[1]*scaleValue;pBis[2] = -p[2]*scaleValue;
-	      //pBis[0] = p[0]*(step/2.);pBis[1] = p[1]*(step/2.);pBis[2] = p[2]*(step/2.);
-	      //pBis[0] = p[0]*(-step/2);pBis[1] = p[1]*(-step/2.);pBis[2] = p[2]*(-step/2.);
-	      //double rtrt = sqrt(step*step/2.);
-	      //double rtrt = sqrt(step*step/8.);
-	      double rtrt = step/1.414;
-	      //pBis[0] = p[0]*(-step);pBis[1] = p[1]*(-step);pBis[2] = p[2]*(-step);
-	      pBis[0] = p[0]*(-rtrt);pBis[1] = p[1]*(-rtrt);pBis[2] = p[2]*(-rtrt);
-	      //pBis[0] = p[0]*(-2*step);pBis[1] = p[1]*(-2*step);pBis[2] = p[2]*(-2*step);
-	      //M_widgetBoxAroundSphere->GetProp3D()->GetCenter(p);
-	      std::cout<< "MY p " << p[0] << ","<< p[1] << ","<< p[2] << "\n";
-	      //double * p=t->GetPosition();
-	      //p[0] = -p[0];p[1] = -p[1];p[2] = -p[2];
-
-	      //double* scale = t->GetScale();
-	      //t->Scale(1.0 / scale[0], 1.0 / scale[1], 1.0/ scale[2]);
-	      //t->Identity();
-	      //t->Inverse();
-	      //t->Identity();
-
-	      //t->Translate(pBis);
-	      t->Scale(scaleVec);
-
-	      //t->Translate(p);
-	      M_widgetBoxAroundSphere->SetTransform(t);
-	      M_widgetBoxAroundSphere->GetProp3D()->SetUserTransform(t);
-	      double * p2=M_widgetBoxAroundSphere->GetProp3D()->GetCenter();
-	      std::cout<< "MY p2 " << p2[0] << ","<< p2[1] << ","<< p2[2] << "\n";
-
-	      //t->Identity();
-	      //t->SetOrigin(p);
-	      vtkSmartPointer<vtkTransform> tq = vtkSmartPointer<vtkTransform>::New();
-	      M_widgetBoxAroundSphere->GetTransform(tq);
-	      tq->Translate(pBis);
-	      //tq->Scale(scaleVec);
-	      M_widgetBoxAroundSphere->SetTransform(tq);
-	      M_widgetBoxAroundSphere->GetProp3D()->SetUserTransform(tq);
-
-	      double * p3=M_widgetBoxAroundSphere->GetProp3D()->GetCenter();
-	      //double * p3=t->GetPosition();
-	      std::cout<< "MY p3 " << p3[0] << ","<< p3[1] << ","<< p3[2] << "\n";
-#if 0
-	      double * p3Bis = new double[3];
-	      p3Bis[0] = -p3[0];p3Bis[1] = -p3[1];p3Bis[2] = -p3[2];
-	      vtkSmartPointer<vtkTransform> tt = vtkSmartPointer<vtkTransform>::New();
-	      M_widgetBoxAroundSphere->GetTransform(tt);
-	      //tt->Translate(p3Bis);
-	      M_widgetBoxAroundSphere->SetTransform(tt);
-	      M_widgetBoxAroundSphere->GetProp3D()->SetUserTransform(tt);
-	      double * p3bb=M_widgetBoxAroundSphere->GetProp3D()->GetCenter();
-	      std::cout<< "MY p3bb " << p3bb[0] << ","<< p3bb[1] << ","<< p3bb[2] << "\n";
-
-
-	      //double * correction=t->GetPosition();
-	      double * correction=M_widgetBoxAroundSphere->GetProp3D()->GetCenter();
-	      std::cout<< "MY correction " << correction[0] << ","<< correction[1] << ","<< correction[2] << "\n";
-
-	      //correction[0] = -correction[0];correction[1] = -correction[1];correction[2] = -correction[2];
-	      //p[0] = -p[0];p[1] = -p[1];p[2] = -p[2];
-	      //pBis[0] = -pBis[0];pBis[1] = -pBis[1];pBis[2] = -pBis[2];
-	      //correction[0] = p[0]-correction[0];correction[1] = p[1]-correction[1];correction[2] = p[2]-correction[2];
-	      //correction[0] = pBis[0]-correction[0];correction[1] = pBis[1]-correction[1];correction[2] = pBis[2]-correction[2];
-	      std::cout<< "MY correction2 " << correction[0] << ","<< correction[1] << ","<< correction[2] << "\n";
-
-	      //t->Translate(correction);
-	      //scaleVec[0] = -scaleVec[0];scaleVec[1] = scaleVec[0];scaleVec[2] = scaleVec[0];
-	      //M_widgetBoxAroundSphere->SetTransform(t);
-	      //M_widgetBoxAroundSphere->GetProp3D()->SetUserTransform(t);
-
-	      double * p4=M_widgetBoxAroundSphere->GetProp3D()->GetCenter();
-	      std::cout<< "MY p4 " << p4[0] << ","<< p4[1] << ","<< p4[2] << "\n";
-#endif
-	      //t->Scale(scaleVec);
-	      //p[0] = -p[0];p[1] = -p[1];p[2] = -p[2];
-	      //t->Translate(p);
-
-	      //p[0] = -p[0];p[1] = -p[1];p[2] = -p[2];
-	      //t->Translate(p);
-
-	      //M_widgetBoxAroundSphere->SetTransform(t);
-	      //M_widgetBoxAroundSphere->GetProp3D()->SetUserTransform(t);
-	      //M_widgetBoxAroundSphere->GetProp3D()->SetPosition(t->GetPosition());
-
-	      //std::cout << "Box center: " << p[0] << " " << p[1] << " " << p[2] << std::endl;
-	      //M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry()->SetCenter(p);
-
-	      //M_widgetBoxAroundSphere->GetProp3D()->SetUserTransform(t);
-	      //M_widgetBoxAroundSphere->GetProp3D()->Concatenate 
-	      delete [] scaleVec;
-#endif
-
-
 	      this->Interactor->GetRenderWindow()->Render();
 	    }
         }
       if(key == "m")
         {
-	  //std::cout << "The up arrow was pressed." << std::endl;
-	  //if ( !M_vectorSphereSourceObject.empty() && M_vectorSphereSourceObject.back().geometry() != NULL )
 	  if ( 	M_sphereActorSelectionId >=0 )
 	    {
 	      double prevRadius = M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry()->GetRadius();
-	      //double step = M_lenghtSTL/50.;
 	      double step = M_lenghtSTL/500.;
 	      M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry()->SetRadius(prevRadius-step);
 	      this->Interactor->GetRenderWindow()->Render();
@@ -653,29 +600,6 @@ int hasActor( vtkActor * _actor ) const
 	      //double movingValue = maxLength/50.;
 	      double movingValue = M_lenghtSTL/500.;
 
-	      //std::cout << "movingValue " << movingValue << "\n";
-#if 0
-	      double * prevCenter;
-	      prevCenter = M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry()->GetCenter();
-	      if(key == "Left")
-		prevCenter[0] -= movingValue;
-	      if(key == "Right")
-		prevCenter[0] += movingValue;
-	      if(key == "Up")
-		prevCenter[1] += movingValue;
-	      if(key == "Down")
-		prevCenter[1] -= movingValue;
-	      if(key == "o")
-		prevCenter[2] += movingValue;
-	      if(key == "l")
-		prevCenter[2] -= movingValue;
-
-	      M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry()->SetCenter(prevCenter);
-	      // strange but need to change radius for a real time viewer moving
-	      double prevRadius = M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry()->GetRadius();
-	      M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry()->SetRadius(prevRadius-1);
-	      M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry()->SetRadius(prevRadius);
-#else
 	      double * translateVec = new double[3];
 	      translateVec[0] = 0.;translateVec[1] = 0.;translateVec[2] = 0.;
 	      if(key == "Left")
@@ -699,8 +623,6 @@ int hasActor( vtkActor * _actor ) const
 	      //M_widgetBoxAroundSphere->GetProp3D()->SetUserTransform(t);
 	      //M_widgetBoxAroundSphere->GetProp3D()->Concatenate 
 	      delete [] translateVec;
-
-#endif
 	      this->Interactor->GetRenderWindow()->Render();
 	    }
 	}
@@ -814,6 +736,8 @@ private :
 
   std::vector<SphereSourceObject> M_vectorSphereSourceObject;
 
+  vtkSmartPointer<vtkTextWidget> M_widgetTextCommandHelp;
+  //vtkSmartPointer<vtkTextActor> M_textActorCommandHelpCommon;
   vtkSmartPointer<vtkOrientationMarkerWidget> M_widgetOrientationAxis; 
   vtkSmartPointer<vtkBoxWidget> M_widgetBoxAroundSphere;
   vtkSmartPointer<vtkMyCallback> M_callbackBoxAroundSphere;
