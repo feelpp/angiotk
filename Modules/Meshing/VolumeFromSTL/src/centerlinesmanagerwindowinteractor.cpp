@@ -150,7 +150,8 @@ public:
                        << "s : save points insertion on disk\n"
                        << "0 : no mode (view only)\n"
                        << "1 : mode surface representation\n"
-                       << "2 : mode points insertion\n";
+                       << "2 : mode points insertion\n"
+                       << "3 : mode centerlines manager\n";
         textActorCommandHelpCommon->SetInput ( helpCommandStr.str().c_str() );
         vtkSmartPointer<vtkTextRepresentation> textRepresentation = vtkSmartPointer<vtkTextRepresentation>::New();
         //textRepresentation->GetPositionCoordinate()->SetValue( .15, .15 );
@@ -230,6 +231,16 @@ public:
         return helpStr.str();
     }
 
+    static
+    std::string
+    helpTextModeCenterlinesManger(bool showHelpCommands )
+    {
+        std::ostringstream helpStr;
+        helpStr << "Mode : Centerlines Manager :                          \n";
+        if ( showHelpCommands )
+            helpStr << "e : points insertion at extremities\n";
+        return helpStr.str();
+    }
     void saveOnDisk( std::string const& pathFile )
     {
         std::cout << "saveOnDisk " << pathFile << "\n";
@@ -271,7 +282,7 @@ public:
             vtkSmartPointer<vtkPolyDataMapper> mapperSphere = vtkSmartPointer<vtkPolyDataMapper>::New();
             mapperSphere->SetInputConnection(sphereSource->GetOutputPort());
             vtkSmartPointer<vtkActor> actorSphere = vtkSmartPointer<vtkActor>::New();
-            actorSphere->SetMapper(mapperSphere);  
+            actorSphere->SetMapper(mapperSphere);
             actorSphere->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
 
             M_vectorSphereSourceObject.push_back(std::make_tuple(sphereSource,actorSphere,typePt) );
@@ -323,7 +334,7 @@ public:
             vtkSmartPointer<vtkPolyDataMapper> mapperSphere = vtkSmartPointer<vtkPolyDataMapper>::New();
             mapperSphere->SetInputConnection(sphereSource->GetOutputPort());
             vtkSmartPointer<vtkActor> actorSphere = vtkSmartPointer<vtkActor>::New();
-            actorSphere->SetMapper(mapperSphere);  
+            actorSphere->SetMapper(mapperSphere);
             actorSphere->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
 
             M_vectorSphereSourceObject.push_back(std::make_tuple(sphereSource,actorSphere,typePt) );
@@ -603,6 +614,11 @@ public:
                 std::string modeMsg = this->helpTextModePointsInsertion( (bool)M_widgetTextCommandHelp->GetEnabled() );
                 vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->GetTextActor()->SetInput( modeMsg.c_str() );
             }
+            else if ( M_activatedMode == ModeType::CENTERLINES_MANAGER )
+            {
+                std::string modeMsg = this->helpTextModeCenterlinesManger( (bool)M_widgetTextCommandHelp->GetEnabled() );
+                vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->GetTextActor()->SetInput( modeMsg.c_str() );
+            }
 
             if ( M_widgetTextCommandHelp->GetEnabled() )
             {
@@ -626,7 +642,7 @@ public:
             M_widgetTextActivatedMode->SetEnabled( false );
             this->Interactor->GetRenderWindow()->Render();
         }
-        if ( key == "1" || key == "2" )
+        if ( key == "1" || key == "2" || key == "3" )
         {
             static bool isInitTextActivatedMode = false;
             if ( !isInitTextActivatedMode )
@@ -648,6 +664,15 @@ public:
             {
                 M_activatedMode = ModeType::POINTS_INSERTION;
                 std::string modeMsg = this->helpTextModePointsInsertion( (bool)M_widgetTextCommandHelp->GetEnabled() );
+                vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->GetTextActor()->SetInput( modeMsg.c_str() );
+                M_widgetTextActivatedMode->SetEnabled( true );
+                this->Interactor->GetRenderWindow()->Render();
+            }
+            if ( key == "3" && M_activatedMode != ModeType::CENTERLINES_MANAGER )
+            {
+                this->deactivateSphereActorSelection();
+                M_activatedMode = ModeType::CENTERLINES_MANAGER;
+                std::string modeMsg = this->helpTextModeCenterlinesManger( (bool)M_widgetTextCommandHelp->GetEnabled() );
                 vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->GetTextActor()->SetInput( modeMsg.c_str() );
                 M_widgetTextActivatedMode->SetEnabled( true );
                 this->Interactor->GetRenderWindow()->Render();
@@ -843,15 +868,27 @@ public:
           }
 
       }
-#if 0
-      // Forward events
-      vtkInteractorStyleTrackballCamera::OnKeyPress();
-#endif
+
+      if ( M_activatedMode == ModeType::CENTERLINES_MANAGER )
+      {
+          if(key == "e")
+          {
+            static bool hasAlreadyDonePointsInsertionAtExtremities = false;
+            if ( !hasAlreadyDonePointsInsertionAtExtremities )
+            {
+                this->addSphereAtCenterlinesExtrimities();
+                this->Interactor->GetRenderWindow()->Render();
+                hasAlreadyDonePointsInsertionAtExtremities = true;
+            }
+
+          }
+      }
+
     }
 
 
 public :
-    enum ModeType { NO_MODE=0, SURFACE_REPRESENTATION = 1, POINTS_INSERTION = 2 };
+    enum ModeType { NO_MODE=0, SURFACE_REPRESENTATION = 1, POINTS_INSERTION = 2, CENTERLINES_MANAGER = 3 };
 
 
 private :
@@ -990,8 +1027,8 @@ CenterlinesManagerWindowInteractor::run()
         }
         centerlinesTool->importFile( this->inputCenterlinesPath(k) );
     }
-    if ( centerlinesTool && false )
-        style->addSphereAtCenterlinesExtrimities();
+    //if ( centerlinesTool && false )
+    //    style->addSphereAtCenterlinesExtrimities();
 
     if ( !this->inputPointSetPath().empty() )
     {
