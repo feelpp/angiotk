@@ -201,6 +201,9 @@ CenterlinesFromSTL::updateOutputPathFromInputFileName()
 std::tuple< std::vector<std::vector<double> >, std::vector<std::vector<double> > >
 CenterlinesFromSTL::loadFromCenterlinesPointSetFile()
 {
+    if ( !fs::exists( this->inputCenterlinesPointSetPath() ) )
+        return std::tuple< std::vector<std::vector<double> >, std::vector<std::vector<double> > >();
+
     std::vector<std::vector<double> > sourcePts, targetPts;
 
     std::ifstream fileLoaded( this->inputCenterlinesPointSetPath(), std::ios::in);
@@ -358,6 +361,7 @@ CenterlinesFromSTL::run()
             if ( !this->inputCenterlinesPointSetPath().empty() )
             {
                 auto pointset = loadFromCenterlinesPointSetFile();
+                CHECK( !std::get<0>(pointset).empty() && !std::get<1>(pointset).empty() ) << "PointSetFile has no source or target points";
                 for ( std::vector<double> const& pt : std::get<0>(pointset) ) // source
                 {
                     double point[3] = { pt[0], pt[1], pt[2] };
