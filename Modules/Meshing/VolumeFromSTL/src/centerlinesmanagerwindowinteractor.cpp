@@ -1,3 +1,4 @@
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim:fenc=utf-8:ft=tcl:et:sw=4:ts=4:sts=4*/
 
 #include <centerlinesmanagerwindowinteractor.hpp>
 
@@ -122,13 +123,14 @@ public :
 // Define interaction style
 class MouseInteractorStyle : public vtkInteractorStyleTrackballCamera
 {
-  public:
+public:
     static MouseInteractorStyle* New();
-vtkTypeMacro(MouseInteractorStyle, vtkInteractorStyleTrackballCamera);
+    vtkTypeMacro(MouseInteractorStyle, vtkInteractorStyleTrackballCamera);
 
- 
+
   MouseInteractorStyle()
     :
+    M_activatedMode( ModeType::NO_MODE ),
     M_lastSphereActiveId(-1),
     M_sphereActorSelection(NULL),
     M_sphereActorSelectionId(-1),
@@ -143,11 +145,13 @@ vtkTypeMacro(MouseInteractorStyle, vtkInteractorStyleTrackballCamera);
     vtkSmartPointer<vtkTextActor> textActorCommandHelpCommon = vtkSmartPointer<vtkTextActor>::New();
     std::ostringstream helpCommandStr;
     helpCommandStr << "Help Commands :\n"
-		   << "q : exit  \n"
-		   << "h : enable/disable help commands  \n"
-		   << "a : enable/disable orientation axis\n"
-		   << "w : change representation (surface,wireframe)\n"
-		   << "s : save points selection on disk\n";
+                   << "q : exit  \n"
+                   << "h : enable/disable help commands  \n"
+                   << "a : enable/disable orientation axis\n"
+                   << "s : save points insertion on disk\n"
+                   << "0 : no mode (view only)\n"
+                   << "1 : mode surface representation\n"
+                   << "2 : mode points insertion\n";
     textActorCommandHelpCommon->SetInput ( helpCommandStr.str().c_str() );
     vtkSmartPointer<vtkTextRepresentation> textRepresentation = vtkSmartPointer<vtkTextRepresentation>::New();
     //textRepresentation->GetPositionCoordinate()->SetValue( .15, .15 );
@@ -158,7 +162,24 @@ vtkTypeMacro(MouseInteractorStyle, vtkInteractorStyleTrackballCamera);
     textRepresentation->SetPosition2(0.3,0.8);
     textActorCommandHelpCommon->GetTextProperty()->SetColor ( 0.0,0.0,0.0 );
     textActorCommandHelpCommon->GetTextProperty()->SetJustificationToLeft();
+    textActorCommandHelpCommon->GetTextProperty()->SetVerticalJustificationToTop();
     textActorCommandHelpCommon->GetTextProperty()->SetFontSize( 24 );
+
+    M_widgetTextActivatedMode = vtkSmartPointer<vtkTextWidget>::New();
+    M_widgetTextActivatedMode->SelectableOff();
+    vtkSmartPointer<vtkTextRepresentation> textRepresentation2 = vtkSmartPointer<vtkTextRepresentation>::New();
+    M_widgetTextActivatedMode->SetRepresentation( textRepresentation2 );
+    vtkSmartPointer<vtkTextActor> textActor2 = vtkSmartPointer<vtkTextActor>::New();
+    textRepresentation2->SetTextActor( textActor2 );
+    //textRepresentation2->SetPosition(0.01,0.2);
+    //textRepresentation2->SetPosition2(0.3,0.8);
+    textRepresentation2->SetPosition(0.01,0.95);
+    textRepresentation2->SetPosition2(0.3,0.05);
+    textActor2->GetTextProperty()->SetColor ( 0.0,0.0,0.0 );
+    textActor2->GetTextProperty()->SetJustificationToLeft();
+    textActor2->GetTextProperty()->SetVerticalJustificationToTop();
+    textActor2->GetTextProperty()->SetFontSize( 24 );
+
 
 
     M_widgetOrientationAxis = vtkSmartPointer<vtkOrientationMarkerWidget>::New();
@@ -175,6 +196,40 @@ vtkTypeMacro(MouseInteractorStyle, vtkInteractorStyleTrackballCamera);
     M_widgetBoxAroundSphere->AddObserver(vtkCommand::InteractionEvent, M_callbackBoxAroundSphere);
     //M_widgetBoxAroundSphere->HandlesOff();
   }
+
+
+    static
+    std::string
+    helpTextModeSurfaceRepresentation( bool showHelpCommands )
+    {
+        std::ostringstream helpStr;
+        helpStr << "Mode : Surface Representation :                     \n";
+        if ( showHelpCommands )
+            helpStr << "w : change representation (surface,wireframe)\n"
+                    << "[Up] : increase Opacity\n"
+                    << "[Down] : decrease Opacity\n";
+        return helpStr.str();
+    }
+
+    static
+    std::string
+    helpTextModePointsInsertion( bool showHelpCommands )
+    {
+        std::ostringstream helpStr;
+        helpStr << "Mode : Points Insertion :                          \n";
+        if ( showHelpCommands )
+            helpStr << "c : change point type (source,target)\n"
+                    << "y : valide point\n"
+                    << "r : remove selection\n"
+                    << "u : undo insertion\n"
+                    << "[Up] : move selection\n"
+                    << "[Down] : move selection\n"
+                    << "[Left] : move selection\n"
+                    << "[Right] : move selection\n"
+                    << "o : move selection\n"
+                    << "l : move selection\n";
+        return helpStr.str();
+    }
 
   void saveOnDisk( std::string const& pathFile )
   {
@@ -390,7 +445,9 @@ int hasActor( vtkActor * _actor ) const
 
     virtual void OnLeftButtonDown() 
     {
-      
+        if ( M_activatedMode == ModeType::POINTS_INSERTION )
+        {
+
       if ( false )
 	std::cout << "Picking pixel: " << this->Interactor->GetEventPosition()[0] << " " << this->Interactor->GetEventPosition()[1] << std::endl;
 
@@ -493,15 +550,17 @@ int hasActor( vtkActor * _actor ) const
 	       this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(actorSphere);
 	     } // result != 0
 	 } // else not pick a sphere actor
+
+        }
        // Forward events
        vtkInteractorStyleTrackballCamera::OnLeftButtonDown();
     }
 
-  // allow to remove all preconfigure key (define in vtkInteractorStyle.cxx)
-  virtual void OnChar()
-  {}	
+    // allow to remove all preconfigure key (define in vtkInteractorStyle.cxx)
+    virtual void OnChar()
+    {}	
 
-  virtual void OnKeyPress() 
+    virtual void OnKeyPress() 
     {
       // Get the keypress
       vtkRenderWindowInteractor *rwi = this->Interactor;
@@ -509,37 +568,13 @@ int hasActor( vtkActor * _actor ) const
  
       // Output the key that was pressed
       if ( false )
-	std::cout << "Pressed " << key << std::endl;
+          std::cout << "Pressed " << key << std::endl;
 
       if ( key == "q" )
 	{
 	  rwi->ExitCallback();
 	}
 
-      if ( key == "Escape" )
-	{
-	this->deactivateSphereActorSelection();
-	}
-
-      // save current state on disk
-      if ( key == "s" )
-	{
-	  this->saveOnDisk( M_outputPathPointSetFile );
-	}
-
-      // display/remove help commands
-      if ( key == "h" )
-	{
-	  static bool isInitTextCommandHelpInteractor = false;
-	  if ( !isInitTextCommandHelpInteractor )
-	    {
-	      M_widgetTextCommandHelp->SetInteractor(this->Interactor);
-	      isInitTextCommandHelpInteractor = true;
-	    }
-	  M_widgetTextCommandHelp->SetEnabled( (M_widgetTextCommandHelp->GetEnabled()+1)%2 );
-
-	  this->Interactor->GetRenderWindow()->Render();
-	}
 
       // display/remove axis orientation
       if ( key == "a" )
@@ -557,15 +592,117 @@ int hasActor( vtkActor * _actor ) const
 	  this->Interactor->GetRenderWindow()->Render();
       }
 
-      if ( key == "w" )
+      // display/remove help commands
+      if ( key == "h" )
 	{
-	  int currentRep = M_actorSTL->GetProperty()->GetRepresentation();
-	  if (currentRep == VTK_SURFACE )
-	    M_actorSTL->GetProperty()->SetRepresentation( VTK_WIREFRAME );
-	  else
-	    M_actorSTL->GetProperty()->SetRepresentation( VTK_SURFACE );
+	  static bool isInitTextCommandHelpInteractor = false;
+	  if ( !isInitTextCommandHelpInteractor )
+	    {
+	      M_widgetTextCommandHelp->SetInteractor(this->Interactor);
+	      isInitTextCommandHelpInteractor = true;
+	    }
+	  M_widgetTextCommandHelp->SetEnabled( (M_widgetTextCommandHelp->GetEnabled()+1)%2 );
+
+      if ( M_activatedMode == ModeType::SURFACE_REPRESENTATION )
+      {
+          std::string modeMsg = this->helpTextModeSurfaceRepresentation( (bool)M_widgetTextCommandHelp->GetEnabled() );
+          vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->GetTextActor()->SetInput( modeMsg.c_str() );
+      }
+      else if ( M_activatedMode == ModeType::POINTS_INSERTION )
+      {
+          std::string modeMsg = this->helpTextModePointsInsertion( (bool)M_widgetTextCommandHelp->GetEnabled() );
+          vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->GetTextActor()->SetInput( modeMsg.c_str() );
+      }
+
+      if ( M_widgetTextCommandHelp->GetEnabled() )
+      {
+          vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->SetPosition(0.01,0.2);
+          vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->SetPosition2(0.3,0.8);
+      }
+      else
+      {
+          vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->SetPosition(0.01,0.95);
+          vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->SetPosition2(0.3,0.05);
+      }
+
 	  this->Interactor->GetRenderWindow()->Render();
 	}
+
+
+      if ( key == "0" && M_activatedMode != ModeType::NO_MODE)
+      {
+          this->deactivateSphereActorSelection();
+          M_activatedMode = ModeType::NO_MODE;
+          M_widgetTextActivatedMode->SetEnabled( false );
+          this->Interactor->GetRenderWindow()->Render();
+      }
+      if ( key == "1" || key == "2" )
+      {
+          static bool isInitTextActivatedMode = false;
+          if ( !isInitTextActivatedMode )
+          {
+              M_widgetTextActivatedMode->SetInteractor(this->Interactor);
+              isInitTextActivatedMode = true;
+          }
+
+          if ( key == "1" && M_activatedMode != ModeType::SURFACE_REPRESENTATION )
+          {
+              this->deactivateSphereActorSelection();
+              M_activatedMode = ModeType::SURFACE_REPRESENTATION;
+              std::string modeMsg = this->helpTextModeSurfaceRepresentation( (bool)M_widgetTextCommandHelp->GetEnabled() );
+              vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->GetTextActor()->SetInput( modeMsg.c_str() );
+              M_widgetTextActivatedMode->SetEnabled( true );
+              this->Interactor->GetRenderWindow()->Render();
+          }
+          if ( key == "2" && M_activatedMode != ModeType::POINTS_INSERTION )
+          {
+              M_activatedMode = ModeType::POINTS_INSERTION;
+              std::string modeMsg = this->helpTextModePointsInsertion( (bool)M_widgetTextCommandHelp->GetEnabled() );
+              vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->GetTextActor()->SetInput( modeMsg.c_str() );
+              M_widgetTextActivatedMode->SetEnabled( true );
+              this->Interactor->GetRenderWindow()->Render();
+          }
+      }
+
+
+
+      // save current state on disk
+      if ( key == "s" )
+      {
+          this->saveOnDisk( M_outputPathPointSetFile );
+      }
+
+
+
+      if ( M_activatedMode == ModeType::SURFACE_REPRESENTATION )
+      {
+          if ( key == "w" )
+          {
+              int currentRep = M_actorSTL->GetProperty()->GetRepresentation();
+              if (currentRep == VTK_SURFACE )
+                  M_actorSTL->GetProperty()->SetRepresentation( VTK_WIREFRAME );
+              else
+                  M_actorSTL->GetProperty()->SetRepresentation( VTK_SURFACE );
+              this->Interactor->GetRenderWindow()->Render();
+          }
+          if( key == "Up" || key == "Down" )
+          {
+              double changeOpacityStep = ( key == "Up" )? 0.05 : -0.05;
+              double previousOpacity = M_actorSTL->GetProperty()->GetOpacity();
+              double newOpacity = previousOpacity+changeOpacityStep;
+              newOpacity = std::max( 0., newOpacity );
+              newOpacity = std::min( 1., newOpacity );
+              M_actorSTL->GetProperty()->SetOpacity(newOpacity);
+              this->Interactor->GetRenderWindow()->Render();
+          }
+      }
+
+          if ( M_activatedMode == ModeType::POINTS_INSERTION )
+          {
+              if ( key == "Escape" )
+              {
+                  this->deactivateSphereActorSelection();
+              }
 
       // increase (p) decrease (m) current sphere radius
       if(key == "p")
@@ -715,6 +852,8 @@ int hasActor( vtkActor * _actor ) const
 	      this->Interactor->GetRenderWindow()->Render();
 	    }
 	}
+
+          }
 #if 0
       // Forward events
       vtkInteractorStyleTrackballCamera::OnKeyPress();
@@ -722,8 +861,13 @@ int hasActor( vtkActor * _actor ) const
     }
 
 
+public :
+  enum ModeType { NO_MODE=0, SURFACE_REPRESENTATION = 1, POINTS_INSERTION = 2 };
+
 
 private :
+  ModeType M_activatedMode;
+
   vtkActor * M_LastPickedActor;
   vtkProperty *M_LastPickedProperty;
   int M_lastSphereActiveId;
@@ -737,7 +881,7 @@ private :
   std::vector<SphereSourceObject> M_vectorSphereSourceObject;
 
   vtkSmartPointer<vtkTextWidget> M_widgetTextCommandHelp;
-  //vtkSmartPointer<vtkTextActor> M_textActorCommandHelpCommon;
+  vtkSmartPointer<vtkTextWidget> M_widgetTextActivatedMode;
   vtkSmartPointer<vtkOrientationMarkerWidget> M_widgetOrientationAxis; 
   vtkSmartPointer<vtkBoxWidget> M_widgetBoxAroundSphere;
   vtkSmartPointer<vtkMyCallback> M_callbackBoxAroundSphere;
