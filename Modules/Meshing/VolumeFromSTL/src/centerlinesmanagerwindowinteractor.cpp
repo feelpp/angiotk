@@ -83,40 +83,122 @@ public:
 };
  
 
-class SphereSourceObject : public std::tuple< vtkSmartPointer<vtkSphereSource>, vtkSmartPointer<vtkActor>, int >
+class SphereSourceObject
 {
 public :
-  typedef std::tuple< vtkSmartPointer<vtkSphereSource>, vtkSmartPointer<vtkActor>, int > super_type;
 
-  SphereSourceObject()
-    :
-    super_type(std::make_tuple( vtkSmartPointer<vtkSphereSource>(),vtkSmartPointer<vtkActor>(),0 ))
-  {}
-  SphereSourceObject( super_type const& o )
-    :
-    super_type( o )
-  {}
-  SphereSourceObject( SphereSourceObject const& o ) = default;
+    SphereSourceObject()
+        :
+        M_geometry(),
+        M_actor(),
+        M_typePoint(0),
+        M_isValidated( false )
+    {}
 
-  vtkSmartPointer<vtkSphereSource> const& geometry() const { return std::get<0>(*this); }
-  vtkSmartPointer<vtkActor> const& actor() const { return std::get<1>(*this); }
-  bool isSourcePoint() const { return (std::get<2>(*this) == 0); }
-  bool isTargetPoint() const { return (std::get<2>(*this) == 1); }
-  int typePoint() const { return std::get<2>(*this); }
-  void setTypePoint(int k) { std::get<2>(*this) = k; }
-  void changeTypePoint() { std::get<2>(*this) = (std::get<2>(*this)+1)%2; }
+    SphereSourceObject( vtkSmartPointer<vtkSphereSource> geo, vtkSmartPointer<vtkActor> actor,
+                        int typePoint = 0, bool isValidated = false )
+        :
+        M_geometry( geo ),
+        M_actor( actor ),
+        M_typePoint( typePoint ),
+        M_isValidated( isValidated )
+    {}
 
-  bool isNull() const { return ( this->geometry() != NULL || this->actor() != NULL); }
+    SphereSourceObject( SphereSourceObject const& o ) = default;
 
-  void applyColoring()
-  {
-    if ( this->actor() == NULL ) return;
-    if ( this->isSourcePoint() )
-      this->actor()->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
-    else if ( this->isTargetPoint() )
-      this->actor()->GetProperty()->SetColor(0.0, 0.0, 1.0); //(R,G,B)
-  }
+    vtkSmartPointer<vtkSphereSource> const& geometry() const { return M_geometry; }
+    vtkSmartPointer<vtkActor> const& actor() const { return M_actor; }
+    int typePoint() const { return M_typePoint; }
+    void setTypePoint(int k) { M_typePoint = k; }
 
+    bool isValidated() const { return M_isValidated; }
+    void setIsValidated(bool b) { M_isValidated = b; }
+
+    bool isSourcePoint() const { return (this->typePoint() == 0); }
+    bool isTargetPoint() const { return (this->typePoint() == 1); }
+    void changeTypePoint() { this->setTypePoint( (this->typePoint()+1)%2); }
+
+    bool isNull() const { return ( this->geometry() != NULL || this->actor() != NULL); }
+
+    void applyColoring()
+    {
+        if ( !this->isValidated() ) return;
+        if ( this->actor() == NULL ) return;
+        if ( this->isSourcePoint() )
+            this->actor()->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
+        else if ( this->isTargetPoint() )
+            this->actor()->GetProperty()->SetColor(0.0, 0.0, 1.0); //(R,G,B)
+#if 0
+        this->actor()->GetProperty()->SetDiffuse(1.0);
+        this->actor()->GetProperty()->SetSpecular(0.0);
+#endif
+    }
+
+    void
+    activateBoxAroundSphere( vtkRenderWindowInteractor *interactor )
+    {
+
+        if ( !M_widgetBoxAroundSphere )
+        {
+            M_widgetBoxAroundSphere = vtkSmartPointer<vtkBoxWidget>::New();
+            M_callbackBoxAroundSphere = vtkSmartPointer<vtkMyCallback>::New();
+            M_widgetBoxAroundSphere->AddObserver(vtkCommand::InteractionEvent, M_callbackBoxAroundSphere);
+            //M_widgetBoxAroundSphere->HandlesOff();
+        }
+
+        M_widgetBoxAroundSphere->SetInteractor( interactor );
+        //M_widgetBoxAroundSphere->SetPlaceFactor(1.25);
+        M_widgetBoxAroundSphere->SetPlaceFactor(1.);
+        M_widgetBoxAroundSphere->SetProp3D( this->actor() );
+        this->actor()->GetProperty()->SetOpacity(0.2);
+
+        M_widgetBoxAroundSphere->PlaceWidget();
+        double radiusSphere = this->geometry()->GetRadius();
+        M_widgetBoxAroundSphere->SetHandleSize(radiusSphere/10000.);
+
+        M_widgetBoxAroundSphere->On();
+    }
+
+    void
+    deactivateBoxAroundSphere()
+    {
+        if (!M_widgetBoxAroundSphere) return;
+        double * p=M_widgetBoxAroundSphere->GetProp3D()->GetCenter();
+        //std::cout << "Box center: " << p[0] << " " << p[1] << " " << p[2] << std::endl;
+        this->geometry()->SetCenter(p);
+
+        // set identity transformation
+        vtkSmartPointer<vtkTransform> t = vtkSmartPointer<vtkTransform>::New();
+        t->Identity();
+        M_widgetBoxAroundSphere->GetProp3D()->SetUserTransform(t);
+
+        this->actor()->GetProperty()->SetOpacity(1);
+
+        M_widgetBoxAroundSphere->Off();
+    }
+
+
+    void translateBoxAroundSphere( const double translateVec[3] )
+    {
+        if (!M_widgetBoxAroundSphere) return;
+
+        vtkSmartPointer<vtkTransform> t = vtkSmartPointer<vtkTransform>::New();
+        M_widgetBoxAroundSphere->GetTransform(t);
+        t->Translate(translateVec);
+        M_widgetBoxAroundSphere->SetTransform(t);
+        M_widgetBoxAroundSphere->GetProp3D()->SetUserTransform(t);
+        //M_widgetBoxAroundSphere->GetProp3D()->SetUserTransform(t);
+        //M_widgetBoxAroundSphere->GetProp3D()->Concatenate
+    }
+
+
+private :
+    vtkSmartPointer<vtkSphereSource> M_geometry;
+    vtkSmartPointer<vtkActor> M_actor;
+    int M_typePoint;
+    bool M_isValidated;
+    vtkSmartPointer<vtkBoxWidget> M_widgetBoxAroundSphere;
+    vtkSmartPointer<vtkMyCallback> M_callbackBoxAroundSphere;
 
 };
 
@@ -130,9 +212,7 @@ public:
     AngioTkWindowInteractorStyle()
         :
         M_activatedMode( ModeType::NO_MODE ),
-        M_lastSphereActiveId(-1),
-        M_sphereActorSelection(NULL),
-        M_sphereActorSelectionId(-1),
+        M_sphereActorSelectionId(),
         M_lenghtSTL(0),
         M_outputPathPointSetFile("default.data")
     {
@@ -191,10 +271,6 @@ public:
           M_widgetOrientationAxis->SetEnabled( 1 );
           M_widgetOrientationAxis->InteractiveOn();*/
 
-        M_widgetBoxAroundSphere = vtkSmartPointer<vtkBoxWidget>::New();
-        M_callbackBoxAroundSphere = vtkSmartPointer<vtkMyCallback>::New();
-        M_widgetBoxAroundSphere->AddObserver(vtkCommand::InteractionEvent, M_callbackBoxAroundSphere);
-        //M_widgetBoxAroundSphere->HandlesOff();
     }
 
 
@@ -221,7 +297,7 @@ public:
             helpStr << "c : change point type (source,target)\n"
                     << "y : valide point\n"
                     << "r : remove selection\n"
-                    << "u : undo insertion\n"
+                    //<< "u : undo insertion\n"
                     << "[Up] : move selection\n"
                     << "[Down] : move selection\n"
                     << "[Left] : move selection\n"
@@ -245,16 +321,16 @@ public:
     {
         std::cout << "saveOnDisk " << pathFile << "\n";
         if ( M_vectorSphereSourceObject.empty() ) return;
-        if ( M_vectorSphereSourceObject.front().geometry() == NULL ) return;
+        if ( M_vectorSphereSourceObject.front()->geometry() == NULL ) return;
 
         std::ofstream fileWrited( pathFile, std::ios::out | std::ios::trunc);
         for (int k = 0; k< M_vectorSphereSourceObject.size() ;++ k)
         {
-            if ( M_vectorSphereSourceObject[k].geometry() != NULL )
+            if ( M_vectorSphereSourceObject[k]->geometry() != NULL )
             {
-                double radius = M_vectorSphereSourceObject[k].geometry()->GetRadius();
-                double * center = M_vectorSphereSourceObject[k].geometry()->GetCenter();
-                int typePt = M_vectorSphereSourceObject[k].typePoint();
+                double radius = M_vectorSphereSourceObject[k]->geometry()->GetRadius();
+                double * center = M_vectorSphereSourceObject[k]->geometry()->GetCenter();
+                int typePt = M_vectorSphereSourceObject[k]->typePoint();
                 fileWrited << typePt << " " << center[0] << " " << center[1] << " " << center[2] << " " << radius << "\n";
             }
         }
@@ -285,13 +361,10 @@ public:
             actorSphere->SetMapper(mapperSphere);
             actorSphere->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
 
-            M_vectorSphereSourceObject.push_back(std::make_tuple(sphereSource,actorSphere,typePt) );
-            M_vectorSphereSourceObject.back().applyColoring();
+            M_vectorSphereSourceObject.push_back(std::make_shared<SphereSourceObject>(sphereSource,actorSphere,typePt,true) );
+            M_vectorSphereSourceObject.back()->applyColoring();
             this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(actorSphere);
         }
-
-        M_vectorSphereSourceObject.push_back(SphereSourceObject());
-
         fileLoaded.close();
         this->Interactor->GetRenderWindow()->Render();
     }
@@ -337,8 +410,8 @@ public:
             actorSphere->SetMapper(mapperSphere);
             actorSphere->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
 
-            M_vectorSphereSourceObject.push_back(std::make_tuple(sphereSource,actorSphere,typePt) );
-            M_vectorSphereSourceObject.back().applyColoring();
+            M_vectorSphereSourceObject.push_back( std::make_shared<SphereSourceObject>(sphereSource,actorSphere,typePt) );
+            M_vectorSphereSourceObject.back()->applyColoring();
             this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(actorSphere);
         }
 
@@ -349,7 +422,7 @@ public:
         int k=-1;
         for ( int k = 0 ; k<M_vectorSphereSourceObject.size() ; ++k )
         {
-            if ( M_vectorSphereSourceObject[k].actor() == _actor )
+            if ( M_vectorSphereSourceObject[k]->actor() == _actor )
                 return k;
         }
         return k;
@@ -365,88 +438,36 @@ public:
     void setOutputPathPointSetFile(std::string const& path) { M_outputPathPointSetFile=path; }
 
 
-    void activateSphereActorSelection()
+    void activateSphereActorSelection( int selectId )
     {
-        if ( M_sphereActorSelection != NULL )
+        if ( selectId >= 0 && M_sphereActorSelectionId.find(selectId) == M_sphereActorSelectionId.end() )
         {
-            // revert actor color
-            //M_sphereActorSelection->GetProperty()->SetColor(0.0, 1.0, 0.0); //(R,G,B)
-#if 0
-            M_sphereActorSelection->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
-            M_sphereActorSelection->GetProperty()->SetDiffuse(1.0);
-            M_sphereActorSelection->GetProperty()->SetSpecular(0.0);
-#endif
-            this->Interactor->GetRenderWindow()->Render();
-            //M_sphereActorSelection = NULL;
-
-
-            M_widgetBoxAroundSphere->SetInteractor(this->Interactor);
-            //M_widgetBoxAroundSphere->SetPlaceFactor(1.25);
-            M_widgetBoxAroundSphere->SetPlaceFactor(1.);
-            M_widgetBoxAroundSphere->SetProp3D(M_sphereActorSelection/*coneActor*/);
-            M_vectorSphereSourceObject[M_sphereActorSelectionId].actor()->GetProperty()->SetOpacity(0.2);
-
-            M_widgetBoxAroundSphere->PlaceWidget();
-            //M_widgetBoxAroundSphere->ScalingEnabledOff();
-            //vtkSmartPointer<vtkMyCallback> callback = vtkSmartPointer<vtkMyCallback>::New();
-            //M_widgetBoxAroundSphere->AddObserver(vtkCommand::InteractionEvent, callback);
-
-            //M_sphereActorSelection = M_vectorSphereSourceObject[selectId].actor();//LastPickedActor;
-            //M_sphereActorSelectionId = selectId;
-            //->geometry()
-#if 0
-            M_widgetBoxAroundSphere->HandlesOn();
-            M_widgetBoxAroundSphere->OutlineFaceWiresOff();
-            M_widgetBoxAroundSphere->OutlineCursorWiresOff();	
-            //M_widgetBoxAroundSphere->TranslationEnabledOff();
-            M_widgetBoxAroundSphere->ScalingEnabledOff();
-            M_widgetBoxAroundSphere->RotationEnabledOff();
-#endif
-            double radiusSphere = M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry()->GetRadius();
-            M_widgetBoxAroundSphere->SetHandleSize(radiusSphere/10000.);
-
-            M_widgetBoxAroundSphere->On();
-            //M_widgetBoxAroundSphere->Print(std::cout);
-            //M_callbackBoxAroundSphere->setSphereSource( M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry() );
-
+            M_vectorSphereSourceObject[selectId]->activateBoxAroundSphere(this->Interactor);
+            M_sphereActorSelectionId.insert( selectId );
         }
     }
 
     void deactivateSphereActorSelection()
     {
-        if ( M_sphereActorSelection != NULL )
+        for ( int selectId : M_sphereActorSelectionId )
         {
-            // revert actor color
-#if 0
-            M_sphereActorSelection->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
-            M_sphereActorSelection->GetProperty()->SetDiffuse(1.0);
-            M_sphereActorSelection->GetProperty()->SetSpecular(0.0);
-#endif
+            M_vectorSphereSourceObject[selectId]->deactivateBoxAroundSphere();
+        }
+        M_sphereActorSelectionId.clear();
+    }
 
-#if 1
-            double * p=M_widgetBoxAroundSphere->GetProp3D()->GetCenter();
-            //std::cout << "Box center: " << p[0] << " " << p[1] << " " << p[2] << std::endl;
-            M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry()->SetCenter(p);
-
-            // set identity transformation
-            vtkSmartPointer<vtkTransform> t = vtkSmartPointer<vtkTransform>::New();
-            t->Identity();
-            M_widgetBoxAroundSphere->GetProp3D()->SetUserTransform(t);
-#endif
-
-            M_vectorSphereSourceObject[M_sphereActorSelectionId].actor()->GetProperty()->SetOpacity(1);
-
-
-            M_sphereActorSelection = NULL;
-            M_sphereActorSelectionId = -1;
-            M_widgetBoxAroundSphere->Off();
-            //M_callbackBoxAroundSphere->setSphereSource(NULL);
-
-            this->Interactor->GetRenderWindow()->Render();
+    void removeSphereActorNonValidated()
+    {
+        if ( !M_vectorSphereSourceObject.empty() && !M_vectorSphereSourceObject.back()->isValidated() )
+        {
+            if ( M_vectorSphereSourceObject.back()->geometry() != NULL )
+                this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->RemoveActor(M_vectorSphereSourceObject.back()->actor());
+            M_vectorSphereSourceObject.pop_back();
         }
     }
 
-    virtual void OnLeftButtonDown() 
+
+    virtual void OnLeftButtonDown()
     {
         if ( M_activatedMode == ModeType::POINTS_INSERTION )
         {
@@ -464,8 +485,8 @@ public:
 
 
             this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->RemoveActor(M_actorSTL);
-            int resultNEW = NEWpicker->Pick(this->Interactor->GetEventPosition()[0], 
-                                            this->Interactor->GetEventPosition()[1], 
+            int resultNEW = NEWpicker->Pick(this->Interactor->GetEventPosition()[0],
+                                            this->Interactor->GetEventPosition()[1],
                                             0,  // always zero.
                                             this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer());
             this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(M_actorSTL);
@@ -477,23 +498,11 @@ public:
             if ( M_LastPickedActor != NULL  && this->hasActor( M_LastPickedActor ) >= 0 )
             {
                 int selectId=this->hasActor( M_LastPickedActor );
-                if ( M_sphereActorSelectionId < 0 )
-                {
-                    // Save the property of the picked actor so that we can restore it next time
-                    M_sphereActorSelection = M_vectorSphereSourceObject[selectId].actor();//LastPickedActor;
-                    M_sphereActorSelectionId = selectId;
-                    this->activateSphereActorSelection();
-                }
-                //else if ( M_sphereActorSelectionId == selectId )
-                //{
-                //  this->switchModeSphereActorSelection();
-                //}
-                //this->deactivateSphereActorSelection();
+                //std::cout << "activate sphere " << selectId << "\n";
+                this->activateSphereActorSelection( selectId );
             }
-            else if ( M_sphereActorSelectionId < 0 )
+            else if ( M_sphereActorSelectionId.empty() )
             {
-                //this->deactivateSphereActorSelection();
-
                 typedef vtkPointPicker picker_type; // vtkPointPicker, vtkWorldPointPicker
                 vtkSmartPointer<picker_type> myPicker = vtkSmartPointer<picker_type>::New();
                 //myPicker->SetTolerance(0.0005);
@@ -505,8 +514,8 @@ public:
                     myPicker->SetTolerance(1e-3);
                 else
                     myPicker->SetTolerance(1e-2);
-                int result = myPicker->Pick(this->Interactor->GetEventPosition()[0], 
-                                            this->Interactor->GetEventPosition()[1], 
+                int result = myPicker->Pick(this->Interactor->GetEventPosition()[0],
+                                            this->Interactor->GetEventPosition()[1],
                                             0,  // always zero.
                                             this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer());
 
@@ -534,21 +543,18 @@ public:
                     mapperSphere->SetInputConnection(sphereSource->GetOutputPort());
 
                     vtkSmartPointer<vtkActor> actorSphere = vtkSmartPointer<vtkActor>::New();
-                    actorSphere->SetMapper(mapperSphere);  
+                    actorSphere->SetMapper(mapperSphere);
                     //actorSphere->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
                     actorSphere->GetProperty()->SetColor(1.0, 0.5, 0.0); //(R,G,B)
 
-                    if ( !M_vectorSphereSourceObject.empty() )
+                    if ( !M_vectorSphereSourceObject.empty() && !M_vectorSphereSourceObject.back()->isValidated() )
                     {
-                        if ( M_vectorSphereSourceObject.back().geometry() != NULL )
-                        {
-                            this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->RemoveActor(M_vectorSphereSourceObject.back().actor());
-                        }
+                        if ( M_vectorSphereSourceObject.back()->geometry() != NULL )
+                            this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->RemoveActor(M_vectorSphereSourceObject.back()->actor());
                         M_vectorSphereSourceObject.pop_back();
                     }
 
-                    M_vectorSphereSourceObject.push_back(std::make_tuple(sphereSource,actorSphere,0) );
-                    //M_vectorActorSphere.push_back(actorSphere);
+                    M_vectorSphereSourceObject.push_back( std::make_shared<SphereSourceObject>(sphereSource,actorSphere,0,false) );
 
                     this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(actorSphere);
                 } // result != 0
@@ -638,6 +644,7 @@ public:
         if ( key == "0" && M_activatedMode != ModeType::NO_MODE)
         {
             this->deactivateSphereActorSelection();
+            this->removeSphereActorNonValidated();
             M_activatedMode = ModeType::NO_MODE;
             M_widgetTextActivatedMode->SetEnabled( false );
             this->Interactor->GetRenderWindow()->Render();
@@ -654,6 +661,7 @@ public:
             if ( key == "1" && M_activatedMode != ModeType::SURFACE_REPRESENTATION )
             {
                 this->deactivateSphereActorSelection();
+                this->removeSphereActorNonValidated();
                 M_activatedMode = ModeType::SURFACE_REPRESENTATION;
                 std::string modeMsg = this->helpTextModeSurfaceRepresentation( (bool)M_widgetTextCommandHelp->GetEnabled() );
                 vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->GetTextActor()->SetInput( modeMsg.c_str() );
@@ -671,6 +679,7 @@ public:
             if ( key == "3" && M_activatedMode != ModeType::CENTERLINES_MANAGER )
             {
                 this->deactivateSphereActorSelection();
+                this->removeSphereActorNonValidated();
                 M_activatedMode = ModeType::CENTERLINES_MANAGER;
                 std::string modeMsg = this->helpTextModeCenterlinesManger( (bool)M_widgetTextCommandHelp->GetEnabled() );
                 vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->GetTextActor()->SetInput( modeMsg.c_str() );
@@ -680,11 +689,11 @@ public:
         }
 
 
-      // save current state on disk
-      if ( key == "s" )
-      {
-          this->saveOnDisk( M_outputPathPointSetFile );
-      }
+        // save current state on disk
+        if ( key == "s" )
+        {
+            this->saveOnDisk( M_outputPathPointSetFile );
+        }
 
 
 
@@ -721,28 +730,29 @@ public:
           // increase (p) decrease (m) current sphere radius
           if( key == "p" )
           {
-              if ( 	M_sphereActorSelectionId >=0 )
+              for ( int selectId : M_sphereActorSelectionId )
 	          {
-                  double prevRadius = M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry()->GetRadius();
+                  double prevRadius = M_vectorSphereSourceObject[selectId]->geometry()->GetRadius();
                   double step = M_lenghtSTL/500.;
-                  M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry()->SetRadius(prevRadius+step);
+                  M_vectorSphereSourceObject[selectId]->geometry()->SetRadius(prevRadius+step);
                   this->Interactor->GetRenderWindow()->Render();
               }
           }
           if( key == "m" )
           {
-              if ( 	M_sphereActorSelectionId >=0 )
+              for ( int selectId : M_sphereActorSelectionId )
               {
-                  double prevRadius = M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry()->GetRadius();
+                  double prevRadius = M_vectorSphereSourceObject[selectId]->geometry()->GetRadius();
                   double step = M_lenghtSTL/500.;
-                  M_vectorSphereSourceObject[M_sphereActorSelectionId].geometry()->SetRadius(prevRadius-step);
+                  M_vectorSphereSourceObject[selectId]->geometry()->SetRadius(prevRadius-step);
                   this->Interactor->GetRenderWindow()->Render();
               }
           }
           // move in x,y,z direction
           if( key == "Left" || key == "Right" || key == "Up" || key == "Down" || key == "o" || key == "l" )
           {
-              if ( M_sphereActorSelection != NULL )
+              //if ( M_sphereActorSelectionId.size() == 1 )
+              for ( int selectId : M_sphereActorSelectionId )
               {
                   double lengthX = M_boundsSTL[1]-M_boundsSTL[0];
                   double lengthY = M_boundsSTL[3]-M_boundsSTL[2];
@@ -766,13 +776,7 @@ public:
                   if(key == "l")
                       translateVec[2] = -movingValue;
 
-                  vtkSmartPointer<vtkTransform> t = vtkSmartPointer<vtkTransform>::New();
-                  M_widgetBoxAroundSphere->GetTransform(t);
-                  t->Translate(translateVec);
-                  M_widgetBoxAroundSphere->SetTransform(t);
-                  M_widgetBoxAroundSphere->GetProp3D()->SetUserTransform(t);
-                  //M_widgetBoxAroundSphere->GetProp3D()->SetUserTransform(t);
-                  //M_widgetBoxAroundSphere->GetProp3D()->Concatenate 
+                  M_vectorSphereSourceObject[selectId]->translateBoxAroundSphere( translateVec );
                   delete [] translateVec;
                   this->Interactor->GetRenderWindow()->Render();
               }
@@ -782,14 +786,11 @@ public:
           if(key == "y")
           {
               this->deactivateSphereActorSelection();
-              if ( !M_vectorSphereSourceObject.empty() && M_vectorSphereSourceObject.back().geometry() != NULL )
+              if ( !M_vectorSphereSourceObject.empty() && M_vectorSphereSourceObject.back()->geometry() != NULL &&
+                   !M_vectorSphereSourceObject.back()->isValidated() )
               {
-                  M_vectorSphereSourceObject.back().applyColoring();
-
-                  //M_lastSphereActiveId = M_vectorSphereSourceObject.size()-1;
-                  //vtkSmartPointer<vtkSphereSource> sphereSource;
-                  //vtkSmartPointer<vtkActor> actorSphere;
-                  M_vectorSphereSourceObject.push_back(SphereSourceObject());//std::make_tuple(sphereSource,actorSphere,0));
+                  M_vectorSphereSourceObject.back()->setIsValidated(true);
+                  M_vectorSphereSourceObject.back()->applyColoring();
               }
               this->Interactor->GetRenderWindow()->Render();
           }
@@ -797,72 +798,59 @@ public:
           // change propertie of point (used with centerlines algo) : source or target point
           if(key == "c")
           {
-              if ( M_sphereActorSelectionId >= 0 )
+              for ( int selectId : M_sphereActorSelectionId )
               {
-                  M_vectorSphereSourceObject[M_sphereActorSelectionId].changeTypePoint();
-                  if ( M_sphereActorSelectionId < (M_vectorSphereSourceObject.size()-1)  )
-                      M_vectorSphereSourceObject[M_sphereActorSelectionId].applyColoring(/*M_sphereActorSelection*/);
-#if 0
-                  if ( M_vectorSphereSourceObject[M_sphereActorSelectionId].isSourcePoint() )
-                      M_sphereActorSelection->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
-                  else if ( M_vectorSphereSourceObject[M_sphereActorSelectionId].isTargetPoint() )
-                      M_sphereActorSelection->GetProperty()->SetColor(0.0, 0.0, 1.0); //(R,G,B)
-#endif
+                  M_vectorSphereSourceObject[selectId]->changeTypePoint();
+                  M_vectorSphereSourceObject[selectId]->applyColoring();
                   this->Interactor->GetRenderWindow()->Render();
               }
           }
 
+#if 0
           // undo key
           if(key == "u")
           {
               if ( !M_vectorSphereSourceObject.empty() )
               {
                   this->deactivateSphereActorSelection();
-                  if ( M_vectorSphereSourceObject.back().geometry() != NULL )
+                  if ( M_vectorSphereSourceObject.back()->geometry() != NULL )
                   {
                       // remove last actor in render
-                      this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->RemoveActor(M_vectorSphereSourceObject.back().actor());
+                      this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->RemoveActor(M_vectorSphereSourceObject.back()->actor());
                       // delete last actor
                       M_vectorSphereSourceObject.pop_back();
-                      // add a null pointer to tell that next picker is a test actor
-                      //vtkSmartPointer<vtkSphereSource> sphereSource;
-                      //vtkSmartPointer<vtkActor> actorSphere;
-                      M_vectorSphereSourceObject.push_back(SphereSourceObject());//std::make_tuple(sphereSource,actorSphere,0));
                   }
                   else if ( M_vectorSphereSourceObject.size() > 1 ) // if size==0 else keep null pointer at case 0
                   {
                       // delete null pointer
                       M_vectorSphereSourceObject.pop_back();
                       // remove last actor in render
-                      this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->RemoveActor(M_vectorSphereSourceObject.back().actor());
+                      this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->RemoveActor(M_vectorSphereSourceObject.back()->actor());
                       // delete last actor
                       M_vectorSphereSourceObject.pop_back();
-                      //vtkSmartPointer<vtkSphereSource> sphereSource;
-                      //vtkSmartPointer<vtkActor> actorSphere;
-                      M_vectorSphereSourceObject.push_back(SphereSourceObject());//std::make_tuple(sphereSource,actorSphere,0));
-                      --M_lastSphereActiveId;
                   }
                   this->Interactor->GetRenderWindow()->Render();
               }
           }
+#endif
           if(key == "r")
           {
-              if ( M_sphereActorSelectionId >= 0 )
+              if ( !M_sphereActorSelectionId.empty() )
               {
-                  int selectId = M_sphereActorSelectionId;
+                  std::set<int> idsRemove( M_sphereActorSelectionId.begin(),M_sphereActorSelectionId.end() );
                   this->deactivateSphereActorSelection();
-                  this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->RemoveActor( M_vectorSphereSourceObject[selectId].actor() );
-                  //M_vectorSphereSourceObject[M_sphereActorSelectionId].changeTypePoint();
-                  bool isLastId = ( selectId == (M_vectorSphereSourceObject.size()-1) );
-                  M_vectorSphereSourceObject.erase( M_vectorSphereSourceObject.begin()+selectId );
-                  if (isLastId )
-                  {
-                      //vtkSmartPointer<vtkSphereSource> sphereSource;
-                      //vtkSmartPointer<vtkActor> actorSphere;
-                      M_vectorSphereSourceObject.push_back(SphereSourceObject());//std::make_tuple(sphereSource,actorSphere,0));
-                  }
+                  std::vector<std::shared_ptr<SphereSourceObject> > newVectorSphereSourceObject;
+                  // if ( M_vectorSphereSourceObject.back()->geometry() != NULL )
 
-                  //--M_lastSphereActiveId;
+                  for (int objectId=0 ; objectId<M_vectorSphereSourceObject.size() ; ++objectId)
+                  {
+                      if ( idsRemove.find( objectId ) != idsRemove.end() )
+                          this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->RemoveActor( M_vectorSphereSourceObject[objectId]->actor() );
+                      else
+                          newVectorSphereSourceObject.push_back( M_vectorSphereSourceObject[objectId] );
+                  }
+                  M_vectorSphereSourceObject.clear();
+                  M_vectorSphereSourceObject = newVectorSphereSourceObject;
                   this->Interactor->GetRenderWindow()->Render();
               }
           }
@@ -873,14 +861,13 @@ public:
       {
           if(key == "e")
           {
-            static bool hasAlreadyDonePointsInsertionAtExtremities = false;
-            if ( !hasAlreadyDonePointsInsertionAtExtremities )
-            {
-                this->addSphereAtCenterlinesExtrimities();
-                this->Interactor->GetRenderWindow()->Render();
-                hasAlreadyDonePointsInsertionAtExtremities = true;
-            }
-
+              static bool hasAlreadyDonePointsInsertionAtExtremities = false;
+              if ( !hasAlreadyDonePointsInsertionAtExtremities )
+              {
+                  this->addSphereAtCenterlinesExtrimities();
+                  this->Interactor->GetRenderWindow()->Render();
+                  hasAlreadyDonePointsInsertionAtExtremities = true;
+              }
           }
       }
 
@@ -896,21 +883,16 @@ private :
 
     vtkActor * M_LastPickedActor;
     vtkProperty *M_LastPickedProperty;
-    int M_lastSphereActiveId;
-    vtkActor * M_sphereActorSelection;
-    int M_sphereActorSelectionId;
+    std::set<int> M_sphereActorSelectionId;
 
 
     std::vector<double> M_boundsSTL; double M_lenghtSTL;
-    //vtkSphereSource * M_sphereSourceSelection;
 
-    std::vector<SphereSourceObject> M_vectorSphereSourceObject;
+    std::vector<std::shared_ptr<SphereSourceObject> > M_vectorSphereSourceObject;
 
     vtkSmartPointer<vtkTextWidget> M_widgetTextCommandHelp;
     vtkSmartPointer<vtkTextWidget> M_widgetTextActivatedMode;
-    vtkSmartPointer<vtkOrientationMarkerWidget> M_widgetOrientationAxis; 
-    vtkSmartPointer<vtkBoxWidget> M_widgetBoxAroundSphere;
-    vtkSmartPointer<vtkMyCallback> M_callbackBoxAroundSphere;
+    vtkSmartPointer<vtkOrientationMarkerWidget> M_widgetOrientationAxis;
 
     vtkSmartPointer<vtkActor> M_actorSTL;
 
@@ -1027,8 +1009,6 @@ CenterlinesManagerWindowInteractor::run()
         }
         centerlinesTool->importFile( this->inputCenterlinesPath(k) );
     }
-    //if ( centerlinesTool && false )
-    //    style->addSphereAtCenterlinesExtrimities();
 
     if ( !this->inputPointSetPath().empty() )
     {
