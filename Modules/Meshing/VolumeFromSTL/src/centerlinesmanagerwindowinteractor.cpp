@@ -10,6 +10,7 @@
 #include <vtkPropPicker.h>
 
 #include <vtkSphereSource.h>
+#include <vtkLineSource.h>
 #include <vtkPolyDataMapper.h>
 #include <vtkRenderer.h>
 #include <vtkRenderWindow.h>
@@ -69,7 +70,7 @@ public:
   //:
     //M_sphereSource(NULL)
   //{}
-  static vtkMyCallback *New() 
+  static vtkMyCallback *New()
     { return new vtkMyCallback; }
   virtual void Execute(vtkObject *caller, unsigned long, void*)
     {
@@ -81,7 +82,26 @@ public:
     }
 
 };
- 
+
+class PointPairConnection;
+
+class vtkCallbackPointPairConnection : public vtkCommand
+{
+public:
+  static vtkCallbackPointPairConnection *New()
+    { return new vtkCallbackPointPairConnection; }
+    void initialize( PointPairConnection * object,int ptId )
+    {
+        M_pointPairConnection = object;
+        M_ptId = ptId;
+    }
+    virtual void Execute(vtkObject *caller, unsigned long, void*);
+
+private :
+    PointPairConnection * M_pointPairConnection;
+    int M_ptId;
+};
+
 
 class SphereSourceObject
 {
@@ -110,6 +130,9 @@ public :
     vtkSmartPointer<vtkActor> const& actor() const { return M_actor; }
     int typePoint() const { return M_typePoint; }
     void setTypePoint(int k) { M_typePoint = k; }
+
+    vtkSmartPointer<vtkBoxWidget> const& widgetBoxAroundSphere() const { return M_widgetBoxAroundSphere; }
+
 
     bool isValidated() const { return M_isValidated; }
     void setIsValidated(bool b) { M_isValidated = b; }
@@ -181,14 +204,19 @@ public :
     void translateBoxAroundSphere( const double translateVec[3] )
     {
         if (!M_widgetBoxAroundSphere) return;
-
+#if 1
         vtkSmartPointer<vtkTransform> t = vtkSmartPointer<vtkTransform>::New();
         M_widgetBoxAroundSphere->GetTransform(t);
         t->Translate(translateVec);
         M_widgetBoxAroundSphere->SetTransform(t);
         M_widgetBoxAroundSphere->GetProp3D()->SetUserTransform(t);
-        //M_widgetBoxAroundSphere->GetProp3D()->SetUserTransform(t);
         //M_widgetBoxAroundSphere->GetProp3D()->Concatenate
+#else
+        double newPos[3] = { M_geometry->GetCenter()[0]+translateVec[0],M_geometry->GetCenter()[1]+translateVec[1],M_geometry->GetCenter()[2]+translateVec[2] };
+        M_geometry->SetCenter( newPos/*M_widgetBoxAroundSphere->GetProp3D()->GetCenter()*/ );
+        M_geometry->Update();
+        //M_widgetBoxAroundSphere->GetProp3D()->SetCenter( newPos );
+#endif
     }
 
 
@@ -202,6 +230,139 @@ private :
 
 };
 
+
+class PointPairConnection
+{
+public :
+    typedef std::shared_ptr<SphereSourceObject> point_object_ptrtype;
+    PointPairConnection() {}
+    PointPairConnection( point_object_ptrtype pt1, point_object_ptrtype pt2 )
+        :
+        M_pointObjet1( pt1 ),
+        M_pointObjet2( pt2 )
+    {}
+    PointPairConnection( PointPairConnection const& o ) = default;
+
+    vtkSmartPointer<vtkActor> const& actor() const { return M_lineActor; }
+
+    point_object_ptrtype
+    pointObjet(int k)
+    {
+        if (k==1)
+            return M_pointObjet1;
+        else
+            return M_pointObjet2;
+    }
+
+    bool
+    isSameConnection( point_object_ptrtype const& pt1, point_object_ptrtype const& pt2 ) const
+    {
+        if ( ( pt1.get() == M_pointObjet1.get() && pt2.get() == M_pointObjet2.get() ) ||
+             ( pt1.get() == M_pointObjet2.get() && pt2.get() == M_pointObjet1.get() ) )
+            return true;
+        else
+            return false;
+    }
+
+    bool
+    isConnectedToPoint( point_object_ptrtype const& pt ) const
+    {
+        if ( pt.get() == M_pointObjet1.get() || pt.get() == M_pointObjet2.get() )
+            return true;
+        else
+            return false;
+    }
+
+    void
+    addPlot( vtkRenderWindowInteractor *interactor )
+    {
+        if ( !M_lineSource )
+        {
+            M_lineSource = vtkSmartPointer<vtkLineSource>::New();
+#if 0
+            M_lineSource->SetPoint1( M_pointObjet1->geometry()->GetCenter() );
+            M_lineSource->SetPoint2( M_pointObjet2->geometry()->GetCenter() );
+            M_lineSource->Update();
+#else
+            this->updatePosition();
+#endif
+            //Create a mapper and actor
+            vtkSmartPointer<vtkPolyDataMapper> lineMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+            lineMapper->SetInputConnection(M_lineSource->GetOutputPort());
+            M_lineActor = vtkSmartPointer<vtkActor>::New();
+            M_lineActor->SetMapper(lineMapper);
+            M_lineActor->GetProperty()->SetColor(1.0, 0.5, 0.0); //(R,G,B)
+            M_lineActor->GetProperty()->SetLineWidth(2.0);//defautl is 1.0
+
+            M_callbackPointPairConnection1 = vtkSmartPointer<vtkCallbackPointPairConnection>::New();
+            M_callbackPointPairConnection1->initialize(this,1);
+            M_callbackPointPairConnection2 = vtkSmartPointer<vtkCallbackPointPairConnection>::New();
+            M_callbackPointPairConnection2->initialize(this,2);
+            M_pointObjet1->widgetBoxAroundSphere()->AddObserver(vtkCommand::InteractionEvent, M_callbackPointPairConnection1);
+            M_pointObjet2->widgetBoxAroundSphere()->AddObserver(vtkCommand::InteractionEvent, M_callbackPointPairConnection2);
+        }
+        interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(M_lineActor);
+    }
+
+    void
+    removePlot( vtkRenderWindowInteractor *interactor )
+    {
+        if ( M_lineActor )
+        {
+            interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->RemoveActor(M_lineActor);
+            M_pointObjet1->widgetBoxAroundSphere()->RemoveObserver(M_callbackPointPairConnection1);
+            M_pointObjet2->widgetBoxAroundSphere()->RemoveObserver(M_callbackPointPairConnection2);
+        }
+    }
+
+    void setPoint( int ptId, /*const*/ double ptCoord[3] )
+    {
+        if ( !M_lineSource ) return;
+        if (ptId == 1 )
+            M_lineSource->SetPoint1( ptCoord );
+        else if ( ptId == 2 )
+            M_lineSource->SetPoint2( ptCoord );
+        M_lineSource->Update();
+    }
+
+    void updatePosition()
+    {
+        if ( !M_lineSource ) return;
+        if ( M_pointObjet1->widgetBoxAroundSphere() )
+            M_lineSource->SetPoint1( M_pointObjet1->widgetBoxAroundSphere()->GetProp3D()->GetCenter() );
+        else
+            M_lineSource->SetPoint1( M_pointObjet1->geometry()->GetCenter() );
+
+        if ( M_pointObjet2->widgetBoxAroundSphere() )
+            M_lineSource->SetPoint2( M_pointObjet2->widgetBoxAroundSphere()->GetProp3D()->GetCenter() );
+        else
+            M_lineSource->SetPoint2( M_pointObjet2->geometry()->GetCenter() );
+
+        M_lineSource->Update();
+    }
+private :
+    point_object_ptrtype M_pointObjet1, M_pointObjet2;
+    vtkSmartPointer<vtkLineSource> M_lineSource;
+    vtkSmartPointer<vtkActor> M_lineActor;
+
+    vtkSmartPointer<vtkCallbackPointPairConnection> M_callbackPointPairConnection1,M_callbackPointPairConnection2;
+
+};
+
+void
+vtkCallbackPointPairConnection::Execute(vtkObject *caller, unsigned long, void*)
+{
+    vtkSmartPointer<vtkTransform> t = vtkSmartPointer<vtkTransform>::New();
+    vtkBoxWidget *widget = reinterpret_cast<vtkBoxWidget*>(caller);
+    widget->GetTransform(t);
+
+    double pt[3] = { 0.,0.,0. };
+    t->TransformPoint( M_pointPairConnection->pointObjet( M_ptId )->geometry()->GetCenter(), pt );
+
+    M_pointPairConnection->setPoint( M_ptId, pt );
+}
+
+
 // Define interaction style
 class AngioTkWindowInteractorStyle : public vtkInteractorStyleTrackballCamera
 {
@@ -214,7 +375,8 @@ public:
         M_activatedMode( ModeType::NO_MODE ),
         M_sphereActorSelectionId(),
         M_lenghtSTL(0),
-        M_outputPathPointSetFile("default.data")
+        M_outputPathPointSetFile("default_pointset.data"),
+        M_outputPathPointPairFile("default_pointpair.data")
     {
         M_LastPickedActor = NULL;
         M_LastPickedProperty = vtkProperty::New();
@@ -317,22 +479,51 @@ public:
             helpStr << "e : points insertion at extremities\n";
         return helpStr.str();
     }
-    void saveOnDisk( std::string const& pathFile )
+    void savePointSetOnDisk( std::string const& _pathFile )
     {
-        std::cout << "saveOnDisk " << pathFile << "\n";
-        if ( M_vectorSphereSourceObject.empty() ) return;
-        if ( M_vectorSphereSourceObject.front()->geometry() == NULL ) return;
+        if ( M_vectorSphereSourceObject.empty() )
+            return;
 
-        std::ofstream fileWrited( pathFile, std::ios::out | std::ios::trunc);
+        namespace fs = boost::filesystem;
+        fs::path pathFile = fs::absolute( _pathFile );
+        fs::path dir = fs::path(pathFile).parent_path();
+        if ( !fs::exists( dir ) )
+            fs::create_directories( dir );
+        std::string pathFileStr = pathFile.string();
+        std::cout << "savePointSetOnDisk : " << pathFileStr << "\n";
+
+        std::ofstream fileWrited( pathFileStr, std::ios::out | std::ios::trunc);
         for (int k = 0; k< M_vectorSphereSourceObject.size() ;++ k)
         {
-            if ( M_vectorSphereSourceObject[k]->geometry() != NULL )
-            {
-                double radius = M_vectorSphereSourceObject[k]->geometry()->GetRadius();
-                double * center = M_vectorSphereSourceObject[k]->geometry()->GetCenter();
-                int typePt = M_vectorSphereSourceObject[k]->typePoint();
-                fileWrited << typePt << " " << center[0] << " " << center[1] << " " << center[2] << " " << radius << "\n";
-            }
+            double radius = M_vectorSphereSourceObject[k]->geometry()->GetRadius();
+            double * center = M_vectorSphereSourceObject[k]->geometry()->GetCenter();
+            int typePt = M_vectorSphereSourceObject[k]->typePoint();
+            fileWrited << typePt << " " << center[0] << " " << center[1] << " " << center[2] << " " << radius << "\n";
+        }
+        fileWrited.close();
+    }
+    void savePointPairOnDisk( std::string const& _pathFile )
+    {
+        if ( M_vectorPointPairConnection.empty() )
+            return;
+
+        namespace fs = boost::filesystem;
+        fs::path pathFile = fs::absolute( _pathFile );
+        fs::path dir = fs::path(pathFile).parent_path();
+        if ( !fs::exists( dir ) )
+            fs::create_directories( dir );
+        std::string pathFileStr = pathFile.string();
+        std::cout << "savePointPairOnDisk : " << pathFileStr << "\n";
+
+        std::ofstream fileWrited( pathFileStr, std::ios::out | std::ios::trunc);
+        for (int k = 0; k< M_vectorPointPairConnection.size() ;++ k)
+        {
+            double radius1 = M_vectorPointPairConnection[k]->pointObjet(1)->geometry()->GetRadius();
+            double * center1 = M_vectorPointPairConnection[k]->pointObjet(1)->geometry()->GetCenter();
+            double radius2 = M_vectorPointPairConnection[k]->pointObjet(2)->geometry()->GetRadius();
+            double * center2 = M_vectorPointPairConnection[k]->pointObjet(2)->geometry()->GetCenter();
+            fileWrited << k << " " << center1[0] << " " << center1[1] << " " << center1[2] << " " << radius1 << "\n";
+            fileWrited << k << " " << center2[0] << " " << center2[1] << " " << center2[2] << " " << radius2 << "\n";
         }
         fileWrited.close();
     }
@@ -428,6 +619,24 @@ public:
         return k;
     }
 
+    int hasPointPairConnection( std::shared_ptr<SphereSourceObject> const& pt1, std::shared_ptr<SphereSourceObject> const& pt2 ) const
+    {
+        int k=-1;
+        for ( int k = 0 ; k<M_vectorPointPairConnection.size() ; ++k )
+            if ( M_vectorPointPairConnection[k]->isSameConnection( pt1,pt2 ) )
+                return k;
+        return k;
+    }
+    std::set<int> hasPointPairConnection( std::shared_ptr<SphereSourceObject> const& pt ) const
+    {
+        std::set<int> res;
+        for ( int k = 0 ; k<M_vectorPointPairConnection.size() ; ++k )
+            if ( M_vectorPointPairConnection[k]->isConnectedToPoint( pt ) )
+                res.insert( k );
+        return res;
+    }
+
+
     void setAngioTkCenterlines( boost::shared_ptr<AngioTkCenterline> obj ) { M_angioTkCenterlines = obj; }
 
     void setActorSTL( vtkSmartPointer<vtkActor> const& actor) { M_actorSTL=actor; }
@@ -436,6 +645,7 @@ public:
     void setLenghtSTL(double d) { M_lenghtSTL=d; }
 
     void setOutputPathPointSetFile(std::string const& path) { M_outputPathPointSetFile=path; }
+    void setOutputPathPointPairFile(std::string const& path) { M_outputPathPointPairFile=path; }
 
 
     void activateSphereActorSelection( int selectId )
@@ -464,6 +674,12 @@ public:
                 this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->RemoveActor(M_vectorSphereSourceObject.back()->actor());
             M_vectorSphereSourceObject.pop_back();
         }
+    }
+
+    void updatePointPairConnection()
+    {
+        for ( int k=0;k<M_vectorPointPairConnection.size();++k)
+            M_vectorPointPairConnection[k]->updatePosition();
     }
 
 
@@ -692,7 +908,8 @@ public:
         // save current state on disk
         if ( key == "s" )
         {
-            this->saveOnDisk( M_outputPathPointSetFile );
+            this->savePointSetOnDisk( M_outputPathPointSetFile );
+            this->savePointPairOnDisk( M_outputPathPointPairFile );
         }
 
 
@@ -778,6 +995,9 @@ public:
 
                   M_vectorSphereSourceObject[selectId]->translateBoxAroundSphere( translateVec );
                   delete [] translateVec;
+
+                  this->updatePointPairConnection();
+
                   this->Interactor->GetRenderWindow()->Render();
               }
           }
@@ -805,6 +1025,32 @@ public:
                   this->Interactor->GetRenderWindow()->Render();
               }
           }
+
+          if(key == "d")
+          {
+              if ( M_sphereActorSelectionId.size() == 2 )
+              {
+                  int ptId1 = *M_sphereActorSelectionId.begin();
+                  int ptId2 = *M_sphereActorSelectionId.rbegin();
+                  int connectionId = this->hasPointPairConnection( M_vectorSphereSourceObject[ptId1],M_vectorSphereSourceObject[ptId2] );
+                  if ( connectionId < 0 )
+                  {
+                      std::shared_ptr<PointPairConnection> ptPairConnection = std::make_shared<PointPairConnection>( M_vectorSphereSourceObject[ptId1],
+                                                                                                                     M_vectorSphereSourceObject[ptId2] );
+                      M_vectorPointPairConnection.push_back( ptPairConnection );
+                      ptPairConnection->addPlot( this->Interactor );
+                  }
+                  else
+                  {
+                      M_vectorPointPairConnection[connectionId]->removePlot( this->Interactor );
+                      M_vectorPointPairConnection.erase( M_vectorPointPairConnection.begin()+connectionId );
+                  }
+
+                  this->Interactor->GetRenderWindow()->Render();
+              }
+          }
+
+
 
 #if 0
           // undo key
@@ -849,8 +1095,32 @@ public:
                       else
                           newVectorSphereSourceObject.push_back( M_vectorSphereSourceObject[objectId] );
                   }
+
+                  std::set<int> idsConnectionToRemove;
+                  for (int k : idsRemove )
+                  {
+                      std::set<int> idsConnection = this->hasPointPairConnection( M_vectorSphereSourceObject[k] );
+                      idsConnectionToRemove.insert( idsConnection.begin(), idsConnection.end() );
+                  }
+                  if ( !idsConnectionToRemove.empty() )
+                  {
+                      std::vector<std::shared_ptr<PointPairConnection> > newVectorPointPairConnection;
+                      for (int objectId=0 ; objectId<M_vectorPointPairConnection.size() ; ++objectId)
+                      {
+                          if ( idsConnectionToRemove.find( objectId ) != idsConnectionToRemove.end() )
+                              M_vectorPointPairConnection[objectId]->removePlot( this->Interactor );
+                          else
+                              newVectorPointPairConnection.push_back( M_vectorPointPairConnection[objectId] );
+                      }
+                      // update new connection objects
+                      M_vectorPointPairConnection.clear();
+                      M_vectorPointPairConnection = newVectorPointPairConnection;
+                  }
+
+                  // update new point objects
                   M_vectorSphereSourceObject.clear();
                   M_vectorSphereSourceObject = newVectorSphereSourceObject;
+
                   this->Interactor->GetRenderWindow()->Render();
               }
           }
@@ -885,10 +1155,10 @@ private :
     vtkProperty *M_LastPickedProperty;
     std::set<int> M_sphereActorSelectionId;
 
-
     std::vector<double> M_boundsSTL; double M_lenghtSTL;
 
     std::vector<std::shared_ptr<SphereSourceObject> > M_vectorSphereSourceObject;
+    std::vector<std::shared_ptr<PointPairConnection> > M_vectorPointPairConnection;
 
     vtkSmartPointer<vtkTextWidget> M_widgetTextCommandHelp;
     vtkSmartPointer<vtkTextWidget> M_widgetTextActivatedMode;
@@ -898,7 +1168,7 @@ private :
 
     boost::shared_ptr<AngioTkCenterline> M_angioTkCenterlines;
 
-    std::string M_outputPathPointSetFile;
+    std::string M_outputPathPointSetFile, M_outputPathPointPairFile;
 
 };
 vtkStandardNewMacro(AngioTkWindowInteractorStyle);
@@ -959,8 +1229,10 @@ CenterlinesManagerWindowInteractor::run()
     style->setBoundsSTL(mapperSTL->GetBounds());
     style->setLenghtSTL(mapperSTL->GetLength());
 
-    std::string nameFile = Feel::fs::path(this->inputSurfacePath()).stem().string()+"_pointset.data";
-    style->setOutputPathPointSetFile(nameFile);
+    std::string namePointSetFile = Feel::fs::path(this->inputSurfacePath()).stem().string()+"_pointset.data";
+    std::string namePointPairFile = Feel::fs::path(this->inputSurfacePath()).stem().string()+"_pointpair.data";
+    style->setOutputPathPointSetFile(namePointSetFile);
+    style->setOutputPathPointPairFile(namePointPairFile);
 
     boost::shared_ptr<AngioTkCenterline> centerlinesTool;
     for ( int k=0;k<this->inputCenterlinesPath().size();++k)
