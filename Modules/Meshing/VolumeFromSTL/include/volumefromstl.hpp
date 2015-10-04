@@ -128,6 +128,7 @@ public :
 
     std::string inputPath() const { return M_inputPath; }
     std::string inputCenterlinesPointSetPath() const { return M_inputCenterlinesPointSetPath; }
+    std::string inputCenterlinesPointPairPath() const { return M_inputCenterlinesPointPairPath; }
     std::string inputInletOutletDescPath() const { return M_inputInletOutletDescPath; }
     std::string inputGeoCenterlinesPath() const { return M_inputGeoCenterlinesPath; }
     std::string outputPath() const { return M_outputPath; }
@@ -153,9 +154,12 @@ private :
     std::tuple< std::vector<std::vector<double> >, std::vector<std::vector<double> > >
     loadFromCenterlinesPointSetFile();
 
+    std::vector< std::pair< std::vector<double>,std::vector<double> > >
+    loadFromCenterlinesPointPairFile();
+
 private :
     std::string M_prefix;
-    std::string M_inputPath, M_inputCenterlinesPointSetPath, M_inputInletOutletDescPath, M_outputPath;
+    std::string M_inputPath, M_inputCenterlinesPointSetPath, M_inputCenterlinesPointPairPath, M_inputInletOutletDescPath, M_outputPath;
     std::string M_inputGeoCenterlinesPath;
     std::string M_outputDirectory;
     std::set<int> M_targetids, M_sourceids;

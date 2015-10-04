@@ -147,6 +147,7 @@ CenterlinesFromSTL::CenterlinesFromSTL( std::string prefix )
     M_prefix( prefix ),
     M_inputPath( AngioTkEnvironment::expand( soption(_name="input.filename",_prefix=this->prefix()) ) ),
     M_inputCenterlinesPointSetPath( AngioTkEnvironment::expand( soption(_name="input.pointset.filename",_prefix=this->prefix()) ) ),
+    M_inputCenterlinesPointPairPath( AngioTkEnvironment::expand( soption(_name="input.pointpair.filename",_prefix=this->prefix()) ) ),
     M_inputInletOutletDescPath( AngioTkEnvironment::expand( soption(_name="input.desc.filename",_prefix=this->prefix()) ) ),
     M_inputGeoCenterlinesPath( AngioTkEnvironment::expand( soption(_name="input.geo-centerlines.filename",_prefix=this->prefix()) ) ),
     M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
@@ -215,30 +216,42 @@ CenterlinesFromSTL::loadFromCenterlinesPointSetFile()
           fileLoaded >> typePt;
           if ( fileLoaded.eof() ) break;
           fileLoaded >> pt[0] >> pt[1] >> pt[2] >> radius;
-#if 1
           if ( typePt == 0 )
               sourcePts.push_back(pt);
           else if ( typePt == 1 )
               targetPts.push_back(pt);
-#else
-          if ( typePt == 0 )
-              {
-              sourcePts.push_back(pt);
-              sourcePts.push_back(pt);
-              sourcePts.push_back(pt);
-              }
-          //else if ( typePt == 1 )
-              {
-              targetPts.push_back(pt);
-              targetPts.push_back(pt);
-              targetPts.push_back(pt);
-              }
-
-#endif
       }
-    fileLoaded.close();  // on ferme le fichier
+    fileLoaded.close();
 
     auto res = std::make_tuple( sourcePts, targetPts );
+    return res;
+}
+
+std::vector< std::pair< std::vector<double>,std::vector<double> > >
+CenterlinesFromSTL::loadFromCenterlinesPointPairFile()
+{
+    std::vector< std::pair< std::vector<double>,std::vector<double> > > res;
+    if ( !fs::exists( this->inputCenterlinesPointPairPath() ) )
+        return res;
+
+    std::ifstream fileLoaded( this->inputCenterlinesPointPairPath(), std::ios::in);
+    while ( !fileLoaded.eof() )
+    {
+        std::vector<double> pt1(3);
+        std::vector<double> pt2(3);
+        double radius1=0,radius2=0;
+        int typePt1 = -1,typePt2 = -1;
+        fileLoaded >> typePt1;
+        if ( fileLoaded.eof() ) break;
+        fileLoaded >> pt1[0] >> pt1[1] >> pt1[2] >> radius1;
+
+        fileLoaded >> typePt2;
+        if ( fileLoaded.eof() ) break;
+        fileLoaded >> pt2[0] >> pt2[1] >> pt2[2] >> radius2;
+
+        res.push_back( std::make_pair(pt1,pt2) );
+    }
+    fileLoaded.close();
     return res;
 }
 
@@ -252,7 +265,8 @@ CenterlinesFromSTL::run()
             std::cout << "WARNING : centerlines computation not done because this input path not exist :" << this->inputPath() << "\n";
         return;
     }
-    if ( this->inputCenterlinesPointSetPath().empty() && this->sourceids().empty() && this->targetids().empty() && this->inputGeoCenterlinesPath().empty() )
+    if ( this->inputCenterlinesPointSetPath().empty() && this->inputCenterlinesPointPairPath().empty() &&
+         this->sourceids().empty() && this->targetids().empty() && this->inputGeoCenterlinesPath().empty() )
     {
         if ( this->worldComm().isMasterRank() )
             std::cout << "WARNING : centerlines computation not done because this sourceids and targetids are empty\n";
@@ -285,8 +299,10 @@ CenterlinesFromSTL::run()
     {
         if ( !this->inputGeoCenterlinesPath().empty() )
             coutStr << "input GeoCenterlines : " << this->inputGeoCenterlinesPath() << "\n";
+        else if ( !this->inputCenterlinesPointPairPath().empty() )
+            coutStr << "input point pair file : " << this->inputCenterlinesPointPairPath() << "\n";
         else if ( !this->inputCenterlinesPointSetPath().empty() )
-            coutStr << "input GeoCenterlines : " << this->inputCenterlinesPointSetPath() << "\n";
+            coutStr << "input point set file : " << this->inputCenterlinesPointSetPath() << "\n";
         else
         {
             coutStr << "targetids            : ";
@@ -344,7 +360,8 @@ CenterlinesFromSTL::run()
             centerlinesTool.addFieldRadiusMin("MaximumInscribedSphereRadius");
             centerlinesTool.writeCenterlinesVTK( this->outputPath() );
         }
-        else if ( !this->inputCenterlinesPointSetPath().empty() || !this->inputInletOutletDescPath().empty() ) // use c++ vmtkcenterlines
+        else if ( !this->inputCenterlinesPointPairPath().empty() || !this->inputCenterlinesPointSetPath().empty() ||
+                  !this->inputInletOutletDescPath().empty() ) // use c++ vmtkcenterlines
         {
             vtkSmartPointer<vtkSTLReader> readerSTL = vtkSmartPointer<vtkSTLReader>::New();
             readerSTL->SetFileName( this->inputPath().c_str());
@@ -353,15 +370,36 @@ CenterlinesFromSTL::run()
             vtkSmartPointer<vtkvmtkPolyDataCenterlines> centerlineFilter = vtkvmtkPolyDataCenterlines::New();
             centerlineFilter->SetInput( readerSTL->GetOutput() );
 
-            vtkSmartPointer<vtkIdList> sourceIdList = vtkSmartPointer<vtkIdList>::New();
-            vtkSmartPointer<vtkIdList> targetIdList = vtkSmartPointer<vtkIdList>::New();
             vtkSmartPointer<vtkPointLocator> pointLocator = vtkSmartPointer<vtkPointLocator>::New();
             pointLocator->SetDataSet( readerSTL->GetOutput() );
             pointLocator->BuildLocator();
-            if ( !this->inputCenterlinesPointSetPath().empty() )
+
+            std::vector<std::pair<vtkSmartPointer<vtkIdList>,vtkSmartPointer<vtkIdList> > > vecSourceTargetIdList;
+            if ( !this->inputCenterlinesPointPairPath().empty() )
+            {
+                auto vecpointpair = loadFromCenterlinesPointPairFile();
+                CHECK( !vecpointpair.empty() ) << "PointPairFile is empty or invalid or not exist";
+                for (auto const& pointpair : vecpointpair)
+                {
+                    vtkSmartPointer<vtkIdList> sourceIdList = vtkSmartPointer<vtkIdList>::New();
+                    vtkSmartPointer<vtkIdList> targetIdList = vtkSmartPointer<vtkIdList>::New();
+                    auto const& sourcePt = pointpair.first;
+                    auto const& targetPt = pointpair.second;
+                    double sourcePoint[3] = { sourcePt[0], sourcePt[1], sourcePt[2] };
+                    double targetPoint[3] = { targetPt[0], targetPt[1], targetPt[2] };
+                    vtkIdType vtkSourceId = pointLocator->FindClosestPoint(sourcePoint);
+                    vtkIdType vtkTargetId = pointLocator->FindClosestPoint(targetPoint);
+                    sourceIdList->InsertNextId(vtkSourceId);
+                    targetIdList->InsertNextId(vtkTargetId);
+                    vecSourceTargetIdList.push_back( std::make_pair(sourceIdList,targetIdList) );
+                }
+            }
+            else if ( !this->inputCenterlinesPointSetPath().empty() )
             {
                 auto pointset = loadFromCenterlinesPointSetFile();
                 CHECK( !std::get<0>(pointset).empty() && !std::get<1>(pointset).empty() ) << "PointSetFile has no source or target points";
+                vtkSmartPointer<vtkIdList> sourceIdList = vtkSmartPointer<vtkIdList>::New();
+                vtkSmartPointer<vtkIdList> targetIdList = vtkSmartPointer<vtkIdList>::New();
                 for ( std::vector<double> const& pt : std::get<0>(pointset) ) // source
                 {
                     double point[3] = { pt[0], pt[1], pt[2] };
@@ -374,10 +412,13 @@ CenterlinesFromSTL::run()
                     vtkIdType vtkid = pointLocator->FindClosestPoint(point);
                     targetIdList->InsertNextId(vtkid);
                 }
+                vecSourceTargetIdList.push_back( std::make_pair(sourceIdList,targetIdList) );
             }
             else if ( !this->inputInletOutletDescPath().empty() )
             {
                 InletOutletDesc iodesc( this->inputInletOutletDescPath() );
+                vtkSmartPointer<vtkIdList> sourceIdList = vtkSmartPointer<vtkIdList>::New();
+                vtkSmartPointer<vtkIdList> targetIdList = vtkSmartPointer<vtkIdList>::New();
                 for ( int id : this->sourceids() )
                 {
                     CHECK( id < iodesc.size() ) << "id : " << id << "not valid! must be < " << iodesc.size();
@@ -394,19 +435,13 @@ CenterlinesFromSTL::run()
                     vtkIdType vtkid = pointLocator->FindClosestPoint(point);
                     targetIdList->InsertNextId(vtkid);
                 }
+                vecSourceTargetIdList.push_back( std::make_pair(sourceIdList,targetIdList) );
             }
             else
                 CHECK(false) << "TODO get id from inlet/outlet cap";
 
-            centerlineFilter->SetSourceSeedIds( sourceIdList );
-            centerlineFilter->SetTargetSeedIds( targetIdList );
-
-            if ( rebuildDelaunayTessellation )
-            {
-                centerlineFilter->GenerateDelaunayTessellationOn();
-                //centerlineFilter->SetDelaunayTolerance(1e-3);
-            }
-            else
+            // load DelaunayTessellation if given
+            if ( !rebuildDelaunayTessellation )
             {
                 vtkSmartPointer<vtkUnstructuredGridReader> delaunayTessellationReader = vtkSmartPointer<vtkUnstructuredGridReader>::New();
                 delaunayTessellationReader->SetFileName( pathDelaunayTessellation.c_str() );
@@ -415,30 +450,95 @@ CenterlinesFromSTL::run()
                 centerlineFilter->SetDelaunayTessellation( delaunayTessellationReader->GetOutput() );
             }
 
-            std::string radiusArrayName = "MaximumInscribedSphereRadius";
-            centerlineFilter->SetRadiusArrayName( radiusArrayName.c_str() );
-            centerlineFilter->SetCostFunction( M_costFunctionExpr.c_str() );
-            centerlineFilter->SetFlipNormals( 0 );
-            centerlineFilter->SetAppendEndPointsToCenterlines( 0 );
-            centerlineFilter->SetSimplifyVoronoi( 0 );
-            centerlineFilter->SetCenterlineResampling( 0 );
-            centerlineFilter->SetResamplingStepLength( 1.0 );
-            centerlineFilter->Update();
-
-            vtkSmartPointer<vtkPolyDataWriter> centerlineWriter  = vtkSmartPointer<vtkPolyDataWriter>::New();
-            centerlineWriter->SetInput( centerlineFilter->GetOutput() );
-            centerlineWriter->SetFileName( this->outputPath().c_str() );
-            //centerlineWriter->SetFileTypeToBinary();
-            centerlineWriter->SetFileTypeToASCII();
-            centerlineWriter->Write();
-
-            if ( rebuildDelaunayTessellation )
+            int nCenterlinesComputed = vecSourceTargetIdList.size();
+            std::vector<std::string> pathCenterlinesToFusion;
+            for ( int k=0;k<nCenterlinesComputed;++k )
             {
-                vtkSmartPointer<vtkUnstructuredGridWriter> delaunayTessellationWriter = vtkSmartPointer<vtkUnstructuredGridWriter>::New();
-                delaunayTessellationWriter->SetInput( centerlineFilter->GetDelaunayTessellation() );
-                delaunayTessellationWriter->SetFileName( pathDelaunayTessellation.c_str() );
-                delaunayTessellationWriter->SetFileTypeToBinary();
-                delaunayTessellationWriter->Write();
+                if ( nCenterlinesComputed == 1 )
+                {
+                    if ( rebuildDelaunayTessellation )
+                        std::cout << "compute centerline with DelaunayTessellation (can be take a long time!)\n";
+                    else
+                        std::cout << "compute centerline\n";
+                }
+                else
+                {
+                    if ( rebuildDelaunayTessellation )
+                        std::cout << "compute centerline " << k+1 << "/" << nCenterlinesComputed << " with DelaunayTessellation (can be take a long time!)\n";
+                    else
+                        std::cout << "compute centerline " << k+1 << "/" << nCenterlinesComputed << "\n";
+                }
+
+                auto const& sourceTargetIdList = vecSourceTargetIdList[k];
+                centerlineFilter->SetSourceSeedIds( sourceTargetIdList.first );
+                centerlineFilter->SetTargetSeedIds( sourceTargetIdList.second );
+
+                if ( rebuildDelaunayTessellation )
+                    centerlineFilter->GenerateDelaunayTessellationOn();
+                else
+                    centerlineFilter->GenerateDelaunayTessellationOff();
+
+                std::string radiusArrayName = "MaximumInscribedSphereRadius";
+                centerlineFilter->SetRadiusArrayName( radiusArrayName.c_str() );
+                centerlineFilter->SetCostFunction( M_costFunctionExpr.c_str() );
+                centerlineFilter->SetFlipNormals( 0 );
+                centerlineFilter->SetAppendEndPointsToCenterlines( 0 );
+                centerlineFilter->SetSimplifyVoronoi( 0 );
+                centerlineFilter->SetCenterlineResampling( 0 );
+                centerlineFilter->SetResamplingStepLength( 1.0 );
+                centerlineFilter->Update();
+
+                vtkSmartPointer<vtkPolyDataWriter> centerlineWriter  = vtkSmartPointer<vtkPolyDataWriter>::New();
+                centerlineWriter->SetInput( centerlineFilter->GetOutput() );
+                std::string outputPathUsed;// = this->outputPath();
+                if ( nCenterlinesComputed > 1 )
+                {
+                    std::string myfilename = (boost::format("%1%_vmtkformat_part%2%.vtk")%name %k).str();
+                    outputPathUsed = (directory / fs::path(myfilename) ).string();
+                }
+                else
+                {
+                    std::string myfilename = (boost::format("%1%_vmtkformat.vtk")%name).str();
+                    outputPathUsed = (directory / fs::path(myfilename) ).string();
+                }
+                pathCenterlinesToFusion.push_back(outputPathUsed);
+
+                centerlineWriter->SetFileName( outputPathUsed.c_str() );
+                //centerlineWriter->SetFileTypeToBinary();
+                centerlineWriter->SetFileTypeToASCII();
+                centerlineWriter->Write();
+
+                if ( rebuildDelaunayTessellation )
+                {
+                    vtkSmartPointer<vtkUnstructuredGridWriter> delaunayTessellationWriter = vtkSmartPointer<vtkUnstructuredGridWriter>::New();
+                    delaunayTessellationWriter->SetInput( centerlineFilter->GetDelaunayTessellation() );
+                    delaunayTessellationWriter->SetFileName( pathDelaunayTessellation.c_str() );
+                    delaunayTessellationWriter->SetFileTypeToBinary();
+                    delaunayTessellationWriter->Write();
+                    rebuildDelaunayTessellation = false;
+                }
+            } // for (int k ... )
+
+
+            if ( true )
+            {
+                std::shared_ptr<AngioTkCenterline> centerlinesTool;
+                for ( std::string const& pathCenterline : pathCenterlinesToFusion )
+                {
+                    if ( !centerlinesTool )
+                    {
+                        if ( true )
+                        {
+                            CTX::instance()->terminal = 1;
+                            int verbosityLevel = 5;
+                            Msg::SetVerbosity( verbosityLevel );
+                        }
+                        centerlinesTool.reset( new AngioTkCenterline );
+                        centerlinesTool->importSurfaceFromFile( this->inputPath() );
+                    }
+                    centerlinesTool->importFile( pathCenterline );
+                }
+                centerlinesTool->writeCenterlinesVTK( this->outputPath() );
             }
         }
         else // use script python vmtkcenterlines
@@ -564,6 +664,7 @@ CenterlinesFromSTL::options( std::string const& prefix )
     myCenterlinesOptions.add_options()
         (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input filename" )
         (prefixvm(prefix,"input.pointset.filename").c_str(), po::value<std::string>()->default_value( "" ), "input.pointset.filename" )
+        (prefixvm(prefix,"input.pointpair.filename").c_str(), po::value<std::string>()->default_value( "" ), "input.pointpair.filename" )
         (prefixvm(prefix,"input.desc.filename").c_str(), po::value<std::string>()->default_value( "" ), "inletoutlet-desc.filename" )
         (prefixvm(prefix,"input.geo-centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "geo-centerlines.filename" )
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")

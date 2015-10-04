@@ -11,7 +11,7 @@ int main( int argc, char** argv )
     myoptions.add( CenterlinesFromSTL::options("") );
     myoptions.add_options()
       ("pre-process.subdivide-surface", Feel::po::value<bool>()->default_value(false), "use subdivide-surface ")
-      ("post-process.convert-centerlines", Feel::po::value<bool>()->default_value(true), "convert-centerlines ");
+      ("post-process.convert-centerlines", Feel::po::value<bool>()->default_value(false), "convert-centerlines ");
     myoptions.add( SubdivideSurface::options("subdivide-surface") ).add( CenterlinesManager::options("convert-centerlines") );
 
     AngioTkEnvironment env( _argc=argc, _argv=argv,
@@ -41,7 +41,7 @@ int main( int argc, char** argv )
 
     if ( postProcessConvertCenterlines )
       {
-	centerlines.setOutputPath( (fs::path(finalOutputPath).parent_path()/ fs::path(finalOutputFileName+"_vmtkformat.vtk")).string() );
+	centerlines.setOutputPath( (fs::path(finalOutputPath).parent_path()/ fs::path(finalOutputFileName+"_temporary.vtk")).string() );
       }
     centerlines.run();
 
