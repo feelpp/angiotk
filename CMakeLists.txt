@@ -76,8 +76,16 @@ if ( FEELPP_CMAKE_MODULES )
   Find_Package(Feel++)
   set(Feel++_FOUND 1)
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g0 -O3 -DNDEBUG  -finline-functions -pedantic  -ftemplate-depth-256 -Wno-inline" )
+
+  if(BUILD_MODULE_Meshing AND (NOT ANN_INCLUDE_DIR OR NOT ANN_LIB))
+    message(FATAL_ERROR "ANN does not seem to be installed on this platform. Please install Feel++ with ANN support.")
+  endif()
 else()
-  #message(FATAL_ERROR "Feel++ does not seem to have been installed on this platform")
+  # The meshing module uses Feel++
+  # If it is not installed, make cmake end up with an error
+  if(BUILD_MODULE_Meshing)
+    message(FATAL_ERROR "Feel++ does not seem to be installed on this platform. Please set the FEELPP_DIR variable.")
+  endif()
 endif()
 
 #=========================================================
@@ -87,11 +95,64 @@ FIND_PACKAGE(PythonInterp)
 
 #=========================================================
 # Find VMTK
-FIND_PATH(VMTK_BINARY_DIR NAMES vmtkcenterlines PATH $ENV{VMTK_DIR}/bin )
+
+# binary dir
+FIND_PATH(VMTK_BINARY_DIR 
+    NAMES vmtkcenterlines 
+    PATH 
+    $ENV{VMTK_DIR}/bin
+    $ENV{VMTKHOME}/bin
+    )
 # if ( NOT VMTK_BINARY_DIR )
-#   message(FATAL_ERROR "VMTK_BINARY_DIR not find")
+#    message(FATAL_ERROR "VMTK_BINARY_DIR not find")
 # endif()
 
+# include dir
+FIND_PATH(VMTK_INCLUDE_DIR vtkvmtkConfigure.h 
+    HINTS 
+    $ENV{VMTK_DIR}/include/
+    $ENV{VMTKHOME}/include/
+    PATH_SUFFIXES vmtk
+    )
+#FIND_PATH(VMTK_INCLUDE_DIR vmtk/vtkvmtkConfigure.h HINTS $ENV{VMTK_DIR}/include/  )
+# if ( NOT VMTK_INCLUDE_DIR )
+#   message(FATAL_ERROR "VMTK_INCLUDE_DIR not find")
+# endif()
+
+# libraries path
+unset(VMTK_LIBRARIES)
+foreach(_vmtklib vtkvmtkCommon vtkvmtkComputationalGeometry)
+  unset(VMTK_LIBRARY CACHE)
+  FIND_LIBRARY(VMTK_LIBRARY
+      NAMES ${_vmtklib} 
+      HINTS 
+      $ENV{VMTK_DIR}/lib/
+      $ENV{VMTKHOME}/lib/
+      PATH_SUFFIXES vmtk
+      )
+  if ( VMTK_LIBRARY )
+    set( VMTK_LIBRARIES ${VMTK_LIBRARIES} ${VMTK_LIBRARY} )
+  endif()
+endforeach()
+
+if ( VMTK_BINARY_DIR AND VMTK_INCLUDE_DIR AND VMTK_LIBRARIES )
+  set( VMTK_FOUND 1)
+else()
+  set( VMTK_FOUND 0)
+endif()
+
+if ( ${VMTK_FOUND} )
+  include_directories( ${VMTK_INCLUDE_DIR} )
+  message(STATUS "VMTK binary dir: ${VMTK_BINARY_DIR}")
+  message(STATUS "VMTK included: ${VMTK_INCLUDE_DIR}")
+  message(STATUS "VMTK libraries: ${VMTK_LIBRARIES}")
+else()
+  if(BUILD_MODULE_Meshing)
+    message(FATAL_ERROR "VMTK does not seem to be installed on this platform.
+    Please set the VMTK_DIR variable or use the vmtk_env.sh script provided
+    with VMTK and export VMTKHOME.")
+  endif()
+endif()
 
 
 #=========================================================

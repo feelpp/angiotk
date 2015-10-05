@@ -6,12 +6,13 @@
 #ifndef _BACKGROUND_MESH_H_
 #define _BACKGROUND_MESH_H_
 
+#include <feel/feelconfig.h>
 #include "STensor3.h"
 #include <vector>
 #include <list>
 #include "simpleFunction.h"
 
-#if defined(HAVE_ANN)
+#if defined(FEELPP_HAS_ANN_H)
 #include <ANN/ANN.h>
 class ANNkd_tree;
 #endif
@@ -53,7 +54,7 @@ class backgroundMesh : public simpleFunction<double>
   static backgroundMesh * _current;
   backgroundMesh(GFace *, bool dist = false);
   ~backgroundMesh();
-#if defined(HAVE_ANN)
+#if defined(FEELPP_HAVE_ANN_H)
    mutable ANNkd_tree *uv_kdtree;
    mutable ANNpointArray nodes;
    ANNidxArray index;

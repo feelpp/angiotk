@@ -9,10 +9,13 @@
 #ifndef _CENTERLINEFIELD_H_
 #define _CENTERLINEFIELD_H_
 
+#include "feel/feelconfig.h"
 #include <vector>
 #include <map>
 #include <set>
 #include <string>
+#include <memory> // std::shared_ptr
+
 #include <gmshHeadersMissing/Field.h>
 #include <MEdge.h>
 
@@ -40,8 +43,11 @@ struct Branch{
   double maxRad;
 };
 
-#if defined(HAVE_ANN)
+#if defined(FEELPP_HAS_ANN_H)
 class ANNkd_tree;
+
+
+int readVTKPolyDataFields( const std::string &name, std::map<std::string,std::vector< std::vector<double> > > & fieldsPointData, bool bigEndian=false );
 
 // This class takes as input A 1D mesh which is the centerline
 // of a tubular 2D surface mesh
@@ -54,14 +60,18 @@ class AngioTkCenterline : public Field{
 
  protected: 
   GModel *current; //current GModel
-  GModel *mod; //centerline GModel
+  std::shared_ptr<GModel> mod;
+  //GModel *mod; //centerline GModel
   GModel *split; //split GModel
   ANNkd_tree *kdtree, *kdtreeR; 
   std::string fileName;
   int nbPoints;
   double recombine;
   int NF, NV, NE, NR;
+  bool useGmshExecutable;
   int is_cut, is_closed, is_extruded;
+  int is_clip_mesh;
+  double M_clipMeshScalingFactor;
   double hLayer;
   double hSecondLayer;
   int nbElemLayer;
@@ -83,18 +93,29 @@ class AngioTkCenterline : public Field{
   std::map<MVertex*,int> colorp;
   std::map<MLine*,int> colorl;
 
+  std::vector<GEdge*> modEdges;
+
+  // save junction points and extremity points 
+  std::set<MVertex*> M_junctionsVertex;
+  //std::set<MVertex*> M_extremityVertex;
+  // vertex -> ( branchId, lineIdInBranch )
+  std::map<MVertex*, std::pair<int,int> > M_extremityVertex;
+
+
   //the tubular surface mesh
   std::vector<MTriangle*> triangles;
   std::vector<MVertex*> vertices;
   
   //the lines cut of the tubular mesh by planes
   std::set<MEdge,Less_Edge> theCut;
+  std::map<int, std::set<MEdge,Less_Edge> > theCutMap;
   std::set<MVertex*> theCutV;
 
   //discrete edes and faces created by the cut
   std::vector<discreteEdge*> discEdges;
   std::vector<discreteFace*> discFaces;
 
+ public:
   std::map<std::string,std::vector<std::vector<double> > >  centerlinesFieldsPointData;
 
  public:
@@ -126,11 +147,63 @@ class AngioTkCenterline : public Field{
 
 
   void updateCenterlinesFromFile( std::string fileName );
+  void createFromGeoCenterlinesFile( std::string const& fileName, std::string const& inputSurfacePath );
+ private :
+  void updateCenterlinesForUse(std::vector<GEdge*> const& _modEdges);
+  void updateCenterlinesForUse(std::map<int,std::vector<MLine*> > const& _modEdges);
+  //void fixBranchConnectivity();
+  void checkCenterlinesConnectivity();
+ public:
+  void updateCenterlinesFieldsFromFile(std::string fileName);
+  void updateCenterlinesFields();
+
   void removeBranchIds( std::set<int> const& _removeBranchIds );
-  void addFieldBranchIds();
+  void removeDuplicateBranch();
+  void addFieldBranchIds( std::string const& fieldName = "BranchIds" );
+  void addFieldRadiusMin( std::string const& fieldName = "RadiusMin" );
+
+  void applyFieldThresholdMin( std::string const& fieldName,double value );
+  void applyFieldThresholdMax( std::string const& fieldName,double value );
+  void applyFieldThresholdMin( std::vector<std::string> const& fieldName,double value );
+  void applyFieldThresholdMax( std::vector<std::string> const& fieldName,double value );
+  void applyFieldThresholdZoneMin(std::string const& fieldName, double value, std::map<int,std::vector<std::tuple<double,double,double> > > const& mapPointPair );
+  void applyFieldThresholdZoneMax(std::string const& fieldName, double value, std::map<int,std::vector<std::tuple<double,double,double> > > const& mapPointPair );
+  void applyFieldThresholdZoneMin(std::vector<std::string> const& fieldName, double value, std::map<int,std::vector<std::tuple<double,double,double> > > const& mapPointPair );
+  void applyFieldThresholdZoneMax(std::vector<std::string> const& fieldName, double value, std::map<int,std::vector<std::tuple<double,double,double> > > const& mapPointPair );
+  void applyFieldThresholdZoneImpl(std::vector<std::string> const& fieldName, double value, std::map<int,std::vector<std::tuple<double,double,double> > > const& mapPointPair, int type );
+
+
+  void applyTubularColisionFix( std::map<int,std::vector<std::tuple<double,double,double> > > const& pointPair );
+  void applyTubularColisionFix2();
+
   void writeCenterlinesVTK( std::string fileName );
 
+  std::map<MVertex*, std::pair<int,int> > const&
+    centerlinesExtremities() const { return M_extremityVertex; }
+  std::vector<Branch> const& centerlinesBranch() const { return edges; }
+  Branch const& centerlinesBranch(int k) const { return edges[k]; }
 
+  std::tuple<MVertex*,double> foundClosestPointInCenterlines( double ptToLocalize[3]);
+  std::tuple< std::vector<MLine*> , std::map<MVertex*,int> > pathBetweenVertex( MVertex* vertexA, MVertex* vertexB );
+
+  std::map<MLine*,double> const& centerlinesRadiusl() const { return radiusl; }
+  double minRadiusAtVertex( MVertex* myvertex ) const;
+
+  //double centerlinesRadiusFromLine() const { 
+    //auto itr = M_angioTkCenterlines->centerlinesRadiusl().find( mylines[lineIdInBranch]/*mylines.front()*/);
+  //}
+  //std::pair<std::map<int,int>,std::map<int,int> > computeRelationVertex() const;
+  void updateRelationMapVertex();
+  void updateRelationMapVertex(std::map<int,int> & _mapVertexGmshIdToVtkId,
+			       std::map<int,int> & _mapVertexVtkIdToGmshId );
+  std::map<int,int> M_mapVertexGmshIdToVtkId, M_mapVertexVtkIdToGmshId;
+  std::set<std::pair<int,int> > M_registerLinesToRemoveFromPointIdPairInModelEdge;
+
+
+  std::vector<std::shared_ptr<AngioTkCenterline> > M_attachAngioTkCenterline;
+  void attachAngioTkCenterline( std::shared_ptr<AngioTkCenterline> const& obj ) { if ( obj ) M_attachAngioTkCenterline.push_back(obj); }
+
+  void importSurfaceFromFile(std::string const& fileName );
   //import the 1D mesh of the centerlines (in vtk format)
   //and fill the vector of lines
   void importFile(std::string fileName);
@@ -157,7 +230,7 @@ class AngioTkCenterline : public Field{
   void initPhysicalMarkerFromDescFile( std::vector<GEdge*> boundEdges );
 
   // Cut the mesh in different parts of small aspect ratio
-  void cutMesh();
+  void cutMesh( std::string const& remeshPartitionMeshFile="" );
   //Create In and Outlet Planar Faces
   void createClosedVolume(GEdge *gin, std::vector<GEdge*> boundEdges);
   //extrude outer wall
@@ -165,10 +238,11 @@ class AngioTkCenterline : public Field{
 
   // Cut the tubular structure with a disk
   // perpendicular to the tubular structure
-  bool cutByDisk(SVector3 &pt, SVector3 &dir, double &maxRad);
+  bool cutByDisk(SVector3 &pt, SVector3 &dir, double &maxRad, int tag = -1);
 
   //create discrete faces
   void createFaces();
+  void createFacesFromClip();
   void createSplitCompounds();
 
   //Print for debugging
@@ -177,14 +251,33 @@ class AngioTkCenterline : public Field{
   SMetric3 metricBasedOnSurfaceCurvature(SVector3 dMin, SVector3 dMax, double cMin, double cMax,
 					  double lc_n, double lc_t1, double lc_t2);
 
+  // mode remesh
+  void setIsCut(bool b) { is_cut = b; }
+  void setRemeshNbPoints( int i ) { nbPoints=i; }
+  void runSurfaceRemesh( std::string const& remeshPartitionMeshFile="", bool forceRebuildPartition=true );
+  void saveSurfaceRemeshSTL(std::string const outputPath, bool binary );
+
+  // mode clip mesh
+  void setModeClipMesh(bool b) { is_clip_mesh = b; }
+  void setClipMeshScalingFactor( double d ) { M_clipMeshScalingFactor = d; }
+  void runClipMesh();
+  void saveClipMeshSTL(std::string const outputPath, bool binary );
+
+  // tubular extension
+  void runTubularExtension();
+  void saveTubularExtensionSTL(std::string const outputPath, bool binary );
+
+ private :
+  void saveCurrentGModelSTL(std::string const outputPath, bool binary );
+
 };
 #else
 class AngioTkCenterline : public Field{
 
  public:
-  Centerline(std::string fileName){ Msg::Error("Gmsh has to be compiled with ANN support to use CenterlineFields");}
-  Centerline(){ Msg::Error("Gmsh has to be compiled with ANN support to use CenterlineFields");}
-  ~Centerline();
+  AngioTkCenterline(std::string fileName){ Msg::Error("Gmsh has to be compiled with ANN support to use CenterlineFields");}
+  AngioTkCenterline(){ Msg::Error("Gmsh has to be compiled with ANN support to use CenterlineFields");}
+  ~AngioTkCenterline();
 
   virtual bool isotropic () const {return false;}
   virtual const char *getName()

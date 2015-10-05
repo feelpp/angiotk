@@ -3,8 +3,11 @@ add_library( angiotk_meshing_volumefromstl
   SHARED
   volumefromstl.cpp
   AngioTkCenterlineField.cpp
+  angiotkPolyBallModeller.cxx
+  angiotkPolyBallLine.cxx
+  centerlinesmanagerwindowinteractor.cpp
   )
-target_link_libraries( angiotk_meshing_volumefromstl ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} )
+target_link_libraries( angiotk_meshing_volumefromstl ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} ${VMTK_LIBRARIES} )
 
 
 angiotk_add_component( meshing_createinletoutletdesc createinletoutletdesc_main.cpp )
@@ -44,6 +47,9 @@ target_link_libraries( meshing_subdividesurface ${FEELPP_LIBRARY} ${FEELPP_LIBRA
 
 angiotk_add_component( meshing_centerlinesmanager centerlinesmanager_main.cpp )
 target_link_libraries( meshing_centerlinesmanager ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
+
+angiotk_add_component( meshing_tubularextension tubularextension_main.cpp )
+target_link_libraries( meshing_tubularextension ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
 
 
 ExternalData_expand_arguments( angioTkData testArgs DATA{${VolumeFromSTL_SOURCE_DIR}/simpleTbifurcation.stl} )

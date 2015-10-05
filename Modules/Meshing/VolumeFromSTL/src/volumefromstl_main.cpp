@@ -21,11 +21,11 @@ int main( int argc, char** argv )
       .add( RemeshSTL::options("mesh-surface") )
       .add( VolumeMeshing::options("mesh-volume") );
 
-    Environment env( _argc=argc, _argv=argv,
-                     _desc=myoptions,
-		     _about=about(_name="meshing_volumefromstl",
-				  _author="Feel++ Consortium",
-				  _email="feelpp-devel@feelpp.org"));
+    AngioTkEnvironment env( _argc=argc, _argv=argv,
+			    _desc=myoptions,
+			    _about=about(_name="meshing_volumefromstl",
+					 _author="Feel++ Consortium",
+					 _email="feelpp-devel@feelpp.org"));
 
 
     bool doForceRebuild = boption(_name="force-rebuild");
@@ -45,7 +45,7 @@ int main( int argc, char** argv )
 	    if ( doForceRebuild )
 	      remshVMTK.setForceRebuild(true);
 	    remshVMTK.setPackageType("vmtk");
-            remshVMTK.setInputPath( centerlines.inputPath() );
+            remshVMTK.setInputSurfacePath( centerlines.inputPath() );
 	    remshVMTK.updateOutputPathFromInputFileName();
             remshVMTK.run();
             centerlines.setStlFileName( remshVMTK.outputPath() );
@@ -60,12 +60,12 @@ int main( int argc, char** argv )
     remshGMSH.setPackageType("gmsh");
     if ( doRemeshSurface )
     {
-        if ( remshGMSH.inputPath().empty() )
+        if ( remshGMSH.inputSurfacePath().empty() )
 	{
-            remshGMSH.setInputPath( centerlines.inputPath() );
+            remshGMSH.setInputSurfacePath( centerlines.inputPath() );
 	    remshGMSH.updateOutputPathFromInputFileName();
 	}
-        remshGMSH.setCenterlinesFileName( centerlines.outputPath() );
+        remshGMSH.setInputCenterlinesPath( centerlines.outputPath() );
         remshGMSH.run();
     }
 

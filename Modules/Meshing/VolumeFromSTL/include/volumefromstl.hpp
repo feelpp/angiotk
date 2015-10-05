@@ -22,10 +22,7 @@
 #include "boost/tuple/tuple_comparison.hpp"
 #include "boost/tuple/tuple_io.hpp"*/
 
-
-namespace detail
-{
-class AngioTkEnvironment
+class AngioTkEnvironment : boost::noncopyable
 {
 public :
     template <class ArgumentPack>
@@ -36,20 +33,16 @@ public :
                                                        Feel::_desc=args[Feel::_desc|Feel::feel_nooptions()],
                                                        Feel::_about=args[Feel::_about| Feel::makeAboutDefault/*detail::makeAbout*/( args[Feel::_argv][0] )] ) );
     }
+    ~AngioTkEnvironment()
+    {
+        //std::cout << "use_count() " << S_feelEnvironment.use_count()  <<"\n";
+        S_feelEnvironment.reset();
+    }
     static Feel::fs::path pathInitial() { return S_pathInitial; }
     static Feel::Environment const& feelEnvironment() { return *S_feelEnvironment; }
 
-private :
-    static Feel::fs::path S_pathInitial;
-    static boost::shared_ptr<Feel::Environment> S_feelEnvironment;
-};
-} // namespace detail
-
-class AngioTkEnvironment : public detail::AngioTkEnvironment
-{
-public:
     BOOST_PARAMETER_CONSTRUCTOR(
-    AngioTkEnvironment, ( detail::AngioTkEnvironment ), Feel::tag,
+    AngioTkEnvironment, ( AngioTkEnvironment ), Feel::tag,
         ( required
           ( argc,* )
           ( argv,* ) )
@@ -60,7 +53,14 @@ public:
           //( directory,( std::string ) )
         ) ) // no semicolon
     //{}
+    static std::string expand( std::string const& expr ) { return Feel::Environment::expand( expr ); }
+
+private :
+    static Feel::fs::path S_pathInitial;
+    static boost::shared_ptr<Feel::Environment> S_feelEnvironment;
 };
+
+
 namespace Feel
 {
 
@@ -121,36 +121,56 @@ class CenterlinesFromSTL
 public :
 
     CenterlinesFromSTL( std::string prefix );
-    CenterlinesFromSTL( CenterlinesFromSTL const& e );
+    CenterlinesFromSTL( CenterlinesFromSTL const& e ) = default;
 
     std::string prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }
 
     std::string inputPath() const { return M_inputPath; }
+    std::string inputCenterlinesPointSetPath() const { return M_inputCenterlinesPointSetPath; }
+    std::string inputCenterlinesPointPairPath() const { return M_inputCenterlinesPointPairPath; }
     std::string inputInletOutletDescPath() const { return M_inputInletOutletDescPath; }
+    std::string inputGeoCenterlinesPath() const { return M_inputGeoCenterlinesPath; }
     std::string outputPath() const { return M_outputPath; }
+    void setOutputPath(std::string const& path) { M_outputPath=path; }
     std::set<int> const& targetids() const { return M_targetids; }
     std::set<int> const& sourceids() const { return M_sourceids; }
     bool forceRebuild() const { return M_forceRebuild; }
+    bool viewResults() const { return M_viewResults; }
 
     void setStlFileName(std::string s) { M_inputPath=s; }
     void setTargetids( std::set<int> const& s ) { M_targetids=s; }
     void setSourceids( std::set<int> const& s ) { M_sourceids=s; }
     void setForceRebuild( bool b ) { M_forceRebuild=b; }
+    void setViewResults(bool b) { M_viewResults=b; }
 
     void updateOutputPathFromInputFileName();
 
     void run();
 
     static po::options_description options( std::string const& prefix );
+private :
+    //std::tuple< std::vector<double>, std::vector<double> >
+    std::tuple< std::vector<std::vector<double> >, std::vector<std::vector<double> > >
+    loadFromCenterlinesPointSetFile();
+
+    std::vector< std::pair< std::vector<double>,std::vector<double> > >
+    loadFromCenterlinesPointPairFile();
 
 private :
     std::string M_prefix;
-    std::string M_inputPath, M_inputInletOutletDescPath, M_outputPath;
+    std::string M_inputPath, M_inputCenterlinesPointSetPath, M_inputCenterlinesPointPairPath, M_inputInletOutletDescPath, M_outputPath;
+    std::string M_inputGeoCenterlinesPath;
     std::string M_outputDirectory;
     std::set<int> M_targetids, M_sourceids;
+    std::string M_costFunctionExpr;
+
     bool M_forceRebuild;
+    bool M_useInteractiveSelection;
     bool M_viewResults,M_viewResultsWithSurface;
+
+    std::string M_delaunayTessellationOutputDirectory;
+    bool M_delaunayTessellationForceRebuild;
 };
 
 class CenterlinesManager
@@ -158,25 +178,44 @@ class CenterlinesManager
 public :
 
     CenterlinesManager( std::string prefix );
-    CenterlinesManager( CenterlinesManager const& e );
+    CenterlinesManager( CenterlinesManager const& e ) = default;
 
     void updateOutputPathFromInputFileName();
+
+    std::map<int,std::vector<std::tuple<double,double,double> > >
+    loadPointSetFile( std::string const& filepath );
+
 
     void run();
 
     static po::options_description options( std::string const& prefix );
 
-    std::string prefix() const { return M_prefix; }
+    std::string const& prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }
-    std::string inputPath() const { return M_inputPath; }
-    std::string outputPath() const { return M_outputPath; }
+    std::vector<std::string> const& inputCenterlinesPath() const { return M_inputCenterlinesPath; }
+    std::string const& inputCenterlinesPath(int k) const { return M_inputCenterlinesPath[k]; }
+    std::string const& inputSurfacePath() const { return M_inputSurfacePath; }
+    std::string const& inputPointSetPath() const { return M_inputPointSetPath; }
+    std::string const& outputPath() const { return M_outputPath; }
     bool forceRebuild() const { return M_forceRebuild; }
+
+    void setInputCenterlinesPath(std::string const& path) { M_inputCenterlinesPath = { path }; }
+    void setInputSurfacePath(std::string const& path) { M_inputSurfacePath=path; }
+    void setInputPointSetPath(std::string const& path) { M_inputPointSetPath=path; }
+    void setOutputPath(std::string const& path) { M_outputPath=path; }
+    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
+    void setForceRebuild(bool b) { M_forceRebuild=b; }
 
 private :
     std::string M_prefix;
-    std::string M_inputPath, M_outputDirectory, M_outputPath;
+    std::vector<std::string> M_inputCenterlinesPath;
+    std::string M_inputSurfacePath, M_inputPointSetPath, M_outputDirectory, M_outputPath;
     bool M_forceRebuild;
+    bool M_useWindowInteractor;
     std::set<int> M_removeBranchIds;
+    double M_applyThresholdMinRadius,M_applyThresholdMaxRadius;
+    std::string M_applyThresholdZonePointSetPath;
+    double M_applyThresholdZoneMinRadius,M_applyThresholdZoneMaxRadius;
 };
 
 class ImageFromCenterlines
@@ -184,7 +223,7 @@ class ImageFromCenterlines
 public :
 
     ImageFromCenterlines( std::string prefix );
-    ImageFromCenterlines( ImageFromCenterlines const& e );
+    ImageFromCenterlines( ImageFromCenterlines const& e ) = default;
 
     void updateOutputPathFromInputFileName();
 
@@ -194,15 +233,17 @@ public :
 
     std::string prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }
-    std::string inputPath() const { return M_inputPath; }
+    std::string inputCenterlinesPath() const { return M_inputCenterlinesPath; }
     std::string outputPath() const { return M_outputPath; }
     bool forceRebuild() const { return M_forceRebuild; }
 
 private :
     std::string M_prefix;
-    std::string M_inputPath, M_outputDirectory,M_outputPath;
-    double M_dimX,M_dimY,M_dimZ;
+    std::string M_inputCenterlinesPath, M_outputDirectory,M_outputPath;
     bool M_forceRebuild;
+    int/*double*/ M_dimX,M_dimY,M_dimZ;
+    double M_dimSpacing;
+    std::string M_radiusArrayName;
 };
 
 class SurfaceFromImage
@@ -210,7 +251,7 @@ class SurfaceFromImage
 public :
 
     SurfaceFromImage( std::string prefix );
-    SurfaceFromImage( SurfaceFromImage const& e );
+    SurfaceFromImage( SurfaceFromImage const& e ) = default;
 
     void updateOutputPathFromInputFileName();
 
@@ -221,14 +262,20 @@ public :
     std::string prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }
     std::string inputPath() const { return M_inputPath; }
+    std::string method() { return M_method; }
     std::string outputPath() const { return M_outputPath; }
     bool forceRebuild() const { return M_forceRebuild; }
+
+    void setOutputPath(std::string const& path) { M_outputPath=path; }
+    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
 
 private :
     std::string M_prefix;
     std::string M_inputPath, M_outputDirectory,M_outputPath;
+    std::string M_method;
     double M_thresholdLower,M_thresholdUpper;
     bool M_hasThresholdLower,M_hasThresholdUpper;
+    bool M_applyConnectivityLargestRegion;
     bool M_forceRebuild;
 };
 
@@ -237,7 +284,7 @@ class SubdivideSurface
 public :
 
     SubdivideSurface( std::string prefix );
-    SubdivideSurface( SubdivideSurface const& e );
+    SubdivideSurface( SubdivideSurface const& e ) = default;
 
     void updateOutputPathFromInputFileName();
 
@@ -245,15 +292,20 @@ public :
 
     std::string prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }
-    std::string inputPath() const { return M_inputPath; }
+    std::string inputSurfacePath() const { return M_inputSurfacePath; }
     std::string outputPath() const { return M_outputPath; }
     bool forceRebuild() const { return M_forceRebuild; }
+
+    void setInputSurfacePath(std::string const& path) { M_inputSurfacePath=path; }
+    void setOutputPath(std::string const& path) { M_outputPath=path; }
+    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
+    void setForceRebuild( bool b ) { M_forceRebuild=b; }
 
     static po::options_description options( std::string const& prefix );
 
 private :
     std::string M_prefix;
-    std::string M_inputPath, M_outputDirectory, M_outputPath;
+    std::string M_inputSurfacePath, M_outputDirectory, M_outputPath;
     std::string M_method;
     int M_nSubdivisions;
     bool M_forceRebuild;
@@ -264,7 +316,7 @@ class SmoothSurface
 public :
 
     SmoothSurface( std::string prefix );
-    SmoothSurface( SmoothSurface const& e );
+    SmoothSurface( SmoothSurface const& e ) = default;
 
     void updateOutputPathFromInputFileName();
 
@@ -272,15 +324,20 @@ public :
 
     std::string prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }
-    std::string inputPath() const { return M_inputPath; }
+    std::string inputSurfacePath() const { return M_inputSurfacePath; }
     std::string outputPath() const { return M_outputPath; }
     bool forceRebuild() const { return M_forceRebuild; }
+
+    void setInputSurfacePath(std::string const& path) { M_inputSurfacePath=path; }
+    void setOutputPath(std::string const& path) { M_outputPath=path; }
+    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
+    void setForceRebuild( bool b ) { M_forceRebuild=b; }
 
     static po::options_description options( std::string const& prefix );
 
 private :
     std::string M_prefix;
-    std::string M_inputPath, M_outputDirectory, M_outputPath;
+    std::string M_inputSurfacePath, M_inputCenterlinesPath, M_outputDirectory, M_outputPath;
     std::string M_method;
     int M_nIterations;
     double M_taubinPassBand;
@@ -293,11 +350,14 @@ class OpenSurface
 public :
 
     OpenSurface( std::string prefix );
-    OpenSurface( OpenSurface const& e );
+    OpenSurface( OpenSurface const& e ) = default;
 
     void updateOutputPathFromInputFileName();
 
     void run();
+    void runGMSH();
+    void runGMSHwithExecutable();
+    void runVMTK();
 
     static po::options_description options( std::string const& prefix );
 
@@ -308,10 +368,17 @@ public :
     std::string outputPath() const { return M_outputPath; }
     bool forceRebuild() const { return M_forceRebuild; }
 
+    void setInputSurfacePath(std::string const& s) { M_inputSurfacePath=s; }
+    void setInputCenterlinesPath(std::string const& s) { M_inputCenterlinesPath=s; }
+    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
+    void setForceRebuild( bool b ) { M_forceRebuild=b; }
+
 private :
     std::string M_prefix;
     std::string M_inputSurfacePath, M_inputCenterlinesPath, M_outputDirectory, M_outputPath;
     bool M_forceRebuild;
+    double M_distanceClipScalingFactor;
+    bool M_saveOutputSurfaceBinary;
 };
 
 namespace detail
@@ -324,26 +391,38 @@ class RemeshSTL
 public :
 
     RemeshSTL( std::string prefix );
-    RemeshSTL( RemeshSTL const& e );
+    RemeshSTL( RemeshSTL const& e ) = default;
 
     std::string prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }
     std::string packageType() const { return M_packageType; }
-    std::string inputPath() const { return M_inputPath; }
-    std::string centerlinesFileName() const { return M_centerlinesFileName; }
-    int remeshNbPointsInCircle() const { return M_remeshNbPointsInCircle; }
-    double area() const { return M_area; }
-    std::string outputPath() const { if ( this->packageType() =="gmsh" ) return M_outputPathGMSH; else return M_outputPathVMTK; }
+    std::string inputSurfacePath() const { return M_inputSurfacePath; }
+    std::string inputCenterlinesPath() const { return M_inputCenterlinesPath; }
+    int remeshNbPointsInCircle() const { return M_gmshRemeshNbPointsInCircle; }
+    double area() const { return M_vmtkArea; }
+    std::string outputPath() const
+    {
+        if ( this->packageType() =="gmsh" || this->packageType() == "gmsh-executable" )
+            return M_outputPathGMSH;
+        else return M_outputPathVMTK;
+    }
+    bool forceRebuild() const { return M_forceRebuild; }
 
     void setPackageType( std::string type)
     {
-        CHECK( type == "gmsh" || type == "vmtk" ) << "error on packageType : " << type;
+        CHECK( type == "gmsh" || type == "gmsh-executable" || type == "vmtk" ) << "error on packageType : " << type;
         M_packageType=type;
     }
-    void setInputPath(std::string s) { M_inputPath=s; }
-    void setCenterlinesFileName(std::string s) { M_centerlinesFileName=s; }
+    void setInputSurfacePath(std::string const& s) { M_inputSurfacePath=s; }
+    void setInputCenterlinesPath(std::string const& s) { M_inputCenterlinesPath=s; }
+    void setOutputPath(std::string const& path)
+    {
+        if ( this->packageType() =="gmsh" || this->packageType() == "gmsh-executable" )
+            M_outputPathGMSH=path;
+        else M_outputPathVMTK=path;
+    }
+    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
 
-    bool forceRebuild() const { return M_forceRebuild; }
     void setForceRebuild( bool b ) { M_forceRebuild=b; }
 
     void updateOutputPathFromInputFileName();
@@ -351,28 +430,68 @@ public :
     void run();
     void runVMTK();
     void runGMSH();
+    void runGMSHwithExecutable();
 
     static po::options_description options( std::string const& prefix );
 
 private :
     std::string M_prefix;
     std::string M_packageType;
-    std::string M_inputPath;
-    std::string M_centerlinesFileName;
-    int M_remeshNbPointsInCircle;
-    double M_area;
+    std::string M_inputSurfacePath;
+    // with gmsh
+    std::string M_inputCenterlinesPath;
+    int M_gmshRemeshNbPointsInCircle;
+    bool M_gmshRemeshPartitionForceRebuild;
+    // with vmtk
+    double M_vmtkArea;
+    int M_vmtkNumberOfIteration;
+
     std::string M_outputPathGMSH, M_outputPathVMTK;
     std::string M_outputDirectory;
     bool M_forceRebuild;
 
+    bool M_saveOutputSurfaceBinary;
 }; // class RemeshSTL
+
+class TubularExtension
+{
+public :
+
+    TubularExtension( std::string prefix );
+    TubularExtension( TubularExtension const& e ) = default;
+
+    void updateOutputPathFromInputFileName();
+    void run();
+
+    std::string prefix() const { return M_prefix; }
+    WorldComm const& worldComm() const { return Environment::worldComm(); }
+    std::string inputSurfacePath() const { return M_inputSurfacePath; }
+    std::string inputCenterlinesPath() const { return M_inputCenterlinesPath; }
+    std::string outputPath() const { return M_outputPath; }
+    bool forceRebuild() const { return M_forceRebuild; }
+
+    void setInputSurfacePath(std::string const& path) { M_inputSurfacePath=path; }
+    void setInputCenterlinesPath(std::string const& s) { M_inputCenterlinesPath=s; }
+    void setOutputPath(std::string const& path) { M_outputPath=path; }
+    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
+    void setForceRebuild( bool b ) { M_forceRebuild=b; }
+
+    static po::options_description options( std::string const& prefix );
+
+private :
+    std::string M_prefix;
+    std::string M_inputSurfacePath, M_inputCenterlinesPath;
+    std::string M_outputDirectory, M_outputPath;
+    bool M_forceRebuild;
+    bool M_saveOutputSurfaceBinary;
+};
 
 class VolumeMeshing
 {
 public :
 
     VolumeMeshing( std::string prefix );
-    VolumeMeshing( VolumeMeshing const& e );
+    VolumeMeshing( VolumeMeshing const& e ) = default;
 
     std::string prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }
@@ -417,6 +536,8 @@ private :
     std::string M_outputPath;
     std::string M_outputDirectory;
     bool M_forceRebuild;
+
+    bool M_saveOutputVolumeBinary;
 
 };
 
