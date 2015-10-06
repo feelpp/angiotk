@@ -34,7 +34,7 @@ You need the following dependencies for AngioTk to build:
 * (Optional if using vmtk superbuild) VTK version 5.x (vmtk is not compatible with VTK 6.x for the moment)
 * The Feel++ library: [https://github.com/feelpp/feelpp](https://github.com/feelpp/feelpp)
 
-The following compilation order is trongly encouraged:
+The following compilation order is strongly encouraged:
 * First compile vmtk superbuild from the sources.
 ```
 cd <vtmk_sources>
@@ -42,7 +42,7 @@ mkdir vmtk-build
 cmake <vmtk_sources>
 ```
 * Set the environment variables for vmtk, VTK, and ITK to be accessible in you shell. For example, you can use the `module` command or the `vmtk_env.sh` script located in `<vmtk_sources>/vmtk-build/Install`
-* Build and install Feel++ (See the installation insctructions on the [Feel++ repository](https://github.com/feelpp/feelpp)
+* Build and install Feel++ (See the installation insctructions on the [Feel++ repository](https://github.com/feelpp/feelpp). It is advised to let cmake detect the VTK library available, which should be the one built with vmtk. Enabling options such as In-Situ visualization will alter the VTK library chosen by cmake, you would end up with VTK 6.x which won't be compatible with AngioTk.
 * Finally build AngioTk:
 ```
 cd <angiotk_build_dir>
