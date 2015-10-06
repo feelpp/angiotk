@@ -45,6 +45,9 @@ cmake <vmtk_sources>
 * Build and install Feel++ (See the installation insctructions on the [Feel++ repository](https://github.com/feelpp/feelpp)). It is advised to let cmake detect the VTK library available, which should be the one built with vmtk. Enabling options such as In-Situ visualization will alter the VTK library chosen by cmake, you would end up with VTK 6.x which won't be compatible with AngioTk.
 * Finally build AngioTk:
 ```
+# If you didn't install Feel++ in a standard system installation dir
+# you can help cmake in finding the library with the following command:
+# export FEELPP_DIR=<feelpp_install_dir>
 cd <angiotk_build_dir>
 # Configure AngioTK with the modules you need
 cmake <angiotk_sources> -DBUILD_MODULE_Meshing=ON
