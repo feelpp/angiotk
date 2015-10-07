@@ -1851,7 +1851,7 @@ RemeshSTL::RemeshSTL( std::string prefix )
     M_gmshRemeshPartitionForceRebuild( boption(_name="gmsh.remesh-partition.force-rebuild",_prefix=this->prefix()) ),
     M_vmtkArea( doption(_name="area",_prefix=this->prefix()) ),
     M_vmtkNumberOfIteration( ioption(_name="vmtk.n-iteration",_prefix=this->prefix()) ),
-    M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+    M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_saveOutputSurfaceBinary( boption(_name="output.save-binary",_prefix=this->prefix() ) )
 {
@@ -2270,7 +2270,7 @@ VolumeMeshing::VolumeMeshing( std::string prefix )
     M_extrudeWallNbElemLayer( ioption(_name="extrude-wall.nb-elt-layer",_prefix=this->prefix() ) ),
     M_extrudeWallhLayer( doption(_name="extrude-wall.h-layer",_prefix=this->prefix()) ),
     M_outputPath(),
-    M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+    M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_saveOutputVolumeBinary( boption(_name="output.save-binary",_prefix=this->prefix() ) )
 {
