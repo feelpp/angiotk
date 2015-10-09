@@ -694,6 +694,9 @@ CenterlinesManager::CenterlinesManager( std::string prefix )
     M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_useWindowInteractor( boption(_name="use-window-interactor",_prefix=this->prefix() ) ),
+    M_fullscreen( boption(_name="fullscreen",_prefix=this->prefix() ) ),
+    M_windowWidth( ioption(_name="window-width",_prefix=this->prefix() ) ),
+    M_windowHeight( ioption(_name="window-height",_prefix=this->prefix() ) ),
     M_applyThresholdMinRadius( doption(_name="threshold-radius.min",_prefix=this->prefix() ) ),
     M_applyThresholdMaxRadius( doption(_name="threshold-radius.max",_prefix=this->prefix() ) ),
     M_applyThresholdZonePointSetPath( AngioTkEnvironment::expand( soption(_name="thresholdzone-radius.point-set.filename",_prefix=this->prefix()) ) ),
@@ -783,7 +786,7 @@ CenterlinesManager::run()
                     centerlinesPath.push_back( this->inputCenterlinesPath(k) );
             windowInteractor.setInputCenterlinesPath( centerlinesPath );
 
-            windowInteractor.run();
+            windowInteractor.run(M_fullscreen, M_windowWidth, M_windowHeight);
         }
         else if ( this->worldComm().isMasterRank() )
             std::cout << "WARNING : Centerlines Manager not run because this input surface path not exist :" << this->inputSurfacePath() << "\n";
@@ -922,6 +925,9 @@ CenterlinesManager::options( std::string const& prefix )
         (prefixvm(prefix,"remove-branch-ids").c_str(), po::value<std::vector<int> >()->multitoken(), "(vector of int) remove branch ids" )
         (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         (prefixvm(prefix,"use-window-interactor").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) use-window-interactor")
+        (prefixvm(prefix,"fullscreen").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) set fullscreen mode")
+        (prefixvm(prefix,"window-width").c_str(), Feel::po::value<int>()->default_value(1024), "(int) window width")
+        (prefixvm(prefix,"window-height").c_str(), Feel::po::value<int>()->default_value(768), "(int) window height")
         (prefixvm(prefix,"threshold-radius.min").c_str(), Feel::po::value<double>()->default_value(-1), "(double) threshold-radius.min")
         (prefixvm(prefix,"threshold-radius.max").c_str(), Feel::po::value<double>()->default_value(-1), "(double) threshold-radius.max")
         (prefixvm(prefix,"thresholdzone-radius.point-set.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input point-set filename" )

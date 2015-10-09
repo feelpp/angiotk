@@ -15,7 +15,7 @@ public :
   void setInputCenterlinesPath(std::string const& path) { M_inputCenterlinesPath={ path }; }
   void setInputCenterlinesPath(std::vector<std::string> const& path) { M_inputCenterlinesPath=path; }
 
-  void run();
+  void run(bool fullscreen, int windowWidth, int windowHeight);
 
 private :
   std::string M_inputSurfacePath, M_inputPointSetPath;//, M_inputCenterlinesPath;

@@ -1175,7 +1175,7 @@ vtkStandardNewMacro(AngioTkWindowInteractorStyle);
 
 
 void
-CenterlinesManagerWindowInteractor::run()
+CenterlinesManagerWindowInteractor::run(bool fullscreen, int windowWidth, int windowHeight)
 {
     typedef vtkPointPicker picker_type; // vtkPointPicker, vtkWorldPointPicker
     //vtkSmartPointer<picker_type> worldPointPicker = vtkSmartPointer<picker_type>::New();
@@ -1190,6 +1190,14 @@ CenterlinesManagerWindowInteractor::run()
     // Create a renderer, render window, and interactor
     vtkSmartPointer<vtkRenderer> renderer = vtkSmartPointer<vtkRenderer>::New();
     vtkSmartPointer<vtkRenderWindow> renderWindow = vtkSmartPointer<vtkRenderWindow>::New();
+    if(fullscreen)
+    {
+        renderWindow->SetFullScreen(1);
+    }
+    else
+    {
+        renderWindow->SetSize(windowWidth, windowHeight);
+    }
     renderWindow->AddRenderer(renderer);
     vtkSmartPointer<vtkRenderWindowInteractor> renderWindowInteractor = vtkSmartPointer<vtkRenderWindowInteractor>::New();
     //renderWindowInteractor->SetPicker(worldPointPicker);
