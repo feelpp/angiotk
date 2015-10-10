@@ -372,6 +372,8 @@ public:
 
     AngioTkWindowInteractorStyle()
         :
+        M_windowSizePreviousFullScreen( 2, 0 ), // init correctly when go in full screen (store previous size)
+        M_windowFullScreen( false ),
         M_activatedMode( ModeType::NO_MODE ),
         M_sphereActorSelectionId(),
         M_lenghtSTL(0),
@@ -388,6 +390,7 @@ public:
         helpCommandStr << "Help Commands :\n"
                        << "q : exit  \n"
                        << "h : enable/disable help commands  \n"
+                       << "f : enable/disable full screen\n"
                        << "a : enable/disable orientation axis\n"
                        << "s : save points insertion on disk\n"
                        << "0 : no mode (view only)\n"
@@ -465,7 +468,8 @@ public:
                     << "[Left] : move selection\n"
                     << "[Right] : move selection\n"
                     << "o : move selection\n"
-                    << "l : move selection\n";
+                    << "l : move selection\n"
+                    << "d : create/remove connection\n      from 2 selected points\n";
         return helpStr.str();
     }
 
@@ -797,6 +801,35 @@ public:
         if ( key == "q" )
         {
             rwi->ExitCallback();
+        }
+
+        if ( key == "f" )
+        {
+#if 0
+            // NOT WORKS !
+            int fullScreenState = this->Interactor->GetRenderWindow()->GetFullScreen();
+            this->Interactor->GetRenderWindow()->SetFullScreen( (fullScreenState+1)%2 );
+            this->Interactor->GetRenderWindow()->Render();
+#else
+            if ( !M_windowFullScreen )
+            {
+                this->Interactor->GetRenderWindow()->Render();
+                int * windowsize = this->Interactor->GetRenderWindow()->GetSize();
+                M_windowSizePreviousFullScreen[0] = windowsize[0];
+                M_windowSizePreviousFullScreen[1] = windowsize[1];
+                int * fullscreensize = this->Interactor->GetRenderWindow()->GetScreenSize();
+                this->Interactor->GetRenderWindow()->SetSize(fullscreensize[0],fullscreensize[1]);
+                M_windowFullScreen = true;
+            }
+            else
+            {
+                this->Interactor->GetRenderWindow()->SetSize(M_windowSizePreviousFullScreen[0],M_windowSizePreviousFullScreen[1]);
+                M_windowFullScreen = false;
+            }
+            this->Interactor->GetRenderWindow()->Render();
+            //this->Interactor->GetRenderWindow()->Modified();
+            //this->Interactor->GetRenderWindow()->Render();
+#endif
         }
 
         // display/remove axis orientation
@@ -1149,6 +1182,10 @@ public :
 
 
 private :
+
+    std::vector<int> M_windowSizePreviousFullScreen;
+    bool M_windowFullScreen;
+
     ModeType M_activatedMode;
 
     vtkActor * M_LastPickedActor;
@@ -1173,9 +1210,14 @@ private :
 };
 vtkStandardNewMacro(AngioTkWindowInteractorStyle);
 
+CenterlinesManagerWindowInteractor::CenterlinesManagerWindowInteractor()
+    :
+    M_windowWidth( 1024 ),
+    M_windowHeight (768)
+{}
 
 void
-CenterlinesManagerWindowInteractor::run(bool fullscreen, int windowWidth, int windowHeight)
+CenterlinesManagerWindowInteractor::run()//bool fullscreen, int windowWidth, int windowHeight)
 {
     typedef vtkPointPicker picker_type; // vtkPointPicker, vtkWorldPointPicker
     //vtkSmartPointer<picker_type> worldPointPicker = vtkSmartPointer<picker_type>::New();
@@ -1190,14 +1232,8 @@ CenterlinesManagerWindowInteractor::run(bool fullscreen, int windowWidth, int wi
     // Create a renderer, render window, and interactor
     vtkSmartPointer<vtkRenderer> renderer = vtkSmartPointer<vtkRenderer>::New();
     vtkSmartPointer<vtkRenderWindow> renderWindow = vtkSmartPointer<vtkRenderWindow>::New();
-    if(fullscreen)
-    {
-        renderWindow->SetFullScreen(1);
-    }
-    else
-    {
-        renderWindow->SetSize(windowWidth, windowHeight);
-    }
+    renderWindow->SetSize(this->windowWidth(), this->windowHeight());
+
     renderWindow->AddRenderer(renderer);
     vtkSmartPointer<vtkRenderWindowInteractor> renderWindowInteractor = vtkSmartPointer<vtkRenderWindowInteractor>::New();
     //renderWindowInteractor->SetPicker(worldPointPicker);

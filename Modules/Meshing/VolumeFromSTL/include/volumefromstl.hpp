@@ -216,8 +216,6 @@ private :
     double M_applyThresholdMinRadius,M_applyThresholdMaxRadius;
     std::string M_applyThresholdZonePointSetPath;
     double M_applyThresholdZoneMinRadius,M_applyThresholdZoneMaxRadius;
-    int M_windowWidth, M_windowHeight;
-    bool M_fullscreen;
 };
 
 class ImageFromCenterlines
