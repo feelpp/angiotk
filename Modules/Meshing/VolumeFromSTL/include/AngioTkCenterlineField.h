@@ -161,6 +161,7 @@ class AngioTkCenterline : public Field{
   void removeDuplicateBranch();
   void addFieldBranchIds( std::string const& fieldName = "BranchIds" );
   void addFieldRadiusMin( std::string const& fieldName = "RadiusMin" );
+  bool hasField( std::string const& fieldName ) { return centerlinesFieldsPointData.find( fieldName ) != centerlinesFieldsPointData.end(); }
 
   void applyFieldThresholdMin( std::string const& fieldName,double value );
   void applyFieldThresholdMax( std::string const& fieldName,double value );

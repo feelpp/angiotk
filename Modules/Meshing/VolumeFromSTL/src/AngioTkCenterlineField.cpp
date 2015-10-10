@@ -1314,6 +1314,38 @@ void AngioTkCenterline::updateCenterlinesForUse(std::map<int,std::vector<MLine*>
   this->checkCenterlinesConnectivity();
 
   this->buildKdTree();
+
+
+  // check if a branch connected to an extremity has a length enough large
+  // else delte this branch
+  if(!triangles.empty())
+    {
+      bool applyFixSmallBranchExtremity = false;
+      for(int i = 0; i < edges.size(); ++i)
+	{
+	  if ( this->centerlinesExtremities().find( edges[i].vB ) != this->centerlinesExtremities().end() ||
+	       this->centerlinesExtremities().find( edges[i].vE ) != this->centerlinesExtremities().end() )
+	    {
+	      if ( 3*edges[i].length < (edges[i].minRad+edges[i].maxRad)/2. )
+		{
+		  applyFixSmallBranchExtremity = true;
+		  Msg::Info("AngioTkCenterline: remove small branch %d",i);
+		  std::vector<MLine*> mylinesToRemove = edges[i].lines;
+		  for(int j = 0; j < mylinesToRemove.size(); ++j)
+		    {
+		      int v0Id = mylinesToRemove[j]->getVertex(0)->getIndex();
+		      int v1Id = mylinesToRemove[j]->getVertex(1)->getIndex();
+		      M_registerLinesToRemoveFromPointIdPairInModelEdge.insert( std::make_pair(v0Id,v1Id) );
+		      M_registerLinesToRemoveFromPointIdPairInModelEdge.insert( std::make_pair(v1Id,v0Id) );
+		    }
+		}
+
+	    }
+	}
+      if ( applyFixSmallBranchExtremity )
+	this->updateCenterlinesForUse( _modEdges );
+    }
+
 }
 
 
