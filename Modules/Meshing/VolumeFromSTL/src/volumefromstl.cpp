@@ -691,6 +691,7 @@ CenterlinesManager::CenterlinesManager( std::string prefix )
     M_inputCenterlinesPath(),// 1, soption(_name="input.centerlines.filename",_prefix=this->prefix()) ),
     M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.surface.filename",_prefix=this->prefix()) ) ),
     M_inputPointSetPath( AngioTkEnvironment::expand( soption(_name="input.point-set.filename",_prefix=this->prefix()) ) ),
+    M_inputPointPairPath( AngioTkEnvironment::expand( soption(_name="input.point-pair.filename",_prefix=this->prefix()) ) ),
     M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_useWindowInteractor( boption(_name="use-window-interactor",_prefix=this->prefix() ) ),
@@ -779,6 +780,8 @@ CenterlinesManager::run()
             windowInteractor.setInputSurfacePath( this->inputSurfacePath() );
             if ( !this->inputPointSetPath().empty() && fs::exists( this->inputPointSetPath() ) )
                 windowInteractor.setInputPointSetPath( this->inputPointSetPath() );
+            if ( !this->inputPointPairPath().empty() && fs::exists( this->inputPointPairPath() ) )
+                windowInteractor.setInputPointPairPath( this->inputPointPairPath() );
 
             std::vector<std::string> centerlinesPath;
             for (int k = 0;k<this->inputCenterlinesPath().size();++k)
@@ -921,6 +924,7 @@ CenterlinesManager::options( std::string const& prefix )
         (prefixvm(prefix,"input.centerlines.filename").c_str(), po::value<std::vector<std::string>>()->multitoken(), "(vector<string>) input centerline filename" )
         (prefixvm(prefix,"input.surface.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input surface filename" )
         (prefixvm(prefix,"input.point-set.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input point-set filename" )
+        (prefixvm(prefix,"input.point-pair.filename").c_str(), po::value<std::string>()->default_value( "" ), "input.pointpair.filename" )
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
         (prefixvm(prefix,"remove-branch-ids").c_str(), po::value<std::vector<int> >()->multitoken(), "(vector of int) remove branch ids" )
         (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")

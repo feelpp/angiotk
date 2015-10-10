@@ -196,12 +196,15 @@ public :
     std::string const& inputCenterlinesPath(int k) const { return M_inputCenterlinesPath[k]; }
     std::string const& inputSurfacePath() const { return M_inputSurfacePath; }
     std::string const& inputPointSetPath() const { return M_inputPointSetPath; }
+    std::string const& inputPointPairPath() const { return M_inputPointPairPath; }
+
     std::string const& outputPath() const { return M_outputPath; }
     bool forceRebuild() const { return M_forceRebuild; }
 
     void setInputCenterlinesPath(std::string const& path) { M_inputCenterlinesPath = { path }; }
     void setInputSurfacePath(std::string const& path) { M_inputSurfacePath=path; }
     void setInputPointSetPath(std::string const& path) { M_inputPointSetPath=path; }
+    void setInputPointPairPath(std::string const& path) { M_inputPointPairPath=path; }
     void setOutputPath(std::string const& path) { M_outputPath=path; }
     void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
     void setForceRebuild(bool b) { M_forceRebuild=b; }
@@ -209,7 +212,7 @@ public :
 private :
     std::string M_prefix;
     std::vector<std::string> M_inputCenterlinesPath;
-    std::string M_inputSurfacePath, M_inputPointSetPath, M_outputDirectory, M_outputPath;
+    std::string M_inputSurfacePath, M_inputPointSetPath, M_inputPointPairPath, M_outputDirectory, M_outputPath;
     bool M_forceRebuild;
     bool M_useWindowInteractor;
     std::set<int> M_removeBranchIds;

@@ -63,6 +63,8 @@
 #include <Gmsh.h>
 #include <Context.h>
 
+#include <centerlinesmanageriodata.hpp>
+
 class vtkMyCallback : public vtkCommand
 {
 public:
@@ -107,14 +109,6 @@ class SphereSourceObject
 {
 public :
 
-    SphereSourceObject()
-        :
-        M_geometry(),
-        M_actor(),
-        M_typePoint(0),
-        M_isValidated( false )
-    {}
-
     SphereSourceObject( vtkSmartPointer<vtkSphereSource> geo, vtkSmartPointer<vtkActor> actor,
                         int typePoint = 0, bool isValidated = false )
         :
@@ -141,7 +135,7 @@ public :
     bool isTargetPoint() const { return (this->typePoint() == 1); }
     void changeTypePoint() { this->setTypePoint( (this->typePoint()+1)%2); }
 
-    bool isNull() const { return ( this->geometry() != NULL || this->actor() != NULL); }
+    bool isNull() const { return ( this->geometry() == NULL || this->actor() == NULL); }
 
     void applyColoring()
     {
@@ -158,8 +152,9 @@ public :
     }
 
     void
-    activateBoxAroundSphere( vtkRenderWindowInteractor *interactor )
+    initializeWidgetBox( vtkRenderWindowInteractor *interactor )
     {
+        if ( this->isNull() ) return;
 
         if ( !M_widgetBoxAroundSphere )
         {
@@ -168,13 +163,21 @@ public :
             M_widgetBoxAroundSphere->AddObserver(vtkCommand::InteractionEvent, M_callbackBoxAroundSphere);
             //M_widgetBoxAroundSphere->HandlesOff();
         }
-
         M_widgetBoxAroundSphere->SetInteractor( interactor );
         //M_widgetBoxAroundSphere->SetPlaceFactor(1.25);
         M_widgetBoxAroundSphere->SetPlaceFactor(1.);
         M_widgetBoxAroundSphere->SetProp3D( this->actor() );
-        this->actor()->GetProperty()->SetOpacity(0.2);
 
+        M_widgetBoxAroundSphere->Off();
+    }
+
+
+    void
+    activateWidgetBox()
+    {
+        if ( !M_widgetBoxAroundSphere ) return;
+
+        this->actor()->GetProperty()->SetOpacity(0.2);
         M_widgetBoxAroundSphere->PlaceWidget();
         double radiusSphere = this->geometry()->GetRadius();
         M_widgetBoxAroundSphere->SetHandleSize(radiusSphere/10000.);
@@ -183,7 +186,7 @@ public :
     }
 
     void
-    deactivateBoxAroundSphere()
+    deactivateWidgetBox()
     {
         if (!M_widgetBoxAroundSphere) return;
         double * p=M_widgetBoxAroundSphere->GetProp3D()->GetCenter();
@@ -286,6 +289,7 @@ public :
 #else
             this->updatePosition();
 #endif
+
             //Create a mapper and actor
             vtkSmartPointer<vtkPolyDataMapper> lineMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
             lineMapper->SetInputConnection(M_lineSource->GetOutputPort());
@@ -497,6 +501,7 @@ public:
         std::cout << "savePointSetOnDisk : " << pathFileStr << "\n";
 
         std::ofstream fileWrited( pathFileStr, std::ios::out | std::ios::trunc);
+        fileWrited.precision( 16 );
         for (int k = 0; k< M_vectorSphereSourceObject.size() ;++ k)
         {
             double radius = M_vectorSphereSourceObject[k]->geometry()->GetRadius();
@@ -520,6 +525,7 @@ public:
         std::cout << "savePointPairOnDisk : " << pathFileStr << "\n";
 
         std::ofstream fileWrited( pathFileStr, std::ios::out | std::ios::trunc);
+        fileWrited.precision( 16 );
         for (int k = 0; k< M_vectorPointPairConnection.size() ;++ k)
         {
             double radius1 = M_vectorPointPairConnection[k]->pointObjet(1)->geometry()->GetRadius();
@@ -532,36 +538,76 @@ public:
         fileWrited.close();
     }
 
-    void loadFromDisk( std::string const& pathFile )
+    void loadPointSetFromFile( std::string const& pathFile )
     {
-        std::ifstream fileLoaded( pathFile, std::ios::in);
-        while ( !fileLoaded.eof() )
+        auto data = AngioTk::loadFromPointSetFile( pathFile );
+        for ( auto const& point : data )
         {
-            double * center = new double[3];
-            double radius;
-            int typePt = -1;
-            fileLoaded >> typePt;
-            if ( fileLoaded.eof() ) break;
-            fileLoaded >> center[0] >> center[1] >> center[2] >> radius;
-            //std::cout << "add center " << center[0] <<","<< center[1] <<","<< center[2]<<"\n";
-            vtkSmartPointer<vtkSphereSource> sphereSource = vtkSmartPointer<vtkSphereSource>::New();
-            sphereSource->SetRadius(radius);
-            sphereSource->SetCenter(center);
-            delete [] center;
-            sphereSource->Update();
-            //Create a mapper and actor
-            vtkSmartPointer<vtkPolyDataMapper> mapperSphere = vtkSmartPointer<vtkPolyDataMapper>::New();
-            mapperSphere->SetInputConnection(sphereSource->GetOutputPort());
-            vtkSmartPointer<vtkActor> actorSphere = vtkSmartPointer<vtkActor>::New();
-            actorSphere->SetMapper(mapperSphere);
-            actorSphere->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
-
-            M_vectorSphereSourceObject.push_back(std::make_shared<SphereSourceObject>(sphereSource,actorSphere,typePt,true) );
-            M_vectorSphereSourceObject.back()->applyColoring();
-            this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(actorSphere);
+            auto const& coord = std::get<0>( point );
+            auto const& radius = std::get<1>( point );
+            auto const& type = std::get<2>( point );
+            int ptId = this->hasPoint( coord );
+            if ( ptId < 0 )
+                this->addPoint( coord, radius, type );
         }
-        fileLoaded.close();
         this->Interactor->GetRenderWindow()->Render();
+    }
+
+    void loadPointPairFromFile( std::string const& pathFile )
+    {
+        auto data = AngioTk::loadFromPointPairFile( pathFile );
+        for ( auto const& pointpair : data )
+        {
+            auto const& ptdata1 = pointpair.first;
+            auto const& ptdata2 = pointpair.second;
+            auto const& coord1 = std::get<0>( ptdata1 );
+            auto const& coord2 = std::get<0>( ptdata2 );
+            double radius1 = std::get<1>( ptdata1 );
+            double radius2 = std::get<1>( ptdata2 );
+            int ptId1 = this->hasPoint( coord1 );
+            if ( ptId1 < 0 )
+            {
+                this->addPoint( coord1, radius1 );
+                ptId1 = M_vectorSphereSourceObject.size()-1;
+            }
+            int ptId2 = this->hasPoint( coord2 );
+            if ( ptId2 < 0 )
+            {
+                this->addPoint( coord2, radius2 );
+                ptId2 = M_vectorSphereSourceObject.size()-1;
+            }
+
+            int connectionId = this->hasPointPairConnection( M_vectorSphereSourceObject[ptId1],M_vectorSphereSourceObject[ptId2] );
+            if ( connectionId < 0 )
+            {
+                std::shared_ptr<PointPairConnection> ptPairConnection = std::make_shared<PointPairConnection>( M_vectorSphereSourceObject[ptId1],
+                                                                                                               M_vectorSphereSourceObject[ptId2] );
+                M_vectorPointPairConnection.push_back( ptPairConnection );
+                ptPairConnection->addPlot( this->Interactor );
+            }
+
+        }
+        //std::cout << "size after load " << M_vectorSphereSourceObject.size() << "\n";
+        this->Interactor->GetRenderWindow()->Render();
+    }
+
+    void addPoint( std::vector<double> const& pt, double radius, int type=0 )
+    {
+        CHECK( pt.size() == 3 ) << "invalid point size : " << pt.size() << " ( must be 3 )";
+        vtkSmartPointer<vtkSphereSource> sphereSource = vtkSmartPointer<vtkSphereSource>::New();
+        sphereSource->SetRadius( radius );
+        sphereSource->SetCenter( pt[0],pt[1],pt[2] );
+        sphereSource->Update();
+        vtkSmartPointer<vtkPolyDataMapper> mapperSphere = vtkSmartPointer<vtkPolyDataMapper>::New();
+        mapperSphere->SetInputConnection(sphereSource->GetOutputPort());
+        vtkSmartPointer<vtkActor> actorSphere = vtkSmartPointer<vtkActor>::New();
+        actorSphere->SetMapper(mapperSphere);
+        //actorSphere->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
+        M_vectorSphereSourceObject.push_back(std::make_shared<SphereSourceObject>(sphereSource,actorSphere,type,true) );
+        M_vectorSphereSourceObject.back()->initializeWidgetBox( this->Interactor );
+        M_vectorSphereSourceObject.back()->applyColoring();
+        this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(actorSphere);
+
     }
 
     void addSphereAtCenterlinesExtrimities()
@@ -606,10 +652,31 @@ public:
             actorSphere->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
 
             M_vectorSphereSourceObject.push_back( std::make_shared<SphereSourceObject>(sphereSource,actorSphere,typePt) );
+            M_vectorSphereSourceObject.back()->initializeWidgetBox( this->Interactor );
             M_vectorSphereSourceObject.back()->applyColoring();
             this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(actorSphere);
         }
 
+    }
+
+
+    int hasPoint( std::vector<double> const& pt )
+    {
+        CHECK( pt.size() == 3 ) << "invalid point size : " << pt.size() << " ( must be 3 )";
+        return this->hasPoint( pt[0],pt[1],pt[2] );
+    }
+
+    int hasPoint( double x,double y,double z )
+    {
+        for ( int k = 0 ; k<M_vectorSphereSourceObject.size() ; ++k )
+        {
+            double * center = M_vectorSphereSourceObject[k]->geometry()->GetCenter();
+            if ( ( std::abs( center[0] - x ) < 1e-9 ) &&
+                 ( std::abs( center[1] - y ) < 1e-9 ) &&
+                 ( std::abs( center[2] - z ) < 1e-9 ) )
+                return k;
+        }
+        return -1;
     }
 
     int hasActor( vtkActor * _actor ) const
@@ -656,7 +723,7 @@ public:
     {
         if ( selectId >= 0 && M_sphereActorSelectionId.find(selectId) == M_sphereActorSelectionId.end() )
         {
-            M_vectorSphereSourceObject[selectId]->activateBoxAroundSphere(this->Interactor);
+            M_vectorSphereSourceObject[selectId]->activateWidgetBox();
             M_sphereActorSelectionId.insert( selectId );
         }
     }
@@ -665,7 +732,7 @@ public:
     {
         for ( int selectId : M_sphereActorSelectionId )
         {
-            M_vectorSphereSourceObject[selectId]->deactivateBoxAroundSphere();
+            M_vectorSphereSourceObject[selectId]->deactivateWidgetBox();
         }
         M_sphereActorSelectionId.clear();
     }
@@ -775,6 +842,7 @@ public:
                     }
 
                     M_vectorSphereSourceObject.push_back( std::make_shared<SphereSourceObject>(sphereSource,actorSphere,0,false) );
+                    M_vectorSphereSourceObject.back()->initializeWidgetBox( this->Interactor );
 
                     this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(actorSphere);
                 } // result != 0
@@ -1329,8 +1397,10 @@ CenterlinesManagerWindowInteractor::run()//bool fullscreen, int windowWidth, int
     if ( !this->inputPointSetPath().empty() )
     {
         std::string previousData = this->inputPointSetPath();
-        style->loadFromDisk(previousData);
+        style->loadPointSetFromFile(previousData);
     }
+    if ( !this->inputPointPairPath().empty() )
+        style->loadPointPairFromFile( this->inputPointPairPath() );
 
     renderer->ResetCamera();
     //ren->GetActiveCamera()->Zoom(1.5);
