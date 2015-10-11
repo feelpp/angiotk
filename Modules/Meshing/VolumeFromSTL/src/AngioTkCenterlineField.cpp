@@ -3078,7 +3078,7 @@ bool AngioTkCenterline::cutByDisk(SVector3 &PT, SVector3 &NORM, double &maxRad, 
   double c = NORM.z();
   double d = -a * PT.x() - b * PT.y() - c * PT.z();
 
-  int maxStep = 20;
+  int maxStep = 10;//20;
   //const double EPS = 0.007;
   // old value
   const double EPS = 1e-5;//1e-8;//1e-5;//0.007;
