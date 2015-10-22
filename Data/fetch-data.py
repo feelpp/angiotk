@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import pydas
+import os
 import sys
 
 def main():
@@ -40,7 +41,11 @@ def main():
 
     # Eventually download data
     for i in range(len(dataURL)):
-        pydas.download(baseURL + "/" + dataURL[i])
+        remoteURL = baseURL + "/" + dataURL[i]
+        localPath = os.path.dirname("." + baseURL + "/" + dataURL[i])
+        if(not os.path.exists(localPath)):
+            os.makedirs(localPath)
+        pydas.download(remoteURL, local_path=localPath)
 
 if __name__ == "__main__":
     main()
