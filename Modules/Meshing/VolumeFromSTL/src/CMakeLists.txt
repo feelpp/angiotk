@@ -6,6 +6,7 @@ add_library( angiotk_meshing_volumefromstl
   angiotkPolyBallModeller.cxx
   angiotkPolyBallLine.cxx
   centerlinesmanagerwindowinteractor.cpp
+  centerlinesmanageriodata.cpp
   )
 target_link_libraries( angiotk_meshing_volumefromstl ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} ${VMTK_LIBRARIES} )
 

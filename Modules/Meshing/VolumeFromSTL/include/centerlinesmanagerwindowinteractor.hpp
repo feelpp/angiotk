@@ -1,3 +1,5 @@
+#ifndef __CENTERLINESMANAGERWINDOWINTERACTOR_H
+#define __CENTERLINESMANAGERWINDOWINTERACTOR_H 1
 
 #include <string>
 #include <vector>
@@ -34,3 +36,4 @@ private :
 
 };
 
+#endif // __CENTERLINESMANAGERWINDOWINTERACTOR_H

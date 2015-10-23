@@ -20,6 +20,9 @@
 #include <MEdge.h>
 
 #include <meshGFaceDelaunayInsertion.h>
+
+#include <centerlinesmanageriodata.hpp>
+
 class GModel;
 class GFace;
 class MLine;
@@ -174,7 +177,7 @@ class AngioTkCenterline : public Field{
   void applyFieldThresholdZoneImpl(std::vector<std::string> const& fieldName, double value, std::map<int,std::vector<std::tuple<double,double,double> > > const& mapPointPair, int type );
 
 
-  void applyTubularColisionFix( std::map<int,std::vector<std::tuple<double,double,double> > > const& pointPair );
+  void applyTubularColisionFix( AngioTk::pointpair_data_type const& pointPair );
   void applyTubularColisionFix2();
 
   void writeCenterlinesVTK( std::string fileName );

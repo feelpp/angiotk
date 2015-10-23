@@ -4439,14 +4439,17 @@ AngioTkCenterline::pathBetweenVertex( MVertex* vertexA, MVertex* vertexB )
 }
 
 
-void AngioTkCenterline::applyTubularColisionFix( std::map<int,std::vector<std::tuple<double,double,double> > > const& pointPair )
+void AngioTkCenterline::applyTubularColisionFix( AngioTk::pointpair_data_type /*std::map<int,std::vector<std::tuple<double,double,double> > >*/ const& pointPairData )
 {
+#if 0
   Msg::Info("AngioTkCenterline::applyTubularColisionFix");
 
   this->buildKdTree();
 
-  auto const& pt1 = pointPair.find(0)->second[0];
-  auto const& pt2 = pointPair.find(0)->second[1];
+  for ( auto const& pointPair : pointPairData )
+    {
+      auto const& pt1 = pointPair.find(0)->second[0];
+      auto const& pt2 = pointPair.find(0)->second[1];
   double ptToLocalize1[3] = { std::get<0>( pt1 ),std::get<1>( pt1 ),std::get<2>( pt1 ) };
   double ptToLocalize2[3] = { std::get<0>( pt2 ),std::get<1>( pt2 ),std::get<2>( pt2 ) };
   std::cout << "ptToLocalize1 : " << ptToLocalize1[0] << " , " << ptToLocalize1[1]  << " , " << ptToLocalize1[2] << "\n";
@@ -4457,7 +4460,6 @@ void AngioTkCenterline::applyTubularColisionFix( std::map<int,std::vector<std::t
   std::cout << "vertexB : " << vertexB->x() << " , " << vertexB->y()  << " , " << vertexB->z() << "\n";
 
   std::vector<MLine*> listOfLines = std::get<0>(this->pathBetweenVertex( vertexA,vertexB ) );
-
   for ( auto myline : listOfLines )
     {
       MVertex* v0 = myline->getVertex(0);
@@ -4465,6 +4467,7 @@ void AngioTkCenterline::applyTubularColisionFix( std::map<int,std::vector<std::t
       centerlinesFieldsPointData["RadiusMin"][M_mapVertexGmshIdToVtkId[v0->getIndex()]][0]=2.;//100;
       centerlinesFieldsPointData["RadiusMin"][M_mapVertexGmshIdToVtkId[v1->getIndex()]][0]=2.;//100;
     }
+#endif
 }
 void AngioTkCenterline::applyTubularColisionFix2()
 {
