@@ -3,6 +3,7 @@
 import pydas
 import os
 import sys
+import shutil
 
 def main():
     serverURL = "http://vivabrain.u-strasbg.fr/midas"
@@ -44,6 +45,9 @@ def main():
         remoteURL = baseURL + "/" + dataURL[i]
         localPath = os.path.dirname("." + baseURL + "/" + dataURL[i])
         if(not os.path.exists(localPath)):
+            os.makedirs(localPath)
+        else:
+            shutil.rmtree(localPath)
             os.makedirs(localPath)
         pydas.download(remoteURL, local_path=localPath)
 
