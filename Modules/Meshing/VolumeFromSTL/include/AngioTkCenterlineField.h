@@ -44,6 +44,17 @@ struct Branch{
   std::vector<Branch> children;
   double minRad;
   double maxRad;
+  double boundMinX,boundMaxX,boundMinY,boundMaxY,boundMinZ,boundMaxZ;
+
+  bool
+  isInsideBox( MVertex * vertex, double dist )
+  {
+    double lengthAdded = maxRad+dist;
+    return ( ( vertex->x() > ( boundMinX - lengthAdded ) ) && ( vertex->x() < ( boundMaxX + lengthAdded ) ) &&
+	     ( vertex->y() > ( boundMinY - lengthAdded ) ) && ( vertex->y() < ( boundMaxY + lengthAdded ) ) &&
+	     ( vertex->z() > ( boundMinZ - lengthAdded ) ) && ( vertex->z() < ( boundMaxZ + lengthAdded ) ) );
+  }
+
 };
 
 #if defined(FEELPP_HAS_ANN_H)
@@ -98,8 +109,11 @@ class AngioTkCenterline : public Field{
 
   std::vector<GEdge*> modEdges;
 
+  // save map from vertex to set of ( branchId,lineId )
+  std::map<MVertex*,std::set<std::pair<int,int> > > M_vertexToLinesId;
   // save junction points and extremity points 
-  std::set<MVertex*> M_junctionsVertex;
+  //std::set<MVertex*> M_junctionsVertex;
+  std::map<MVertex*,std::set<int> > M_junctionsVertex;
   //std::set<MVertex*> M_extremityVertex;
   // vertex -> ( branchId, lineIdInBranch )
   std::map<MVertex*, std::pair<int,int> > M_extremityVertex;
@@ -176,9 +190,11 @@ class AngioTkCenterline : public Field{
   void applyFieldThresholdZoneMax(std::vector<std::string> const& fieldName, double value, std::map<int,std::vector<std::tuple<double,double,double> > > const& mapPointPair );
   void applyFieldThresholdZoneImpl(std::vector<std::string> const& fieldName, double value, std::map<int,std::vector<std::tuple<double,double,double> > > const& mapPointPair, int type );
 
-
+  void applyTubularColisionFix( std::vector<MVertex*> const& vTestedSet );
+  void applyTubularColisionFix( std::map< MVertex*,std::set<MVertex*> > const& mapVertexTested, int method /*= 0*/, int maxrecurrence/*=-1*/,int nrecurrence = 0 );
   void applyTubularColisionFix( AngioTk::pointpair_data_type const& pointPair );
-  void applyTubularColisionFix2();
+  void applyTubularColisionFix();
+
 
   void writeCenterlinesVTK( std::string fileName );
 
@@ -188,7 +204,13 @@ class AngioTkCenterline : public Field{
   Branch const& centerlinesBranch(int k) const { return edges[k]; }
 
   std::tuple<MVertex*,double> foundClosestPointInCenterlines( double ptToLocalize[3]);
-  std::tuple< std::vector<MLine*> , std::map<MVertex*,int> > pathBetweenVertex( MVertex* vertexA, MVertex* vertexB );
+  //std::tuple< std::vector<MLine*> , std::map<MVertex*,int>, double > pathBetweenVertex( MVertex* vertexA, MVertex* vertexB );
+  std::tuple< std::vector<MLine*> , double > pathBetweenVertex( MVertex* vertexA, MVertex* vertexB );
+  int vertexOnSameBranch( MVertex* vertexA, MVertex* vertexB );
+  //std::set<int>
+  std::tuple<MVertex*, std::vector<int> > vertexOnNeighboringBranch( MVertex* vertexA, MVertex* vertexB );
+  bool canFindPathBetweenVertex( MVertex* vertexA, MVertex* vertexB );
+
 
   std::map<MLine*,double> const& centerlinesRadiusl() const { return radiusl; }
   double minRadiusAtVertex( MVertex* myvertex ) const;

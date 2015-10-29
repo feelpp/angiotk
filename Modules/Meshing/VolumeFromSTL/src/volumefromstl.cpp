@@ -909,6 +909,18 @@ CenterlinesManager::run()
                 centerlinesTool->applyFieldThresholdZoneMax( fieldnames,M_applyThresholdZoneMaxRadius,pointSetData );
         }
 
+        if ( false )
+        {
+            std::string fileTubeColision = AngioTkEnvironment::expand( soption(_name="avoid-tubular-colision.point-pair.filename",_prefix=this->prefix() ) );
+            if ( !fileTubeColision.empty() && fs::exists( fileTubeColision ) )
+            {
+                auto pointPairData = AngioTk::loadFromPointPairFile( fileTubeColision );
+                centerlinesTool->applyTubularColisionFix( pointPairData );
+            }
+            else
+                centerlinesTool->applyTubularColisionFix();
+        }
+
         centerlinesTool->writeCenterlinesVTK( this->outputPath() );
     }
 
@@ -936,6 +948,8 @@ CenterlinesManager::options( std::string const& prefix )
         (prefixvm(prefix,"thresholdzone-radius.point-set.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input point-set filename" )
         (prefixvm(prefix,"thresholdzone-radius.max").c_str(), Feel::po::value<double>()->default_value(-1), "(double) threshold-radius.max")
         (prefixvm(prefix,"thresholdzone-radius.min").c_str(), Feel::po::value<double>()->default_value(-1), "(double) threshold-radius.max")
+        (prefixvm(prefix,"avoid-tubular-colision.point-pair.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input point-set filename" )
+
         ;
     return myCenterlinesManagerOptions;
 }
