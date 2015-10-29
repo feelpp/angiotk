@@ -71,22 +71,14 @@ ENDIF(ITK_FOUND)
 
 #=========================================================
 # Find Feel++
-FIND_PATH(FEELPP_CMAKE_MODULES FindFeel++.cmake PATH $ENV{FEELPP_DIR}/share/feel/cmake/modules/   /usr/share/feel/cmake/modules/ /usr/local/share/feel/cmake/modules/ )
-if ( FEELPP_CMAKE_MODULES )
-  set(CMAKE_MODULE_PATH ${FEELPP_CMAKE_MODULES})
-  Find_Package(Feel++)
-  set(Feel++_FOUND 1)
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g0 -O3 -DNDEBUG  -finline-functions -pedantic  -ftemplate-depth-256 -Wno-inline" )
-
-  if(BUILD_MODULE_Meshing AND (NOT ANN_INCLUDE_DIR OR NOT ANN_LIB))
-    message(FATAL_ERROR "ANN does not seem to be installed on this platform. Please install Feel++ with ANN support.")
-  endif()
-else()
-  # The meshing module uses Feel++
-  # If it is not installed, make cmake end up with an error
-  if(BUILD_MODULE_Meshing)
-    message(FATAL_ERROR "Feel++ does not seem to be installed on this platform. Please set the FEELPP_DIR variable.")
-  endif()
+if ( ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR} )
+    find_package(Feel++ PATHS $ENV{FEELPP_DIR}/share/feel/cmake /usr/share/feel/cmake /usr/local/share/feel/cmake /opt/share/feel/cmake)
+    if(NOT FEELPP_FOUND)
+        message(FATAL_ERROR "Feel++ was not found on your system. Make sure to install it and specify the FEELPP_DIR to reference the installation directory.") 
+    endif()
+    if(BUILD_MODULE_Meshing AND (NOT FEELPP_HAS_ANN))
+        message(FATAL_ERROR "ANN does not seem to be installed on this platform. Please install Feel++ with ANN support.")
+    endif()
 endif()
 
 #=========================================================
