@@ -586,6 +586,96 @@ void AngioTkCenterline::importSurfaceFromFile(std::string const& fileName )
 
 }
 
+
+void
+AngioTkCenterline::updateMergeFromExtremities( AngioTkCenterline const& newCenterlines,
+					       std::map<MVertex*,std::pair< std::vector<std::pair<MLine*,int> >, MVertex*> > & indexVertexReplaced,
+					       std::set<MLine*> & newRegisterLinesToRemove2 )
+{
+  for ( auto const& extremityPair : newCenterlines.centerlinesExtremities() )
+    {
+      double ptToLocalize[3] = { extremityPair.first->x(),extremityPair.first->y(),extremityPair.first->z() };
+
+      int branchId = extremityPair.second.first;
+      int lineIdInBranch = extremityPair.second.second;
+      std::vector<MLine*> mylines = newCenterlines.centerlinesBranch(branchId).lines;
+      MLine* myline = mylines[lineIdInBranch];
+      if ( newCenterlines.centerlinesRadiusl().find(myline) == newCenterlines.centerlinesRadiusl().end() )
+	Msg::Error("radius not find for this line \n");
+      double radius = newCenterlines.centerlinesRadiusl().find(myline)->second;
+
+      if ( lineIdInBranch != 0 && lineIdInBranch != (mylines.size()-1) )
+	Msg::Error("is not an extremity\n");
+
+      auto ptFoundData = this->foundClosestPointInCenterlines( ptToLocalize );
+      MVertex* pointFound = std::get<0>(ptFoundData);
+      double dist = std::get<1>(ptFoundData);
+      if ( dist > 2*(radius+this->minRadiusAtVertex(pointFound) ) )
+	pointFound = NULL;
+
+      if ( pointFound != NULL )
+	{
+	  if ( indexVertexReplaced.find( pointFound ) != indexVertexReplaced.end() )
+	    continue;
+
+	  MVertex* _ptToReplaced = extremityPair.first;
+	  MLine* _lineWhichHasToReplaced = myline;
+	  int _idVertexInLine = ( _ptToReplaced == myline->getVertex(0) )? 0 : 1;
+	  if ( myline->getVertex(_idVertexInLine) != _ptToReplaced )
+	    Msg::Error("Error localToGlobalVertex");
+
+	  MVertex* _mylink = ( _ptToReplaced == myline->getVertex(0) )? myline->getVertex(1) : myline->getVertex(0);
+
+	  // search other point closer (near the extremity point) 
+	  if ( true )
+	    {
+	      double curMinDist = dist/*[0]*/;
+	      bool isForwardSearch = ( lineIdInBranch == 0 );
+	      double lcTotal = 0;
+	      int indexSearch = 0;
+	      for ( int q=1; ( lcTotal < 4*radius && q < (mylines.size()-1) ) ; ++q )
+		{
+		  int newLineId = (isForwardSearch)?lineIdInBranch+q : lineIdInBranch-q;
+		  MLine* mylineSearch = mylines[newLineId];
+		  int vIdInLine = (isForwardSearch)?0 : 1;
+		  MVertex *newV = mylineSearch->getVertex( vIdInLine );
+		  if ( _mylink != newV ) Msg::Error("NOT GOOD \n");
+		  _mylink = mylineSearch->getVertex( (int)(vIdInLine+1)%2 );
+		  double newdist = pointFound->distance(newV);
+		  if ( newdist < curMinDist )
+		    {
+		      curMinDist = newdist;
+		      _ptToReplaced = newV;
+		      _lineWhichHasToReplaced = mylineSearch;
+		      _idVertexInLine = vIdInLine;
+		      indexSearch=q;
+		    }
+		  lcTotal += mylineSearch->getLength();
+		}
+	      //std::cout << "curMinDist " << curMinDist << " VS dist[0] " << dist[0] << " indexSearch "<< indexSearch << "\n";
+	      if ( indexSearch > 0 )
+		{
+		  for ( int q=0; q<indexSearch ; ++q )
+		    {
+		      int newLineId = (isForwardSearch)?lineIdInBranch+q : lineIdInBranch-q;
+		      MLine* mylineSearch = mylines[newLineId];
+		      int v0Id = mylineSearch->getVertex(0)->getIndex();
+		      int v1Id = mylineSearch->getVertex(1)->getIndex();
+		      newRegisterLinesToRemove2.insert( mylineSearch );
+		    }
+		}
+	    }
+	  std::vector<std::pair<MLine*,int> > myvecLine(1,std::make_pair(_lineWhichHasToReplaced,_idVertexInLine));
+	  indexVertexReplaced[_ptToReplaced] = std::make_pair( myvecLine ,pointFound );
+
+	}
+
+    } // for ( auto const& extremityPair ... )
+}
+
+
+
+
 void AngioTkCenterline::importFile(std::string fileName)
 {
   current = GModel::current();
@@ -618,8 +708,6 @@ void AngioTkCenterline::importFile(std::string fileName)
 
 
   std::shared_ptr<AngioTkCenterline> newCenterlines;
-  // save vertex index in a std::set
-  std::set<int > ignoreIndexReplaced;
   int previousMaxVertexIndex=0;
 
   if ( !modEdges.empty() )
@@ -635,106 +723,12 @@ void AngioTkCenterline::importFile(std::string fileName)
 
       this->buildKdTree();
 
+      //----------------------------------------------------------------//
+      // search points which can be connected between centerlines
       std::map<MVertex*,std::pair< std::vector<std::pair<MLine*,int> >, MVertex*> > indexVertexReplaced;
-      std::set<std::pair<int,int> > newRegisterLinesToRemove;
       std::set<MLine*> newRegisterLinesToRemove2;
-      //if (false)
-      for ( auto const& extremityPair : newCenterlines->centerlinesExtremities() )
-	{
-	  double ptToLocalize[3] = { extremityPair.first->x(),extremityPair.first->y(),extremityPair.first->z() };
-
-	  int branchId = extremityPair.second.first;
-	  int lineIdInBranch = extremityPair.second.second;
-	  std::vector<MLine*> mylines = newCenterlines->centerlinesBranch(branchId).lines;
-	  MLine* myline = mylines[lineIdInBranch];
-	  if ( newCenterlines->centerlinesRadiusl().find(myline) == newCenterlines->centerlinesRadiusl().end() )
-	    Msg::Error("radius not find for this line \n");
-	  double radius = newCenterlines->centerlinesRadiusl().find(myline)->second;
-
-	  if ( lineIdInBranch != 0 && lineIdInBranch != (mylines.size()-1) )
-	    Msg::Error("is not an extremity\n");
-
-	  auto ptFoundData = this->foundClosestPointInCenterlines( ptToLocalize );
-	  MVertex* pointFound = std::get<0>(ptFoundData);
-	  double dist = std::get<1>(ptFoundData);
-	  if ( dist > 2*(radius+this->minRadiusAtVertex(pointFound) ) )
-	    pointFound = NULL;
-#if 0
-	  if ( pointFound == NULL )
-	    std::cout << "point not found with dist " << dist/*[0]*/ << "\n";
-	  else
-	    {
-	      if ( M_extremityVertex.find( pointFound ) != M_extremityVertex.end() )
-		std::cout << "point found at an extremity\n";
-	      else
-		std::cout << "point found\n";
-	    }
-#endif
-	  if ( pointFound != NULL )
-	    {
-
-	      MVertex* _ptToReplaced = extremityPair.first;
-	      MLine* _lineWhichHasToReplaced = myline;
-	      int _idVertexInLine = ( _ptToReplaced == myline->getVertex(0) )? 0 : 1;
-	      if ( myline->getVertex(_idVertexInLine) != _ptToReplaced ) Msg::Error("Error localToGlobalVertex");
-
-	      MVertex* _mylink = ( _ptToReplaced == myline->getVertex(0) )? myline->getVertex(1) : myline->getVertex(0);
-
-	      // search other point closer (near the extremity point) 
-	      if ( true )
-		{
-		  double curMinDist = dist/*[0]*/;
-		  bool isForwardSearch = ( lineIdInBranch == 0 );
-		  double lcTotal = 0;
-		  int indexSearch = 0;
-		  for ( int q=1; ( lcTotal < 4*radius && q < (mylines.size()-1) ) ; ++q )
-		    {
-		      int newLineId = (isForwardSearch)?lineIdInBranch+q : lineIdInBranch-q;
-		      MLine* mylineSearch = mylines[newLineId];
-		      int vIdInLine = (isForwardSearch)?0 : 1;
-		      MVertex *newV = mylineSearch->getVertex( vIdInLine );
-		      if ( _mylink != newV ) Msg::Error("NOT GOOD \n");
-		      _mylink = mylineSearch->getVertex( (int)(vIdInLine+1)%2 );
-		      double newdist = pointFound->distance(newV);
-		      if ( newdist < curMinDist )
-			{
-			  curMinDist = newdist;
-			  _ptToReplaced = newV;
-			  _lineWhichHasToReplaced = mylineSearch;
-			  _idVertexInLine = vIdInLine;
-			  indexSearch=q;
-			}
-		      lcTotal += mylineSearch->getLength();
-		    }
-		  //std::cout << "curMinDist " << curMinDist << " VS dist[0] " << dist[0] << " indexSearch "<< indexSearch << "\n";
-		  if ( indexSearch > 0 )
-		    {
-		      for ( int q=0; q<indexSearch ; ++q )
-			{
-			  int newLineId = (isForwardSearch)?lineIdInBranch+q : lineIdInBranch-q;
-			  MLine* mylineSearch = mylines[newLineId];
-			  int v0Id = mylineSearch->getVertex(0)->getIndex();
-			  int v1Id = mylineSearch->getVertex(1)->getIndex();
-			  ignoreIndexReplaced.insert( (isForwardSearch)? v0Id : v1Id );
-
-			  newRegisterLinesToRemove2.insert( mylineSearch );
-			  newRegisterLinesToRemove.insert( std::make_pair(v0Id,v1Id) );
-			  newRegisterLinesToRemove.insert( std::make_pair(v1Id,v0Id) );
-			  //M_registerLinesToRemoveFromPointIdPairInModelEdge.insert( std::make_pair(v0Id,v1Id) );
-			  //M_registerLinesToRemoveFromPointIdPairInModelEdge.insert( std::make_pair(v1Id,v0Id) );
-			}
-		    }
-		  //std::cout << "M_registerLinesToRemoveFromPointIdPairInModelEdge.size() " << M_registerLinesToRemoveFromPointIdPairInModelEdge.size() << "\n";
-		}
-
-	      ignoreIndexReplaced.insert( _ptToReplaced->getIndex() );
-
-	      std::vector<std::pair<MLine*,int> > myvecLine(1,std::make_pair(_lineWhichHasToReplaced,_idVertexInLine));
-	      //indexVertexReplaced[_ptToReplaced] = std::make_pair( std::make_pair(_lineWhichHasToReplaced,_idVertexInLine) ,pointFound );
-	      indexVertexReplaced[_ptToReplaced] = std::make_pair( myvecLine ,pointFound );
-
-	    }
-	}
+      this->updateMergeFromExtremities(*newCenterlines,indexVertexReplaced,newRegisterLinesToRemove2);
+      newCenterlines->updateMergeFromExtremities(*this,indexVertexReplaced,newRegisterLinesToRemove2);
 
       //----------------------------------------------------------------//
       // search max tag already register
@@ -810,7 +804,6 @@ void AngioTkCenterline::importFile(std::string fileName)
 	    {
 	      MLine* lineModified = vecLine.first;
 	      int ptIdInLine = vecLine.second;
-
 	      lineModified->setVertex(ptIdInLine,newPt);
 #if 0
 	      std::cout << "lineModified->getLength() "<< lineModified->getLength() << " with ptIdInLine " << ptIdInLine <<"\n";
@@ -2491,7 +2484,8 @@ void AngioTkCenterline::runClipMesh()
   //std::cout << "runClipMesh \n";
   // point, direction, radius
   double scalingClip = M_clipMeshScalingFactor;//2;//1;
-  std::vector<std::tuple<SVector3,SVector3,double> > cutDesc; 
+  //std::vector<std::tuple<SVector3,SVector3,double> > cutDesc; 
+  std::map< MVertex *, std::vector< std::tuple<SVector3,SVector3,double> > > cutDesc2; 
 
   for(unsigned int i = 0; i < edges.size(); ++i)
     {
@@ -2499,27 +2493,18 @@ void AngioTkCenterline::runClipMesh()
       MVertex *vE = edges[i].vE;
       //std::cout << "edge " << i << " vB : " << vB->x() << " " << vB->y() << " " << vB->z() << "\n";
       //std::cout << "edge " << i << " vE : " << vE->x() << " " << vE->y() << " " << vE->z() << "\n";
-      bool vBeginConnected = false, vEndConnected = false;
 
-	//for ( Branch const& branchConnected : edges[i].children )
-      for(unsigned int i2 = 0; i2 < edges.size(); ++i2)
-	{
-	  if ( i2 == i ) continue;
-
-	  Branch const& branchConnected =  edges[i2];
-	  //std::cout << "branchConnected.vB : " << branchConnected.vB->x() << " " << branchConnected.vB->y() << " " << branchConnected.vB->z() << "\n";
-	  //std::cout << "branchConnected.vE : " << branchConnected.vE->x() << " " << branchConnected.vE->y() << " " << branchConnected.vE->z() << "\n";
-
-	  //if ( ( vB->distance( branchConnected.vE ) < 1e-9 ) || (vB->distance( branchConnected.vB ) < 1e-9 ) )
-	  if ( vB == branchConnected.vE || vB == branchConnected.vB  )
-	       vBeginConnected = true;
-	    //if ( ( vE->distance( branchConnected.vB ) < 1e-9 ) || (vE->distance( branchConnected.vE ) < 1e-9 ) )
-	  if ( vE == branchConnected.vB || vE == branchConnected.vE )
-	    vEndConnected = true;
-	}
+      auto itExtremityB = this->centerlinesExtremities().find( vB );
+      auto itExtremityE = this->centerlinesExtremities().find( vE );
+      bool vBeginConnected = ( itExtremityB == this->centerlinesExtremities().end() );
+      bool vEndConnected = ( itExtremityE == this->centerlinesExtremities().end() );
 
       if ( !vBeginConnected )
 	{
+	  int branchIdB = itExtremityB->second.first;
+	  if ( branchIdB != i )
+	    Msg::Error("error branchIdB !!");
+
 	  auto lines = edges[i].lines;
 	  if (lines.size() > 0)
 	    {
@@ -2532,12 +2517,12 @@ void AngioTkCenterline::runClipMesh()
 #else
 	      double radiusLineB = 0;
 	      int nAvergage = std::min((int)lines.size(),(int)50);
-		for ( int ls=0;ls<nAvergage ;++ls)
+	      for ( int ls=0;ls<nAvergage ;++ls)
 		{
 		  radiusLineB += radiusl.find(lines[ls])->second;
 		}
-		radiusLineB /= nAvergage;
-		radiusLineB = std::max( radiusLineB, radiusl.find(lines.front())->second );
+	      radiusLineB /= nAvergage;
+	      radiusLineB = std::max( radiusLineB, radiusl.find(lines.front())->second );
 #endif
 	      MLine* curLine = lines.front();
 
@@ -2548,38 +2533,53 @@ void AngioTkCenterline::runClipMesh()
 	      if ( !extremityIsPoint0 && !extremityIsPoint1 )
 		Msg::Error("error !!");
 
-	      for ( int k=0 ; k<lines.size() && curLength <= scalingClip*radiusLineB ; ++k )
+	      SVector3 normalPlanDir(0.,0.,0.);
+	      double minLengthBeforeStart=scalingClip*radiusLineB;
+	      double maxLengthForTest=std::max(minLengthBeforeStart,4*radiusLineB);
+	      for ( int k=0 ; k<lines.size() && curLength <= maxLengthForTest/*scalingClip*radiusLineB*/ ; ++k )
 		{
+		  curLine = lines[k];
+		  curLength += curLine->getLength();
+
+		  if ( curLength < minLengthBeforeStart )
+		    continue;
+
 		  if ( extremityIsPoint0 )
 		    {
-		      curLine = lines[k];
-		      curLength += curLine->getLength();
 		      v1 = curLine->getVertex(1);
 		      v2 = curLine->getVertex(0);
+		      normalPlanDir = v2->point() - v1->point();
+		      if ( (k+1) <lines.size() )
+			{
+			  MLine* nextLine = lines[k+1];
+			  MVertex* v1Next = nextLine->getVertex(1);
+			  MVertex* v2Next = nextLine->getVertex(0);
+			  SVector3 dir2 = v2Next->point() - v1Next->point();
+			  normalPlanDir = (1./2.)*(normalPlanDir+dir2);
+			}
 		    }
-		  //v1 = lines.front()->getVertex(1);
-		  //v2 = lines.front()->getVertex(0);
 		  else
 		    {
-		      curLine = lines[k];
-		      curLength += curLine->getLength();
+		      Msg::Error("NOT ALLOW");
 		      v1 = curLine->getVertex(0);
 		      v2 = curLine->getVertex(1);
 		    }
-		  //v1 = lines.front()->getVertex(0);
-		  //v2 = lines.front()->getVertex(1);
 		}
 	      MVertex *thept = v1;//v2;
 	      std::map<MLine*,double>::iterator itr = radiusl.find(curLine);
 	      double radius = 1.1*itr->second;
 
-	      cutDesc.push_back( std::make_tuple( SVector3(thept->x(),thept->y(),thept->z()),
-						  SVector3(v2->x()-v1->x(),v2->y()-v1->y(),v2->z()-v1->z()),
-						  radius ) );
+	      cutDesc2[vB].push_back( std::make_tuple( SVector3(thept->x(),thept->y(),thept->z()),
+						       normalPlanDir,
+						       radius ) );
+
 	    }
 	}
       if ( !vEndConnected )
 	{
+	  int branchIdE = itExtremityE->second.first;
+	  if ( branchIdE != i )
+	    Msg::Error("error branchIdE !!");
 	  auto lines = edges[i].lines;
 	  if (lines.size() > 0)
 	    {
@@ -2590,14 +2590,15 @@ void AngioTkCenterline::runClipMesh()
 	      double radiusLineB = itrLineB->second;//0.8;
 	      //double radiusLineB = edges[i].maxRad;
 #else
-	      double radiusLineB = 0;
+	      double radiusLineE = 0;
 	      int nAvergage = std::min((int)lines.size(),(int)50);
 		for ( int ls=0;ls<nAvergage ;++ls)
 		{
-		  radiusLineB += radiusl.find(lines[lines.size()-1-ls])->second;
+		  radiusLineE += radiusl.find(lines[lines.size()-1-ls])->second;
 		}
-		radiusLineB /= nAvergage;
-		radiusLineB = std::max( radiusLineB, radiusl.find(lines.back())->second );
+		radiusLineE /= nAvergage;
+		radiusLineE = std::max( radiusLineE, radiusl.find(lines.back())->second );
+		//radiusLineE = edges[branchIdE].maxRad; //NEW
 #endif
 
 
@@ -2609,40 +2610,45 @@ void AngioTkCenterline::runClipMesh()
 	      if ( !extremityIsPoint0 && !extremityIsPoint1 )
 		Msg::Error("error !!");
 
-	      for ( int k=0 ; k<lines.size() && curLength <= scalingClip*radiusLineB ; ++k )
+	      SVector3 normalPlanDir(0.,0.,0.);
+	      double minLengthBeforeStart=scalingClip*radiusLineE;
+	      double maxLengthForTest=std::max(minLengthBeforeStart,4*radiusLineE);
+	      for ( int k=0 ; k<lines.size() && curLength <= maxLengthForTest/*scalingClip*radiusLineE*/ ; ++k )
 		{
+		  curLine = lines[lines.size()-1-k];
+		  curLength += curLine->getLength();
+
+		  if ( curLength < minLengthBeforeStart )
+		    continue;
+
 		  if ( extremityIsPoint1 ) 
 		    {
-		      curLine = lines[lines.size()-1-k];
-		      curLength += curLine->getLength();
 		      v1 = curLine->getVertex(0);
 		      v2 = curLine->getVertex(1);
+		      normalPlanDir = v2->point() - v1->point();
+		      if ( int( lines.size()-1-(k+1) ) >= 0 )
+			{
+			  MLine* nextLine = lines[( lines.size()-1-(k+1))];
+			  MVertex* v1Next = nextLine->getVertex(0);
+			  MVertex* v2Next = nextLine->getVertex(1);
+			  SVector3 dir2 = v2Next->point() - v1Next->point();
+			  normalPlanDir = (1./2.)*(normalPlanDir+dir2);
+			}
 		    }
-		  //v1 = lines.back()->getVertex(0);
-		  //v2 = lines.back()->getVertex(1);
 		  else
 		    {
-		      curLine = lines[lines.size()-1-k];
-		      curLength += curLine->getLength();
+		      Msg::Error("NOT ALLOW");
 		      v1 = curLine->getVertex(1);
 		      v2 = curLine->getVertex(0);
 		    }
-		  //v1 = lines.back()->getVertex(1);
-		  //v2 = lines.back()->getVertex(0);
+
+		  MVertex *thept = v1;//v2;
+		  std::map<MLine*,double>::iterator itr = radiusl.find(curLine);
+		  double radius = 1.1*itr->second;
+		  cutDesc2[vE].push_back( std::make_tuple( SVector3(thept->x(),thept->y(),thept->z()),
+							   normalPlanDir, radius ) );
+
 		}
-	      //std::cout << " v1 : " << v1->x() << " " << v1->y() << " " << v1->z() << "\n";
-	      //std::cout << " v2 : " << v2->x() << " " << v2->y() << " " << v2->z() << "\n";
-
-	      MVertex *thept = v1;//v2;
-	      //std::map<MLine*,double>::iterator itr = radiusl.find(lines[lines.size()-1]);
-	      //std::map<MLine*,double>::iterator itr = radiusl.find(lines.back());
-	      //double radius = itr->second;//0.8;
-	      std::map<MLine*,double>::iterator itr = radiusl.find(curLine);
-	      double radius = 1.1*itr->second;
-
-	      cutDesc.push_back( std::make_tuple( SVector3(thept->x(),thept->y(),thept->z()),
-						  SVector3(v2->x()-v1->x(),v2->y()-v1->y(),v2->z()-v1->z()),
-						  radius ) );
 	    }
 
 	}
@@ -2654,6 +2660,7 @@ void AngioTkCenterline::runClipMesh()
 
   std::ofstream fileWrited( "sphereremovebranch.data", std::ios::out | std::ios::trunc);
   int cptRealCut=0;
+#if 0
   for ( int k=0;k<cutDesc.size(); ++k)
     {
       //if ( k==4 ) continue;
@@ -2672,8 +2679,32 @@ void AngioTkCenterline::runClipMesh()
       else
 	++cptRealCut;
     }
+#else
+  //for ( int k=0;k<cutDesc.size(); ++k)
+  for ( auto const& cutDescPair : cutDesc2 )
+    {
+      MVertex* vExtremity = cutDescPair.first;
+      bool cutSucess = false;
+      for ( auto const& cutDesc : cutDescPair.second )
+	{
+	  //if ( k==4 ) continue;
+	  SVector3/*auto const&*/ pt =  std::get<0>(cutDesc);
+	  SVector3/*auto const&*/ dir =  std::get<1>(cutDesc);
+	  double radius =  std::get<2>(cutDesc);
+	  fileWrited << 0 << " " << pt[0] << " " << pt[1] << " " << pt[2] << " " << radius << "\n";
+	  cutSucess = cutByDisk(pt, dir, radius, cptRealCut+1);
+	  if (cutSucess)
+	    {
+	      ++cptRealCut;
+	      break;
+	    }
+	}
+      if (!cutSucess)
+	Msg::Error("open surface fail for the extermity pt : %g,%g,%g",vExtremity->x(),vExtremity->y(),vExtremity->z());
+    }
+#endif
   fileWrited.close();
-  Msg::Info("AngioTkCenterline: all cuts done for open the surface (nb cut applied %d, planned %d)", cptRealCut,cutDesc.size());
+  Msg::Info("AngioTkCenterline: all cuts done for open the surface (nb cut applied %d, planned %d)", cptRealCut,cutDesc2.size());
 
   //create discreteFaces
   //createFaces();

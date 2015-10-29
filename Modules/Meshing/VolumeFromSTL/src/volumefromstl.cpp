@@ -699,7 +699,9 @@ CenterlinesManager::CenterlinesManager( std::string prefix )
     M_applyThresholdMaxRadius( doption(_name="threshold-radius.max",_prefix=this->prefix() ) ),
     M_applyThresholdZonePointSetPath( AngioTkEnvironment::expand( soption(_name="thresholdzone-radius.point-set.filename",_prefix=this->prefix()) ) ),
     M_applyThresholdZoneMinRadius( doption(_name="thresholdzone-radius.min",_prefix=this->prefix() ) ),
-    M_applyThresholdZoneMaxRadius( doption(_name="thresholdzone-radius.max",_prefix=this->prefix() ) )
+    M_applyThresholdZoneMaxRadius( doption(_name="thresholdzone-radius.max",_prefix=this->prefix() ) ),
+    M_avoidTubularColision( boption(_name="avoid-tubular-colision.apply",_prefix=this->prefix() ) ),
+    M_avoidTubularColisionInputPointPairPath( AngioTkEnvironment::expand( soption(_name="avoid-tubular-colision.point-pair.filename",_prefix=this->prefix() ) ) )
 {
     if ( Environment::vm().count(prefixvm(this->prefix(),"input.centerlines.filename").c_str()) )
         M_inputCenterlinesPath = Environment::vm()[prefixvm(this->prefix(),"input.centerlines.filename").c_str()].as<std::vector<std::string> >();
@@ -909,10 +911,10 @@ CenterlinesManager::run()
                 centerlinesTool->applyFieldThresholdZoneMax( fieldnames,M_applyThresholdZoneMaxRadius,pointSetData );
         }
 
-        if ( false )
+        if ( M_avoidTubularColision )
         {
             std::string fileTubeColision = AngioTkEnvironment::expand( soption(_name="avoid-tubular-colision.point-pair.filename",_prefix=this->prefix() ) );
-            if ( !fileTubeColision.empty() && fs::exists( fileTubeColision ) )
+            if ( !M_avoidTubularColisionInputPointPairPath.empty() && fs::exists( M_avoidTubularColisionInputPointPairPath ) )
             {
                 auto pointPairData = AngioTk::loadFromPointPairFile( fileTubeColision );
                 centerlinesTool->applyTubularColisionFix( pointPairData );
@@ -948,6 +950,7 @@ CenterlinesManager::options( std::string const& prefix )
         (prefixvm(prefix,"thresholdzone-radius.point-set.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input point-set filename" )
         (prefixvm(prefix,"thresholdzone-radius.max").c_str(), Feel::po::value<double>()->default_value(-1), "(double) threshold-radius.max")
         (prefixvm(prefix,"thresholdzone-radius.min").c_str(), Feel::po::value<double>()->default_value(-1), "(double) threshold-radius.max")
+        (prefixvm(prefix,"avoid-tubular-colision.apply").c_str(), po::value<bool>()->default_value( false ), "(string) input point-set filename" )
         (prefixvm(prefix,"avoid-tubular-colision.point-pair.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input point-set filename" )
 
         ;

@@ -295,6 +295,10 @@ class AngioTkCenterline : public Field{
 
  private :
   void saveCurrentGModelSTL(std::string const outputPath, bool binary );
+  void updateMergeFromExtremities( AngioTkCenterline const& newCenterlines,
+				   std::map<MVertex*,std::pair< std::vector<std::pair<MLine*,int> >, MVertex*> > & indexVertexReplaced,
+				   std::set<MLine*> & newRegisterLinesToRemove2 );
+
 
 };
 #else

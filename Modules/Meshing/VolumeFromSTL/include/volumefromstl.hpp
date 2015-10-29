@@ -219,6 +219,8 @@ private :
     double M_applyThresholdMinRadius,M_applyThresholdMaxRadius;
     std::string M_applyThresholdZonePointSetPath;
     double M_applyThresholdZoneMinRadius,M_applyThresholdZoneMaxRadius;
+    bool M_avoidTubularColision;
+    std::string M_avoidTubularColisionInputPointPairPath;
 };
 
 class ImageFromCenterlines
