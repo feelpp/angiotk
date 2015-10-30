@@ -163,9 +163,11 @@ class AngioTkCenterline : public Field{
 			 SVector3 &d1, SVector3 &d2,  SVector3 &d3);
 
 
-  void updateCenterlinesFromFile( std::string fileName );
+  //void updateCenterlinesFromFile( std::string fileName );
   void createFromGeoCenterlinesFile( std::string const& fileName, std::string const& inputSurfacePath );
+
  private :
+  void createFromFile( std::string const& fileName, std::string const& inputSurfacePath );
   void updateCenterlinesForUse(std::vector<GEdge*> const& _modEdges);
   void updateCenterlinesForUse(std::map<int,std::vector<MLine*> > const& _modEdges);
   //void fixBranchConnectivity();

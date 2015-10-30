@@ -877,6 +877,7 @@ CenterlinesManager::run()
             {
                 if ( true )
                 {
+                    GmshInitialize();
                     CTX::instance()->terminal = 1;
                     int verbosityLevel = 5;
                     Msg::SetVerbosity( verbosityLevel );
@@ -890,7 +891,7 @@ CenterlinesManager::run()
         centerlinesTool->removeBranchIds( M_removeBranchIds );
 
         centerlinesTool->addFieldBranchIds();
-        if ( surfaceMeshExist && !centerlinesTool->hasField("RadiusMin") )
+        if ( !centerlinesTool->hasField("RadiusMin") )
             centerlinesTool->addFieldRadiusMin();
 
         if ( M_applyThresholdMinRadius > 0 || M_applyThresholdMaxRadius > 0 )

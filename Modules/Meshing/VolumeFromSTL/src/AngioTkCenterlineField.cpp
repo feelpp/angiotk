@@ -714,11 +714,9 @@ void AngioTkCenterline::importFile(std::string fileName)
     {
       Msg::Info("AngioTkCenterline: importFile : merge centerlines start");
 
-      //std::shared_ptr<AngioTkCenterline> newCenterlines( new AngioTkCenterline );
       newCenterlines.reset( new AngioTkCenterline );
-      //newCenterlines->importFile( fileName );
-      //readVTKPolyDataFields( fileName,newCenterlines->centerlinesFieldsPointData );
-      newCenterlines->updateCenterlinesFromFile( fileName );
+      newCenterlines->importFile( fileName );
+
       this->attachAngioTkCenterline(newCenterlines);
 
       this->buildKdTree();
@@ -826,37 +824,19 @@ void AngioTkCenterline::importFile(std::string fileName)
       modEdges.insert(modEdges.end(),newCenterlines->mod->firstEdge(), newCenterlines->mod->lastEdge());
       //std::cout << "new distance" << std::distance( newCenterlines->mod->firstEdge(), newCenterlines->mod->lastEdge())<<"\n";
       Msg::Info("AngioTkCenterline: importFile : merge centerlines finish");
+
+      // update centerlines : data branch, extremities, kdtree,...
+      this->updateCenterlinesForUse(modEdges);
+
     }
   else
     {
-      //mod = new GModel();
-      mod.reset( new GModel() );
-      mod->load(fileName);
-      mod->removeDuplicateMeshVertices(1.e-8);
-      // call indexMeshVertices allow to assign id on vertices from 1
-      bool saveAll = false;
-      int numVerticesInCenterlinesGModel = mod->indexMeshVertices(saveAll);
-      //mod->writeMSH("myCenterlines.msh", 2.2, false, false);
-      //mod->writeVTK("myCenterlines.vtk", false, false);
-#if 1
-      current->setAsCurrent();
-      current->setVisibility(1);
-#endif
-      //std::cout<< "number of vertice in current GModel "<< current->indexMeshVertices(true) << "\n";
-      modEdges.insert(modEdges.end(),mod->firstEdge(), mod->lastEdge());
+      this->createFromFile( fileName,"" );
     }
 
 
-  // update centerlines : data branch, extremities, kdtree,...
-  this->updateCenterlinesForUse(modEdges);
 
   //---------------------------------------------------------------------------------------------//
-
-  if ( !newCenterlines )
-    {
-      this->updateRelationMapVertex();
-      this->updateCenterlinesFieldsFromFile(fileName);
-    }
 
   // in case of merging centerline : update centerlinesFieldsPointData
   if ( newCenterlines )
@@ -980,6 +960,37 @@ void AngioTkCenterline::createFromGeoCenterlinesFile( std::string const& fileNam
   Msg::Info("AngioTkCenterline: createFromGeoCenterlinesFile : finish");
 }
 
+void AngioTkCenterline::createFromFile( std::string const& fileName, std::string const& inputSurfacePath )
+{
+  Msg::Info("AngioTkCenterline: createFromFile : %s",fileName.c_str());
+
+  mod.reset( new GModel() );
+  mod->load( fileName );
+  std::string inputExt = Feel::fs::path( fileName ).extension().string();
+  if ( inputExt == ".geo" )
+    mod->mesh(1);
+
+  mod->removeDuplicateMeshVertices(1.e-8);
+  // call indexMeshVertices allow to assign id on vertices from 1
+  bool saveAll = true;//false;
+  int numVerticesInCenterlinesGModel = mod->indexMeshVertices(saveAll);
+
+  //Msg::Info("AngioTkCenterline: createFromGmshFile : nModEdge %d",int(std::distance( mod->firstEdge(), mod->lastEdge())) );
+
+  modEdges.insert(modEdges.end(),mod->firstEdge(), mod->lastEdge());
+  if ( !inputSurfacePath.empty() )
+    this->importSurfaceFromFile( inputSurfacePath );
+
+  // update centerlines : data branch, extremities, kdtree,...
+  this->updateCenterlinesForUse(modEdges);
+  this->updateRelationMapVertex();
+
+  if ( inputExt == ".vtk" )
+    this->updateCenterlinesFieldsFromFile(fileName);
+
+  Msg::Info("AngioTkCenterline: createFromFile : finish");
+}
+
 void AngioTkCenterline::updateCenterlinesForUse(std::vector<GEdge*> const& _modEdges)
 {
   std::map<int,std::vector<MLine*> > _modEdgesConvert;
@@ -1015,6 +1026,7 @@ void AngioTkCenterline::updateCenterlinesForUse(std::map<int,std::vector<MLine*>
       int geTag = _modEdgesPair.first;
       allTag.insert( geTag );
       auto const& linesVec = _modEdgesPair.second;
+      //Msg::Info("AngioTkCenterline:updateForUse in tag %d (%d) ",geTag,int(linesVec.size()));
       for(unsigned int j = 0; j < linesVec.size(); j++)
 	{
 	  MLine *l = linesVec[j];
@@ -1150,8 +1162,11 @@ void AngioTkCenterline::updateCenterlinesForUse(std::map<int,std::vector<MLine*>
       int tag = myl.second;
       if ( tagToChange.find(tag) != tagToChange.end() )
 	{
-	  if ( tagPrintedDone.find( myl.second ) == tagPrintedDone.end() ) {
-	    std::cout << "CHANGE TAG " << myl.second << " -> " << tagToChange.find(tag)->second << "\n"; tagPrintedDone.insert(myl.second);}
+	  if ( false )
+	    if ( tagPrintedDone.find( myl.second ) == tagPrintedDone.end() ) {
+	      std::cout << "CHANGE TAG " << myl.second << " -> " << tagToChange.find(tag)->second << "\n";
+	      tagPrintedDone.insert(myl.second);
+	    }
 	  myl.second = tagToChange.find(tag)->second;
 
 	  MVertex *v0 = myl.first->getVertex(0);
@@ -3846,11 +3861,6 @@ void AngioTkCenterline::writeCenterlinesVTK(std::string fileName)
 }
 
 #include <gmshHeadersMissing/MVertexPositionSet.h>
-void AngioTkCenterline::updateCenterlinesFromFile(std::string fileName)
-{
-  this->importFile( fileName );
-  this->updateCenterlinesFieldsFromFile( fileName );
-}
 void AngioTkCenterline::updateCenterlinesFieldsFromFile(std::string fileName)
 {
 
@@ -4000,18 +4010,33 @@ AngioTkCenterline::addFieldRadiusMin( std::string const& fieldName )
 
   centerlinesFieldsPointData[fieldName].clear();
   centerlinesFieldsPointData[fieldName].resize( numVertices );
-  for ( auto& ptPair : colorp )
-    {
-      MVertex* myvertex = ptPair.first;
-      double pt[3] = { myvertex->x(), myvertex->y(), myvertex->z() };
-      ANNidx index[1];
-      ANNdist dist[1];
-      kdtreeR->annkSearch(pt, 1, index, dist);
-      double minRad = sqrt(dist[0]);
 
-      int vId = myvertex->getIndex();
-      int vVtkId = this->M_mapVertexGmshIdToVtkId[vId];
-      centerlinesFieldsPointData[fieldName][vVtkId] = { (double)minRad };
+  if( !triangles.empty())
+    {
+      for ( auto& ptPair : colorp )
+	{
+	  MVertex* myvertex = ptPair.first;
+	  double pt[3] = { myvertex->x(), myvertex->y(), myvertex->z() };
+	  ANNidx index[1];
+	  ANNdist dist[1];
+	  kdtreeR->annkSearch(pt, 1, index, dist);
+	  double minRad = sqrt(dist[0]);
+
+	  int vId = myvertex->getIndex();
+	  int vVtkId = this->M_mapVertexGmshIdToVtkId[vId];
+	  centerlinesFieldsPointData[fieldName][vVtkId] = { (double)minRad };
+	}
+    }
+  else
+    {
+      for ( auto& ptPair : colorp )
+	{
+	  MVertex* myvertex = ptPair.first;
+	  int vId = myvertex->getIndex();
+	  int vVtkId = this->M_mapVertexGmshIdToVtkId[vId];
+	  centerlinesFieldsPointData[fieldName][vVtkId] = { 0. };
+	}
+
     }
 }
 
