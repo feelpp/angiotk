@@ -172,9 +172,10 @@ class AngioTkCenterline : public Field{
   void updateCenterlinesForUse(std::map<int,std::vector<MLine*> > const& _modEdges);
   //void fixBranchConnectivity();
   void checkCenterlinesConnectivity();
+  void updateFieldsDataAfterReduction( std::map<int,int> const& _previousMapVertexGmshIdToVtkId );
+
  public:
   void updateCenterlinesFieldsFromFile(std::string fileName);
-  void updateCenterlinesFields();
 
   void removeBranchIds( std::set<int> const& _removeBranchIds );
   void cleanBranch();

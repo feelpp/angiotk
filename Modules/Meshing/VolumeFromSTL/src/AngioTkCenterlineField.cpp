@@ -746,7 +746,6 @@ void AngioTkCenterline::importFile(std::string fileName)
 
   std::shared_ptr<AngioTkCenterline> newCenterlines;
   //int previousMaxVertexIndex=0;
-  std::map<int,int> _previousMapVertexGmshIdToVtkId;
 
   newCenterlines.reset( new AngioTkCenterline );
   newCenterlines->importFile( fileName );
@@ -754,6 +753,7 @@ void AngioTkCenterline::importFile(std::string fileName)
   this->attachAngioTkCenterline(newCenterlines);
 
   // copy previous mapping
+  std::map<int,int> _previousMapVertexGmshIdToVtkId;
   _previousMapVertexGmshIdToVtkId.insert( this->M_mapVertexGmshIdToVtkId.begin(),this->M_mapVertexGmshIdToVtkId.end() );
 
   // search points which can be connected between centerlines
@@ -1423,8 +1423,13 @@ void AngioTkCenterline::cleanBranch()
 	      M_registerLinesToRemoveFromPointIdPairInModelEdge.insert( std::make_pair(v1Id,v0Id) );
 	    }
 	}
+      // copy previous mapping
+      std::map<int,int> _previousMapVertexGmshIdToVtkId;
+      _previousMapVertexGmshIdToVtkId.insert( this->M_mapVertexGmshIdToVtkId.begin(),this->M_mapVertexGmshIdToVtkId.end() );
+      // update for use
       this->updateCenterlinesForUse(modEdges);
-
+      // update fields data
+      this->updateFieldsDataAfterReduction(_previousMapVertexGmshIdToVtkId);
     }
 
 }
@@ -4251,11 +4256,13 @@ void AngioTkCenterline::removeBranchIds( std::set<int> const& _removeBranchIds )
     }
   }
 
+  // copy previous mapping
+  std::map<int,int> _previousMapVertexGmshIdToVtkId;
+  _previousMapVertexGmshIdToVtkId.insert( this->M_mapVertexGmshIdToVtkId.begin(),this->M_mapVertexGmshIdToVtkId.end() );
+  // update for use
   this->updateCenterlinesForUse(_modEdgesConvert);
-
-  this->updateCenterlinesFields();
-  // update new mapping between GmshId and VtkId
-  this->updateRelationMapVertex();
+  // update fields data
+  this->updateFieldsDataAfterReduction(_previousMapVertexGmshIdToVtkId);
 
 }
 
@@ -4284,11 +4291,14 @@ void AngioTkCenterline::removeDuplicateBranch()
 	//_modEdgesConvert[i+1].push_back( myline );
       }
   }
-  this->updateCenterlinesForUse(_modEdgesConvert);
 
-  this->updateCenterlinesFields();
-  // update new mapping between GmshId and VtkId
-  this->updateRelationMapVertex();
+  // copy previous mapping
+  std::map<int,int> _previousMapVertexGmshIdToVtkId;
+  _previousMapVertexGmshIdToVtkId.insert( this->M_mapVertexGmshIdToVtkId.begin(),this->M_mapVertexGmshIdToVtkId.end() );
+  // update for use
+  this->updateCenterlinesForUse(_modEdgesConvert);
+  // update fields data
+  this->updateFieldsDataAfterReduction(_previousMapVertexGmshIdToVtkId);
 
 }
 
@@ -4324,44 +4334,28 @@ void AngioTkCenterline::checkCenterlinesConnectivity()
   }
 }
 
-void AngioTkCenterline::updateCenterlinesFields()
+void AngioTkCenterline::updateFieldsDataAfterReduction( std::map<int,int> const& _previousMapVertexGmshIdToVtkId )
 {
-  auto const& _previousMapVertexGmshIdToVtkId = M_mapVertexGmshIdToVtkId;
-
   std::map<std::string,std::vector<std::vector<double> > >  newCenterlinesFieldsPointData;
-  // get new mapping between GmshId and VtkId
-  std::map<int,int>  _mapVertexGmshIdToVtkId,_mapVertexVtkIdToGmshId;
-  _mapVertexGmshIdToVtkId.clear(); _mapVertexVtkIdToGmshId.clear();
-  this->updateRelationMapVertex( _mapVertexGmshIdToVtkId,_mapVertexVtkIdToGmshId);
 
   for (auto const& fieldsPointDataPair : centerlinesFieldsPointData )
     {
       newCenterlinesFieldsPointData[fieldsPointDataPair.first].clear();
-      auto const& vecNewPointData = fieldsPointDataPair.second;
-      newCenterlinesFieldsPointData[fieldsPointDataPair.first].resize(_mapVertexVtkIdToGmshId.size());
-      //std::cout << "fieldsPointDataPair.first " << fieldsPointDataPair.first << " : " << newCenterlinesFieldsPointData[fieldsPointDataPair.first].size() << "\n";
-      for (int k=0;k<_mapVertexVtkIdToGmshId.size();++k)
+      newCenterlinesFieldsPointData[fieldsPointDataPair.first].resize(this->M_mapVertexVtkIdToGmshId.size());
+	  //std::cout << "fieldsPointDataPair.first " << fieldsPointDataPair.first << " : " << newCenterlinesFieldsPointData[fieldsPointDataPair.first].size() << "\n";
+      for (int k=0;k<this->M_mapVertexVtkIdToGmshId.size();++k)
 	{
-	  if ( _previousMapVertexGmshIdToVtkId.find( _mapVertexVtkIdToGmshId[k] ) == _previousMapVertexGmshIdToVtkId.end() )
-	    Msg::Error("Error in mapping \n");
-	  int idContainer = _previousMapVertexGmshIdToVtkId.find( _mapVertexVtkIdToGmshId[k] )->second;
-
-	  //std::cout << "k="<< k << " _mapVertexVtkIdToGmshId[k] "<< _mapVertexVtkIdToGmshId[k]
-	  //<< " idContainer " << idContainer << "\n";
-	  int compSize = centerlinesFieldsPointData[fieldsPointDataPair.first][idContainer].size();
-
-	  std::vector<double> val(compSize);
-	  newCenterlinesFieldsPointData[fieldsPointDataPair.first][k].resize(compSize);
-	  //centerlinesFieldsPointData[fieldsPointDataPair.first][k] = vecNewPointData[idContainer];
-
-	  for (int comp=0;comp<compSize;++comp )
-	    newCenterlinesFieldsPointData[fieldsPointDataPair.first][k][comp] =  vecNewPointData[idContainer][comp];
+	  int gmshId = this->M_mapVertexVtkIdToGmshId[k];
+	  auto itFindGmshIdInPrevious = _previousMapVertexGmshIdToVtkId.find( gmshId );
+	  if ( itFindGmshIdInPrevious == _previousMapVertexGmshIdToVtkId.end() )
+	    Msg::Error("Error in mapping 2\n");
+	  int vtkId = itFindGmshIdInPrevious->second;
+	  newCenterlinesFieldsPointData[fieldsPointDataPair.first][k] = this->centerlinesFieldsPointData[fieldsPointDataPair.first][vtkId];
 	}
     }
   centerlinesFieldsPointData.clear();
   centerlinesFieldsPointData = newCenterlinesFieldsPointData;
 }
-
 
 
 void AngioTkCenterline::printSplit() const
