@@ -889,6 +889,7 @@ CenterlinesManager::run()
             centerlinesTool->importFile( this->inputCenterlinesPath(k) );
         }
         centerlinesTool->removeBranchIds( M_removeBranchIds );
+        centerlinesTool->cleanBranch();
 
         centerlinesTool->addFieldBranchIds();
         if ( !centerlinesTool->hasField("RadiusMin") )

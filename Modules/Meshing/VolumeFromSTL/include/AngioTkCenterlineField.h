@@ -177,6 +177,7 @@ class AngioTkCenterline : public Field{
   void updateCenterlinesFields();
 
   void removeBranchIds( std::set<int> const& _removeBranchIds );
+  void cleanBranch();
   void removeDuplicateBranch();
   void addFieldBranchIds( std::string const& fieldName = "BranchIds" );
   void addFieldRadiusMin( std::string const& fieldName = "RadiusMin" );
@@ -226,7 +227,7 @@ class AngioTkCenterline : public Field{
 			       std::map<int,int> & _mapVertexVtkIdToGmshId );
   std::map<int,int> M_mapVertexGmshIdToVtkId, M_mapVertexVtkIdToGmshId;
   std::set<std::pair<int,int> > M_registerLinesToRemoveFromPointIdPairInModelEdge;
-
+  std::set<MLine*> M_registerLinesDuplicatedToIgnore;
 
   std::vector<std::shared_ptr<AngioTkCenterline> > M_attachAngioTkCenterline;
   void attachAngioTkCenterline( std::shared_ptr<AngioTkCenterline> const& obj ) { if ( obj ) M_attachAngioTkCenterline.push_back(obj); }
@@ -297,9 +298,8 @@ class AngioTkCenterline : public Field{
 
  private :
   void saveCurrentGModelSTL(std::string const outputPath, bool binary );
-  void updateMergeFromExtremities( AngioTkCenterline const& newCenterlines,
-				   std::map<MVertex*,std::pair< std::vector<std::pair<MLine*,int> >, MVertex*> > & indexVertexReplaced,
-				   std::set<MLine*> & newRegisterLinesToRemove2 );
+  void updateMergeFromExtremities( AngioTkCenterline const& centerlinesMerged,
+				   std::map<MVertex*,std::pair< std::vector<std::pair<MLine*,int> >, MVertex*> > & indexVertexReplaced );
 
 
 };
