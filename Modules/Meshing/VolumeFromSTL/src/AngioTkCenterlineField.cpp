@@ -3069,92 +3069,6 @@ void AngioTkCenterline::runClipMesh()
 
 
 
-#if 0
-void AngioTkCenterline::cutMesh()
-{
-  Msg::Info("AngioTkCenterline: action (cutMesh) splits surface mesh (%d tris) using %s ",
-            triangles.size(), fileName.c_str());
-
-  //splitMesh
-  for(unsigned int i = 0; i < edges.size(); i++){
-    std::vector<MLine*> lines = edges[i].lines;
-    double L = edges[i].length;
-    double D = 2.*edges[i].minRad;  //(edges[i].minRad+edges[i].maxRad);
-    double AR = L/D;
-    // printf("*** AngioTkCenterline branch %d (AR=%.1f) \n", edges[i].tag, AR);
-
-    int nbSplit = (int)ceil(AR/2 + 1.1); //AR/2 + 0.9
-    //int nbSplit = (int)ceil(AR/4 + 1.1); //AR/2 + 0.9
-    //nbSplit = std::min( nbSplit, 8 );
-    if( nbSplit > 1 ){
-      printf("->> cut branch in %d parts \n",  nbSplit);
-      std::cout << "->> cut branch "<< i << "(L="<< L << " ,D="<< D << " ,AR=" << AR << ")"
-		<< " in " << nbSplit << " parts\n";
-      double li  = L/nbSplit;
-      double lc = 0.0;
-      for (unsigned int j= 0; j < lines.size(); j++){
-      //for (unsigned int j= 2/*0*/; j < lines.size()-2; j++){
-	lc += lines[j]->getLength();
-	//if ( j < 3 || j >  lines.size()-3 ) continue;
-	//if ( j != (int)ceil( lines.size()/2) ) continue;
-	if (lc > li && nbSplit > 1) {
-	  MVertex *v1 = lines[j]->getVertex(0);
-	  MVertex *v2 = lines[j]->getVertex(1);
-	  SVector3 pt(v1->x(), v1->y(), v1->z());
-	  SVector3 dir(v2->x()-v1->x(),v2->y()-v1->y(),v2->z()-v1->z());
-	  std::map<MLine*,double>::iterator itr = radiusl.find(lines[j]);
-	  cutByDisk(pt, dir, itr->second);
-	  nbSplit--;
-	  lc = 0.0;
-	}
-      }
-    }
-#if 1
-    if(edges[i].children.size() > 0.0 && AR > 1.0){
-      MVertex *v1 = lines[lines.size()-1]->getVertex(1);//end vertex
-      MVertex *v2;
-      if(AR < 1.5) v2 = lines[0]->getVertex(0);
-      else if (lines.size() > 4) v2 = lines[lines.size()-4]->getVertex(0);
-      else v2 = lines[lines.size()-1]->getVertex(0);
-      SVector3 pt(v1->x(), v1->y(), v1->z());
-      SVector3 dir(v2->x()-v1->x(),v2->y()-v1->y(),v2->z()-v1->z());
-      //printf("-->> cut branch at bifurcation \n");
-      std::map<MLine*,double>::iterator itr = radiusl.find(lines[lines.size()-1]);
-      //bool cutted =
-      cutByDisk(pt, dir, itr->second);
-      // if(!cutted){
-      //   int l = lines.size()-1-lines.size()/(4*nbSplit); //chech this!
-      //   v1 = lines[l]->getVertex(1);
-      //   v2 = lines[l]->getVertex(0);
-      //   pt = SVector3(v1->x(), v1->y(), v1->z());
-      //   dir = SVector3(v2->x()-v1->x(),v2->y()-v1->y(),v2->z()-v1->z());
-      //   printf("-->> cut bifurcation NEW \n");
-      //   itr = radiusl.find(lines[l]);
-      //   cutted = cutByDisk(pt, dir, itr->second);
-      // }
-    }
-#endif
- }
-
-  //create discreteFaces
-  createFaces();
-  current->createTopologyFromFaces(discFaces);
-  current->exportDiscreteGEOInternals();
-
-  //write
-  Msg::Info("AngioTkCenterline: writing splitted mesh 'myPARTS.msh'");
-  current->writeMSH("myPARTS.msh", 2.2, false, false);
-  //exit(0);
-  //create compounds
-  createSplitCompounds();
-
-  Msg::Info("Done splitting mesh by centerlines");
-}
-#else
-
-/**
- * NEW
- */
 void AngioTkCenterline::cutMesh(std::string const& remeshPartitionMeshFile)
 {
   Msg::Info("AngioTkCenterline: action (cutMesh) splits surface mesh (%d tris) using %s ",
@@ -3442,7 +3356,6 @@ void AngioTkCenterline::cutMesh(std::string const& remeshPartitionMeshFile)
   Msg::Info("Done splitting mesh by centerlines");
 }
 
-#endif
 
 
 void AngioTkCenterline::runSurfaceRemesh( std::string const& remeshPartitionMeshFile, bool forceRebuildPartition )
