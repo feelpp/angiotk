@@ -221,6 +221,8 @@ private :
     double M_applyThresholdZoneMinRadius,M_applyThresholdZoneMaxRadius;
     bool M_avoidTubularColision;
     std::string M_avoidTubularColisionInputPointPairPath;
+    bool M_smoothResample;
+    double M_smoothResampleMeshSize, M_smoothResampleGeoPointSpacing;
 };
 
 class ImageFromCenterlines

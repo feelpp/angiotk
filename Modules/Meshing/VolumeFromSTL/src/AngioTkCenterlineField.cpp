@@ -43,6 +43,7 @@
 #include <Context.h>
 #include <directions3D.h>
 #include <gmshHeadersMissing/meshGRegion.h>
+#include <gmshHeadersMissing/MVertexPositionSet.h>
 
 
 #if defined(FEELPP_HAS_ANN_H)
@@ -576,6 +577,9 @@ AngioTkCenterline::~AngioTkCenterline()
 //#include <OpenFile.h>
 void AngioTkCenterline::importSurfaceFromFile(std::string const& fileName )
 {
+  if ( fileName.empty() || !Feel::fs::exists( fileName ) )
+       return;
+
   current = GModel::current();
   current->load(fileName);
   current->removeDuplicateMeshVertices(1.e-8);
@@ -874,22 +878,22 @@ void AngioTkCenterline::importFile(std::string fileName)
 
   //---------------------------------------------------------------------------------------------//
 
-  // in case of merging centerline : update centerlinesFieldsPointData
+  // in case of merging centerline : update M_centerlinesFieldsPointData
   if ( newCenterlines )
     {
       std::map<std::string,std::vector<std::vector<double> > >  newCenterlinesFieldsPointData;
 
       // delete datas when fieldname is not presence in all centerlines
       std::set<std::string> fieldsToErase;
-      for (auto const& fieldsPointDataPair : this->centerlinesFieldsPointData )
+      for (auto const& fieldsPointDataPair : this->M_centerlinesFieldsPointData )
 	{
-	  if ( newCenterlines->centerlinesFieldsPointData.find(fieldsPointDataPair.first) == newCenterlines->centerlinesFieldsPointData.end() )
+	  if ( newCenterlines->M_centerlinesFieldsPointData.find(fieldsPointDataPair.first) == newCenterlines->M_centerlinesFieldsPointData.end() )
 	    fieldsToErase.insert( fieldsPointDataPair.first );
 	}
       for ( std::string const fieldName : fieldsToErase )
-	this->centerlinesFieldsPointData.erase(fieldName);
+	this->M_centerlinesFieldsPointData.erase(fieldName);
 
-      for (auto const& fieldsPointDataPair : centerlinesFieldsPointData )
+      for (auto const& fieldsPointDataPair : M_centerlinesFieldsPointData )
 	{
 	  newCenterlinesFieldsPointData[fieldsPointDataPair.first].clear();
 	  newCenterlinesFieldsPointData[fieldsPointDataPair.first].resize(this->M_mapVertexVtkIdToGmshId.size());
@@ -903,7 +907,7 @@ void AngioTkCenterline::importFile(std::string fileName)
 		  if ( itFindGmshIdInNew == newCenterlines->M_mapVertexGmshIdToVtkId.end() )
 		    Msg::Error("Error in mapping 1\n");
 		  int vtkId = itFindGmshIdInNew->second;
-		  newCenterlinesFieldsPointData[fieldsPointDataPair.first][k] = newCenterlines->centerlinesFieldsPointData[fieldsPointDataPair.first][vtkId];
+		  newCenterlinesFieldsPointData[fieldsPointDataPair.first][k] = newCenterlines->M_centerlinesFieldsPointData[fieldsPointDataPair.first][vtkId];
 		}
 	      else
 		{
@@ -911,17 +915,295 @@ void AngioTkCenterline::importFile(std::string fileName)
 		  if ( itFindGmshIdInPrevious == _previousMapVertexGmshIdToVtkId.end() )
 		    Msg::Error("Error in mapping 2\n");
 		  int vtkId = itFindGmshIdInPrevious->second;
-		  newCenterlinesFieldsPointData[fieldsPointDataPair.first][k] = this->centerlinesFieldsPointData[fieldsPointDataPair.first][vtkId];
+		  newCenterlinesFieldsPointData[fieldsPointDataPair.first][k] = this->M_centerlinesFieldsPointData[fieldsPointDataPair.first][vtkId];
 		}
 	    }
 	}
-      centerlinesFieldsPointData.clear();
-      centerlinesFieldsPointData = newCenterlinesFieldsPointData;
+      M_centerlinesFieldsPointData.clear();
+      M_centerlinesFieldsPointData = newCenterlinesFieldsPointData;
     }
 
   Msg::Info("AngioTkCenterline: finish importFile");
 
 }
+
+#if 0
+#include <cstdio>
+#if defined __cplusplus
+extern "C" {
+#endif
+FILE *fmemopen(void *buf, size_t size, const char *mode);
+#ifdef __cplusplus
+}
+#endif
+
+//#include <feel/feelcore/fmemopen.h>
+
+int gmsh_yyparse();
+int gmsh_yylex();
+void gmsh_yyflush();
+int gmsh_yy_scan_string ( const char *str );
+extern std::string gmsh_yyname;
+extern int gmsh_yylineno;
+extern FILE* gmsh_yyin;
+extern int gmsh_yyerrorstate;
+extern int gmsh_yyviewindex;
+extern char *gmsh_yytext;
+int
+ParseGeoFromMemory( GModel* model, std::string const& name, std::string const& geo  )
+{
+    gmsh_yyname = name;
+    gmsh_yylineno = 1;
+    gmsh_yyerrorstate = 0;
+    gmsh_yyviewindex = 0;
+    gmsh_yyin = fmemopen( (void*)geo.c_str(), geo.size()*sizeof(char), "r");
+
+    while(!feof(gmsh_yyin))
+    {
+        gmsh_yyparse();
+        if(gmsh_yyerrorstate > 20)
+        {
+          if(gmsh_yyerrorstate != 999) // 999 is a volontary exit
+            std::cerr << "Too many errors: aborting parser...\n";
+          gmsh_yyflush();
+          break;
+        }
+    }
+    fclose(gmsh_yyin);
+
+    int imported = model->importGEOInternals();
+    return imported;
+}
+
+#endif
+
+void AngioTkCenterline::createFromGeo( std::tuple< std::vector< std::pair<GPoint,double> >, std::vector<std::vector<int> > > const& geoDesc,
+				       std::string const& outputSmoothGeoPath )
+{
+  auto const& ptDesc = std::get<0>( geoDesc );
+  auto const& lineDesc = std::get<1>( geoDesc );
+  if ( lineDesc.empty() ) return;
+
+  std::ostringstream ostr;
+  int curPtId = 1;
+  int curLineId = 1;
+
+  for ( int p=0 ; p<ptDesc.size() ; ++p )
+    {
+      GPoint const& gp = std::get<0>(ptDesc[p]);
+      double pointMeshSize = std::get<1>(ptDesc[p]);
+      ostr << "Point(" << p+1 << ")={"
+	   << gp.x() << "," << gp.y() << "," << gp.z() << ","
+	   << pointMeshSize <<"};\n"; 
+    }
+
+  for ( int branchId=0 ; branchId<lineDesc.size() ; ++branchId )
+    {
+      auto const& ptIdInBranch = lineDesc[branchId];
+      int nPtInBranch = ptIdInBranch.size();
+      if ( nPtInBranch < 2 )
+	continue;
+      ostr << "Spline(" << curLineId++ << ")={";
+      for ( int k = 0 ; k < nPtInBranch ; ++k )
+	{
+	  ostr << ptIdInBranch[k]+1;
+	  if ( k < (nPtInBranch-1) )
+	    ostr << ",";
+	}
+      ostr << "};\n";
+    }
+
+  //std::cout << ostr.str();
+#if 0
+  mod.reset( new GModel() );
+  mod->setFactory("Gmsh");
+
+  ParseGeoFromMemory(mod.get(),"hola",ostr.str());
+  mod->mesh(1);
+
+  mod->removeDuplicateMeshVertices(1.e-8);
+  // call indexMeshVertices allow to assign id on vertices from 1
+  bool saveAll = true;//false;
+  int numVerticesInCenterlinesGModel = mod->indexMeshVertices(saveAll);
+
+  modEdges.insert(modEdges.end(),mod->firstEdge(), mod->lastEdge());
+  //this->importSurfaceFromFile( inputSurfacePath );
+  // update centerlines : data branch, extremities, kdtree,...
+  this->updateCenterlinesForUse(modEdges);
+#else
+  std::ofstream fileWrited( outputSmoothGeoPath, std::ios::out | std::ios::trunc);
+  fileWrited << ostr.str();
+  fileWrited.close();
+  this->createFromFile( outputSmoothGeoPath, "" );
+#endif
+  Msg::Info("AngioTkCenterline: createFromGeoCenterlinesFile : finish");
+}
+
+void AngioTkCenterline::createFromCenterlines( AngioTkCenterline const& inputCenterlines, std::string const& outputSmoothGeoPath,
+					       double meshSizeUniform, double resampleGeoPointSpacing )
+{
+  if ( inputCenterlines.centerlinesBranch().empty() )
+    return;
+
+  auto const& inputBranchCollection = inputCenterlines.centerlinesBranch();
+  int inputNBranch = inputBranchCollection.size();
+
+  std::vector< std::pair<GPoint,double> > ptDesc;
+  std::vector<std::vector<int> > lineDesc(inputNBranch);
+  std::map<MVertex*,int> mapInputVertexToPointDescId;
+  for (int i=0;i<inputNBranch;++i )
+    {
+      auto const& inputBranch = inputBranchCollection[i];
+      double minRad = inputBranch.minRad;//+inputBranch[i].maxRad/2.
+      double curLength = 0;
+      MVertex* vB = inputBranch.vB;
+      if ( mapInputVertexToPointDescId.find( vB ) == mapInputVertexToPointDescId.end() )
+	{
+	  ptDesc.push_back( std::make_pair( GPoint(vB->x(),vB->y(),vB->z()), meshSizeUniform ) );
+	  mapInputVertexToPointDescId[ vB ] = ptDesc.size()-1;
+	}
+      lineDesc[i].push_back( mapInputVertexToPointDescId.find( vB )->second );
+      for ( int k=0;k<(inputBranch.lines.size()-1);++k )
+	{
+	  MLine* curInputLine = inputBranch.lines[k];
+	  curLength += curInputLine->getLength();
+	  if ( curLength < resampleGeoPointSpacing )//4 )//resampleLengthScalingFactor*minRad )
+	    continue;
+
+	  MVertex* v1 = curInputLine->getVertex(1);
+	  if ( mapInputVertexToPointDescId.find( v1 ) == mapInputVertexToPointDescId.end() )
+	    {
+	      ptDesc.push_back( std::make_pair( GPoint(v1->x(),v1->y(),v1->z()), meshSizeUniform ) );
+	      mapInputVertexToPointDescId[ v1 ] = ptDesc.size()-1;
+	    }
+	  lineDesc[i].push_back( mapInputVertexToPointDescId.find( v1 )->second );
+	  curLength = 0;
+	}
+      MVertex* vE = inputBranch.vE;
+      if ( mapInputVertexToPointDescId.find( vE ) == mapInputVertexToPointDescId.end() )
+	{
+	  ptDesc.push_back( std::make_pair( GPoint(vE->x(),vE->y(),vE->z()), meshSizeUniform ) );
+	  mapInputVertexToPointDescId[ vE ] = ptDesc.size()-1;
+	}
+      lineDesc[i].push_back( mapInputVertexToPointDescId.find( vE )->second );
+    }
+  this->createFromGeo( std::make_tuple(ptDesc,lineDesc), outputSmoothGeoPath );
+
+  std::string fieldName = "RadiusMin";
+  if ( inputCenterlines.hasField(fieldName) )
+    {
+      // init fields
+      int numVertices = numberOfVertices(edges);
+      M_centerlinesFieldsPointData[fieldName].resize( numVertices );
+      std::vector<bool> ptDone(numVertices,false);
+      for ( auto& ptPair : colorp )
+	{
+	  MVertex* myvertex = ptPair.first;
+	  int vId = myvertex->getIndex();
+	  int vVtkId = this->M_mapVertexGmshIdToVtkId[vId];
+	  M_centerlinesFieldsPointData[fieldName][vVtkId] = { 1. };
+	}
+
+      // init localisation tool
+      std::vector<MVertex*> verticesPosition;
+      for ( auto const& vertexPair : mapInputVertexToPointDescId )
+	{
+	  MVertex* myvertex = vertexPair.first;
+	  verticesPosition.push_back(new MVertex(myvertex->x(), myvertex->y(), myvertex->z(), NULL, myvertex->getIndex() ));
+	}
+
+      MVertexPositionSet pos(verticesPosition);
+#if 0
+      double tolerance = 1e-1;//1e-8;//1.0e-8;
+      SBoundingBox3d bbox = mod->bounds();
+      double lc = bbox.empty() ? 1. : norm(SVector3(bbox.max(), bbox.min()));
+      //double eps = lc * tolerance;
+#endif
+      double eps = (2./3.)*meshSizeUniform;
+
+      for (int i=0;i<edges.size();++i )
+	{
+	  auto const& outputBranch = edges[i];
+	  if ( outputBranch.lines.empty() ) continue;
+	  double curLength = 0;
+	  MVertex* vStart = outputBranch.lines.front()->getVertex(0);
+	  MVertex *vertexFindStart = pos.find(vStart->x(), vStart->y(), vStart->z(), eps,true);
+	  if ( !vertexFindStart )
+	    Msg::Error("not find begin vertex");
+	  std::set<MVertex*> vertexDone;
+	  vertexDone.insert( vStart );
+	  std::vector<std::tuple<MVertex*,double> > vertexOrdered;
+	  vertexOrdered.push_back( std::make_tuple(vStart,curLength) );
+
+	  int inputVertexIdStart = vertexFindStart->getNum();
+	  int inputVtkIdStart = inputCenterlines.mapVertexGmshIdToVtkId(inputVertexIdStart);
+	  double inputRadiusStart = inputCenterlines.centerlinesFieldsPointData(fieldName,inputVtkIdStart)[0];
+
+	  //MVertex* vEnd = theBranch.lines.front()->getVertex(1);
+	  for ( int k=0;k<outputBranch.lines.size();++k )
+	    {
+	      MLine* myline = outputBranch.lines[k];
+	      curLength += myline->getLength();
+
+	      MVertex* v0 = myline->getVertex(0);
+	      MVertex* v1 = myline->getVertex(1);
+	      MVertex *vertexFindCur0 = NULL;
+	      if ( vertexDone.find(v0) == vertexDone.end() )
+		{
+		  Msg::Warning("maybe wrong");
+		  vertexFindCur0 = pos.find(v0->x(), v0->y(), v0->z(), eps,false);
+		  vertexDone.insert(v0);
+		  vertexOrdered.push_back( std::make_tuple(v0,curLength ) );
+		}
+	      MVertex *vertexFindCur1 = NULL;
+	      if ( vertexDone.find(v1) == vertexDone.end() )
+		{
+		  vertexFindCur1 = pos.find(v1->x(), v1->y(), v1->z(), eps,false);
+		  vertexDone.insert(v1);
+		  vertexOrdered.push_back( std::make_tuple(v1,curLength) );
+		}
+
+	      if ( vertexFindCur0 && vertexFindCur1 )
+		Msg::Error("impossible : something is wrong");
+
+	      if ( vertexFindCur0 )
+		Msg::Error("aieiei");
+
+	      if ( vertexFindCur1 )
+		{
+		  //std::cout << "find in branch " << i << "for k=" << k << "/"<< outputBranch.lines.size() << " and " <<vertexOrdered.size() << "\n";
+		  int inputVertexIdEnd = vertexFindCur1->getNum();
+		  int inputVtkIdEnd = inputCenterlines.mapVertexGmshIdToVtkId(inputVertexIdEnd);
+		  double inputRadiusEnd = inputCenterlines.centerlinesFieldsPointData(fieldName,inputVtkIdEnd)[0];
+
+		  if ( vertexOrdered.size() < 2 ) 
+		    Msg::Error("a branch must have at least 2 vertex");
+
+		  for ( auto const&/*MVertex**/ outputVertex : vertexOrdered )
+		    {
+		      int outputVertexId = std::get<0>(outputVertex)->getIndex();
+		      double outputLengthFromStart = std::get<1>(outputVertex);
+		      double outputRadius = ( (inputRadiusEnd-inputRadiusStart)/curLength )*outputLengthFromStart + inputRadiusStart;
+		      int outputVtkIdEnd = this->mapVertexGmshIdToVtkId(outputVertexId);
+		      this->M_centerlinesFieldsPointData[fieldName][outputVtkIdEnd] = { outputRadius };
+		    }
+
+		  curLength=0.;
+		  vertexOrdered.clear();
+		  vStart = v1;
+		  vertexOrdered.push_back( std::make_tuple(vStart,curLength) );
+		  inputVertexIdStart = inputVertexIdEnd;
+		  inputVtkIdStart = inputVtkIdEnd;
+		  inputRadiusStart = inputRadiusEnd;
+		}
+
+	    }
+	}
+      }
+
+}
+
+
 
 void AngioTkCenterline::createFromGeoCenterlinesFile( std::string const& fileName, std::string const& inputSurfacePath )
 {
@@ -988,11 +1270,16 @@ void AngioTkCenterline::createFromGeoCenterlinesFile( std::string const& fileNam
 
 void AngioTkCenterline::createFromFile( std::string const& fileName, std::string const& inputSurfacePath )
 {
+  std::string inputExt = Feel::fs::path( fileName ).extension().string();
+  if ( inputExt == ".data" )
+    {
+      this->createFromGeoCenterlinesFile( fileName, inputSurfacePath );
+      return;
+    }
   Msg::Info("AngioTkCenterline: createFromFile : %s",fileName.c_str());
 
   mod.reset( new GModel() );
   mod->load( fileName );
-  std::string inputExt = Feel::fs::path( fileName ).extension().string();
   if ( inputExt == ".geo" )
     mod->mesh(1);
 
@@ -3752,6 +4039,13 @@ int writeVTKPolyData( std::shared_ptr<GModel>/*GModel **/ gmodel,std::vector<Bra
 		      bool saveAll=false, double scalingFactor=1.0,
 		      bool bigEndian=false)
 {
+  unsigned int nBranch = edges.size();
+  if ( nBranch == 0 )
+    {
+      Msg::Warning("centerline file is not exported because centerline is empty (path=%s)", name.c_str());
+      return 1;
+    }
+
   FILE *fp = Fopen(name.c_str(), binary ? "wb" : "w");
   if(!fp){
     Msg::Error("Unable to open file '%s'", name.c_str());
@@ -3770,7 +4064,6 @@ int writeVTKPolyData( std::shared_ptr<GModel>/*GModel **/ gmodel,std::vector<Bra
 
 
   // get the number of vertices
-  unsigned int nBranch = edges.size();
   int numVertices = numberOfVertices(edges);
   fprintf(fp, "POINTS %d double\n", numVertices);
   //std::cout << "WRITEVTK nBranch " << nBranch << "\n"; 
@@ -3902,10 +4195,9 @@ int writeVTKPolyData( std::shared_ptr<GModel>/*GModel **/ gmodel,std::vector<Bra
 
 void AngioTkCenterline::writeCenterlinesVTK(std::string fileName)
 {
-  writeVTKPolyData(mod,edges,fileName,centerlinesFieldsPointData);
+  writeVTKPolyData(mod,edges,fileName,M_centerlinesFieldsPointData);
 }
 
-#include <gmshHeadersMissing/MVertexPositionSet.h>
 void AngioTkCenterline::updateCenterlinesFieldsFromFile(std::string fileName)
 {
 
@@ -3974,11 +4266,11 @@ void AngioTkCenterline::updateCenterlinesFieldsFromFile(std::string fileName)
   readVTKPolyDataFields( fileName, fieldsPointDataInput );
 
   // tranfert into clean centerlines the Point Data Value
-  centerlinesFieldsPointData.clear();
+  M_centerlinesFieldsPointData.clear();
   for ( auto const& thefield : fieldsPointDataInput )
     {
-      centerlinesFieldsPointData[thefield.first].resize(numVertices);
-      for ( auto & thefieldClean : centerlinesFieldsPointData[thefield.first] )
+      M_centerlinesFieldsPointData[thefield.first].resize(numVertices);
+      for ( auto & thefieldClean : M_centerlinesFieldsPointData[thefield.first] )
 	thefieldClean.resize(thefield.second[0].size());
     }
 
@@ -3998,11 +4290,11 @@ void AngioTkCenterline::updateCenterlinesFieldsFromFile(std::string fileName)
 	  // apply a threshold
 	  double valTolMin = 1.;
 	  if ( thefield.first != "MaximumInscribedSphereRadius" ||thefield.second[myvertexInitial->getIndex()-1][comp] > valTolMin )
-	    centerlinesFieldsPointData[thefield.first][this->M_mapVertexGmshIdToVtkId[vertexIdClean]][comp] = thefield.second[myvertexInitial->getIndex()-1][comp];
+	    M_centerlinesFieldsPointData[thefield.first][this->M_mapVertexGmshIdToVtkId[vertexIdClean]][comp] = thefield.second[myvertexInitial->getIndex()-1][comp];
 	  else
-	    centerlinesFieldsPointData[thefield.first][this->M_mapVertexGmshIdToVtkId[vertexIdClean]][comp] = valTolMin;
+	    M_centerlinesFieldsPointData[thefield.first][this->M_mapVertexGmshIdToVtkId[vertexIdClean]][comp] = valTolMin;
 #else
-	  centerlinesFieldsPointData[thefield.first][this->M_mapVertexGmshIdToVtkId[vertexIdClean]][comp] = thefield.second[myvertexInitial->getIndex()-1][comp];
+	  M_centerlinesFieldsPointData[thefield.first][this->M_mapVertexGmshIdToVtkId[vertexIdClean]][comp] = thefield.second[myvertexInitial->getIndex()-1][comp];
 #endif
 
 	}
@@ -4011,11 +4303,11 @@ void AngioTkCenterline::updateCenterlinesFieldsFromFile(std::string fileName)
 
 void AngioTkCenterline::addFieldBranchIds( std::string const& fieldName )
 {
-  //if ( centerlinesFieldsPointData.find("BranchIds") != centerlinesFieldsPointData.end() )
+  //if ( M_centerlinesFieldsPointData.find("BranchIds") != M_centerlinesFieldsPointData.end() )
   //  return;
   Msg::Info("AngioTkCenterline: addFieldBranchIds");
   int numVertices = numberOfVertices(edges);
-  centerlinesFieldsPointData[fieldName].resize( numVertices );
+  M_centerlinesFieldsPointData[fieldName].resize( numVertices );
 
   std::vector<bool> ptDone(numVertices,false);
   int nBranch = edges.size();
@@ -4032,12 +4324,12 @@ void AngioTkCenterline::addFieldBranchIds( std::string const& fieldName )
       int v0VtkId = this->M_mapVertexGmshIdToVtkId[v0Id], v1VtkId = this->M_mapVertexGmshIdToVtkId[v1Id];
       if ( !ptDone[v0VtkId] )
 	{
-	centerlinesFieldsPointData[fieldName][v0VtkId] = { (double)i };
+	M_centerlinesFieldsPointData[fieldName][v0VtkId] = { (double)i };
 	ptDone[v0VtkId] = true;
       }
       if ( !ptDone[v1VtkId] )
       {
-	centerlinesFieldsPointData[fieldName][v1VtkId] = { (double)i };
+	M_centerlinesFieldsPointData[fieldName][v1VtkId] = { (double)i };
 	ptDone[v1VtkId] = true;
       }
     }
@@ -4053,8 +4345,8 @@ AngioTkCenterline::addFieldRadiusMin( std::string const& fieldName )
   if ( colorp.size() != numVertices ) 
     Msg::Error("invalid container size colorp.size()=%d vs numVertices=%d", colorp.size(), numVertices );
 
-  centerlinesFieldsPointData[fieldName].clear();
-  centerlinesFieldsPointData[fieldName].resize( numVertices );
+  M_centerlinesFieldsPointData[fieldName].clear();
+  M_centerlinesFieldsPointData[fieldName].resize( numVertices );
 
   if( !triangles.empty())
     {
@@ -4069,7 +4361,7 @@ AngioTkCenterline::addFieldRadiusMin( std::string const& fieldName )
 
 	  int vId = myvertex->getIndex();
 	  int vVtkId = this->M_mapVertexGmshIdToVtkId[vId];
-	  centerlinesFieldsPointData[fieldName][vVtkId] = { (double)minRad };
+	  M_centerlinesFieldsPointData[fieldName][vVtkId] = { (double)minRad };
 	}
     }
   else
@@ -4079,7 +4371,7 @@ AngioTkCenterline::addFieldRadiusMin( std::string const& fieldName )
 	  MVertex* myvertex = ptPair.first;
 	  int vId = myvertex->getIndex();
 	  int vVtkId = this->M_mapVertexGmshIdToVtkId[vId];
-	  centerlinesFieldsPointData[fieldName][vVtkId] = { 0. };
+	  M_centerlinesFieldsPointData[fieldName][vVtkId] = { 0. };
 	}
 
     }
@@ -4114,13 +4406,13 @@ AngioTkCenterline::applyFieldThresholdMin(std::vector<std::string> const& fieldN
   int numVertices = numberOfVertices(edges);
   for ( std::string const& fieldName : fieldNames )
     {
-      if ( centerlinesFieldsPointData.find(fieldName) != centerlinesFieldsPointData.end() &&
-	   centerlinesFieldsPointData.find(fieldName)->second.size() == numVertices )
+      if ( M_centerlinesFieldsPointData.find(fieldName) != M_centerlinesFieldsPointData.end() &&
+	   M_centerlinesFieldsPointData.find(fieldName)->second.size() == numVertices )
 	{
 	  for (int k=0;k<numVertices;++k)
 	    {
-	      if ( centerlinesFieldsPointData[fieldName][k][0] < value )
-		centerlinesFieldsPointData[fieldName][k][0] = value;
+	      if ( M_centerlinesFieldsPointData[fieldName][k][0] < value )
+		M_centerlinesFieldsPointData[fieldName][k][0] = value;
 	    }
 	}
     }
@@ -4131,13 +4423,13 @@ AngioTkCenterline::applyFieldThresholdMax(std::vector<std::string> const& fieldN
   int numVertices = numberOfVertices(edges);
   for ( std::string const& fieldName : fieldNames )
     {
-      if ( centerlinesFieldsPointData.find(fieldName) != centerlinesFieldsPointData.end() &&
-	   centerlinesFieldsPointData.find(fieldName)->second.size() == numVertices )
+      if ( M_centerlinesFieldsPointData.find(fieldName) != M_centerlinesFieldsPointData.end() &&
+	   M_centerlinesFieldsPointData.find(fieldName)->second.size() == numVertices )
 	{
 	  for (int k=0;k<numVertices;++k)
 	    {
-	      if ( centerlinesFieldsPointData[fieldName][k][0] > value )
-		centerlinesFieldsPointData[fieldName][k][0] = value;
+	      if ( M_centerlinesFieldsPointData[fieldName][k][0] > value )
+		M_centerlinesFieldsPointData[fieldName][k][0] = value;
 	    }
 	}
     }
@@ -4199,13 +4491,13 @@ AngioTkCenterline::applyFieldThresholdZoneImpl(std::vector<std::string> const& f
 	  int vtkId = M_mapVertexGmshIdToVtkId[v0->getIndex()];
 	  for ( std::string const& fieldName : fieldNames )
 	    {
-	      int nComp = centerlinesFieldsPointData[fieldName][vtkId].size();
+	      int nComp = M_centerlinesFieldsPointData[fieldName][vtkId].size();
 	      for (int c=0;c<nComp;++c)
 		{
-		  if ( applyMin && centerlinesFieldsPointData[fieldName][vtkId][c] < value ) // min
-		    centerlinesFieldsPointData[fieldName][vtkId][c]=value;//2.;//100;
-		  if ( applyMax && centerlinesFieldsPointData[fieldName][vtkId][c] > value ) // max
-		    centerlinesFieldsPointData[fieldName][vtkId][c]=value;//2.;//100;
+		  if ( applyMin && M_centerlinesFieldsPointData[fieldName][vtkId][c] < value ) // min
+		    M_centerlinesFieldsPointData[fieldName][vtkId][c]=value;//2.;//100;
+		  if ( applyMax && M_centerlinesFieldsPointData[fieldName][vtkId][c] > value ) // max
+		    M_centerlinesFieldsPointData[fieldName][vtkId][c]=value;//2.;//100;
 		}
 	    }
 	}
@@ -4220,11 +4512,11 @@ AngioTkCenterline::applyFieldThresholdZoneImpl(std::vector<std::string> const& f
 	  int vtkId = M_mapVertexGmshIdToVtkId[v0->getIndex()];
 	  for ( std::string const& fieldName : fieldNames )
 	    {
-	      int nComp = centerlinesFieldsPointData[fieldName][vtkId].size();
+	      int nComp = M_centerlinesFieldsPointData[fieldName][vtkId].size();
 	      for (int c=0;c<nComp;++c)
 		{
-		  if ( centerlinesFieldsPointData[fieldName][vtkId][c] > value )
-		    centerlinesFieldsPointData[fieldName][vtkId][c]=value;
+		  if ( M_centerlinesFieldsPointData[fieldName][vtkId][c] > value )
+		    M_centerlinesFieldsPointData[fieldName][vtkId][c]=value;
 		}
 	    }
 	}
@@ -4338,7 +4630,7 @@ void AngioTkCenterline::updateFieldsDataAfterReduction( std::map<int,int> const&
 {
   std::map<std::string,std::vector<std::vector<double> > >  newCenterlinesFieldsPointData;
 
-  for (auto const& fieldsPointDataPair : centerlinesFieldsPointData )
+  for (auto const& fieldsPointDataPair : M_centerlinesFieldsPointData )
     {
       newCenterlinesFieldsPointData[fieldsPointDataPair.first].clear();
       newCenterlinesFieldsPointData[fieldsPointDataPair.first].resize(this->M_mapVertexVtkIdToGmshId.size());
@@ -4350,11 +4642,11 @@ void AngioTkCenterline::updateFieldsDataAfterReduction( std::map<int,int> const&
 	  if ( itFindGmshIdInPrevious == _previousMapVertexGmshIdToVtkId.end() )
 	    Msg::Error("Error in mapping 2\n");
 	  int vtkId = itFindGmshIdInPrevious->second;
-	  newCenterlinesFieldsPointData[fieldsPointDataPair.first][k] = this->centerlinesFieldsPointData[fieldsPointDataPair.first][vtkId];
+	  newCenterlinesFieldsPointData[fieldsPointDataPair.first][k] = this->M_centerlinesFieldsPointData[fieldsPointDataPair.first][vtkId];
 	}
     }
-  centerlinesFieldsPointData.clear();
-  centerlinesFieldsPointData = newCenterlinesFieldsPointData;
+  M_centerlinesFieldsPointData.clear();
+  M_centerlinesFieldsPointData = newCenterlinesFieldsPointData;
 }
 
 
@@ -4653,6 +4945,29 @@ AngioTkCenterline::pathBetweenVertex( MVertex* vertexA, MVertex* vertexB )
 
   return std::make_tuple(listOfLines,lengthPath);
 }
+
+double AngioTkCenterline::maxScalarValueInPath( std::vector<MLine*> const& path, std::string const& fieldName ) const
+{
+  double res=0;
+  if ( !this->hasField( fieldName ) )
+    return res;
+
+  std::set<MVertex*> vertexDone;
+  for ( MLine* myline : path )
+    {
+      std::vector<MVertex*> ptsInLine = { myline->getVertex(0),myline->getVertex(1) };
+      for ( MVertex* myvertex : ptsInLine )
+	{
+	  if ( vertexDone.find( myvertex ) != vertexDone.end() )
+	    continue;
+
+	  res = std::max(res, this->centerlinesFieldsPointData(fieldName,myvertex)[0] );
+	  vertexDone.insert( myvertex );
+	}
+    }
+  return res;
+}
+
 void AngioTkCenterline::applyTubularColisionFix( std::vector<MVertex*> const& vTestedSet )
 {
   std::set<int> branchToReApplyTubularColisionFix;
@@ -4662,7 +4977,7 @@ void AngioTkCenterline::applyTubularColisionFix( std::vector<MVertex*> const& vT
   std::map< MVertex*,std::set<MVertex*> > mapVertexTested;
   for ( MVertex* vTested : vTestedSet )
     {
-      double radius = centerlinesFieldsPointData["RadiusMin"][M_mapVertexGmshIdToVtkId[vTested->getIndex()]][0];
+      double radius = M_centerlinesFieldsPointData["RadiusMin"][M_mapVertexGmshIdToVtkId[vTested->getIndex()]][0];
 
       std::vector<MVertex*> vTestedSetInSearch;
       std::set<int> ptDoneInSearch;
@@ -4683,7 +4998,7 @@ void AngioTkCenterline::applyTubularColisionFix( std::vector<MVertex*> const& vT
 		    {
 		      auto mypathSearch = this->pathBetweenVertex( vTested, v0InSearch );
 		      double lengthPathSearch = std::get<1>( mypathSearch );
-		      if ( lengthPathSearch > 2*5*edges[i].maxRad )
+		      if ( lengthPathSearch > 10*this->maxScalarValueInPath(std::get<0>(mypathSearch),"RadiusMin") /*12*//*2*5*edges[i].maxRad*/ )
 			mapVertexTested[ vTested ].insert( v0InSearch );
 		    }
 		  else
@@ -4696,7 +5011,7 @@ void AngioTkCenterline::applyTubularColisionFix( std::vector<MVertex*> const& vT
 		    {
 		      auto mypathSearch = this->pathBetweenVertex( vTested, v1InSearch );
 		      double lengthPathSearch = std::get<1>( mypathSearch );
-		      if ( lengthPathSearch > 2*5*edges[i].maxRad )
+		      if ( lengthPathSearch > 10*this->maxScalarValueInPath(std::get<0>(mypathSearch),"RadiusMin")/*12*//*2*5*edges[i].maxRad*/ )
 			mapVertexTested[ vTested ].insert( v1InSearch );
 		    }
 		  else
@@ -4731,13 +5046,13 @@ AngioTkCenterline::applyTubularColisionFix( std::map< MVertex*,std::set<MVertex*
     {
       MVertex* vTested = vertexTestedPair.first;
       double distTubeColisionMin = 0;
-      double radius = centerlinesFieldsPointData["RadiusMin"][M_mapVertexGmshIdToVtkId[vTested->getIndex()]][0];
+      double radius = M_centerlinesFieldsPointData["RadiusMin"][M_mapVertexGmshIdToVtkId[vTested->getIndex()]][0];
       double newRadius = radius;
       MVertex* vTestedInSearchMin = NULL;
       for ( MVertex* vTestedInSearch : vertexTestedPair.second )
 	{
 	  double distBetweenPoints = vTested->point().distance( vTestedInSearch->point() );
-	  double radiusInSearch = centerlinesFieldsPointData["RadiusMin"][M_mapVertexGmshIdToVtkId[vTestedInSearch->getIndex()]][0];
+	  double radiusInSearch = M_centerlinesFieldsPointData["RadiusMin"][M_mapVertexGmshIdToVtkId[vTestedInSearch->getIndex()]][0];
 	  double distTubeColision = distBetweenPoints - ( radius + radiusInSearch + spaceMinBetweenTubularStructure );
 
 	  if ( /*false &&*/ distTubeColision < 0 )
@@ -4772,7 +5087,7 @@ AngioTkCenterline::applyTubularColisionFix( std::map< MVertex*,std::set<MVertex*
 	  if ( method == 0 )
 	    {
 	      //CHECK( newRadius > 1e-5 ) << "new radius must be positive : " << newRadius;
-	      centerlinesFieldsPointData["RadiusMin"][M_mapVertexGmshIdToVtkId[vTested->getIndex()]][0] = newRadius;
+	      M_centerlinesFieldsPointData["RadiusMin"][M_mapVertexGmshIdToVtkId[vTested->getIndex()]][0] = newRadius;
 	    }
 	  else if ( method == 1 )
 	    {

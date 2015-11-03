@@ -25,6 +25,7 @@
 
 class GModel;
 class GFace;
+class GPoint;
 class MLine;
 class MVertex;
 class GEntity;
@@ -133,7 +134,20 @@ class AngioTkCenterline : public Field{
   std::vector<discreteFace*> discFaces;
 
  public:
-  std::map<std::string,std::vector<std::vector<double> > >  centerlinesFieldsPointData;
+  std::map<std::string,std::vector<std::vector<double> > >  M_centerlinesFieldsPointData;
+
+  std::vector<std::vector<double> > const& centerlinesFieldsPointData(std::string const& key ) const
+    {
+      return M_centerlinesFieldsPointData.find(key)->second;
+    }
+  std::vector<double> const& centerlinesFieldsPointData(std::string const& key, MVertex* vertex ) const
+    {
+      return this->centerlinesFieldsPointData(key, this->mapVertexGmshIdToVtkId(vertex->getIndex()));
+    }
+  std::vector<double> const& centerlinesFieldsPointData(std::string const& key,int vtkId ) const
+    {
+      return M_centerlinesFieldsPointData.find(key)->second[vtkId];
+    }
 
  public:
   AngioTkCenterline(std::string fileName);
@@ -163,11 +177,13 @@ class AngioTkCenterline : public Field{
 			 SVector3 &d1, SVector3 &d2,  SVector3 &d3);
 
 
-  //void updateCenterlinesFromFile( std::string fileName );
-  void createFromGeoCenterlinesFile( std::string const& fileName, std::string const& inputSurfacePath );
 
- private :
   void createFromFile( std::string const& fileName, std::string const& inputSurfacePath );
+  void createFromGeo( std::tuple< std::vector< std::pair<GPoint,double> >, std::vector<std::vector<int> > > const& geoDesc, std::string const& outputSmoothGeoPath );
+  void createFromCenterlines( AngioTkCenterline const& inputCenterlines, std::string const& outputSmoothGeoPath,
+			      double meshSizeUniform=1., double resampleGeoPointSpacing = 4. );
+ private :
+  void createFromGeoCenterlinesFile( std::string const& fileName, std::string const& inputSurfacePath );
   void updateCenterlinesForUse(std::vector<GEdge*> const& _modEdges);
   void updateCenterlinesForUse(std::map<int,std::vector<MLine*> > const& _modEdges);
   //void fixBranchConnectivity();
@@ -182,7 +198,7 @@ class AngioTkCenterline : public Field{
   void removeDuplicateBranch();
   void addFieldBranchIds( std::string const& fieldName = "BranchIds" );
   void addFieldRadiusMin( std::string const& fieldName = "RadiusMin" );
-  bool hasField( std::string const& fieldName ) { return centerlinesFieldsPointData.find( fieldName ) != centerlinesFieldsPointData.end(); }
+  bool hasField( std::string const& fieldName ) const { return M_centerlinesFieldsPointData.find( fieldName ) != M_centerlinesFieldsPointData.end(); }
 
   void applyFieldThresholdMin( std::string const& fieldName,double value );
   void applyFieldThresholdMax( std::string const& fieldName,double value );
@@ -215,6 +231,7 @@ class AngioTkCenterline : public Field{
   std::tuple<MVertex*, std::vector<int> > vertexOnNeighboringBranch( MVertex* vertexA, MVertex* vertexB );
   bool canFindPathBetweenVertex( MVertex* vertexA, MVertex* vertexB );
 
+  double maxScalarValueInPath( std::vector<MLine*> const& path, std::string const& fieldName ) const;
 
   std::map<MLine*,double> const& centerlinesRadiusl() const { return radiusl; }
   double minRadiusAtVertex( MVertex* myvertex ) const;
@@ -227,6 +244,10 @@ class AngioTkCenterline : public Field{
   void updateRelationMapVertex(std::map<int,int> & _mapVertexGmshIdToVtkId,
 			       std::map<int,int> & _mapVertexVtkIdToGmshId );
   std::map<int,int> M_mapVertexGmshIdToVtkId, M_mapVertexVtkIdToGmshId;
+  int mapVertexGmshIdToVtkId(int k) const { return M_mapVertexGmshIdToVtkId.find(k)->second; }
+  int mapVertexVtkIdToGmshId(int k) const { return M_mapVertexVtkIdToGmshId.find(k)->second; }
+
+
   std::set<std::pair<int,int> > M_registerLinesToRemoveFromPointIdPairInModelEdge;
   std::set<MLine*> M_registerLinesDuplicatedToIgnore;
 

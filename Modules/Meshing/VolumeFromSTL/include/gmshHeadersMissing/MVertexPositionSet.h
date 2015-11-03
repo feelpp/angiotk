@@ -52,7 +52,7 @@ class MVertexPositionSet{
     delete [] _index;
     delete [] _dist;
   }
-  MVertex *find(double x, double y, double z, double tolerance)
+  MVertex *find(double x, double y, double z, double tolerance, bool printError = true)
   {
     if(!_kdtree) return 0;
     double xyz[3] = {x, y, z};
@@ -67,8 +67,9 @@ class MVertexPositionSet{
       _vertices[_index[0]]->setIndex(-1);
       return _vertices[_index[0]];
     }
-    Msg::Error("Could not find vertex (%g,%g,%g) (tol %g)",
-               x, y, z, tolerance);
+    if ( printError )
+      Msg::Error("Could not find vertex (%g,%g,%g) (tol %g)",
+		 x, y, z, tolerance);
     return 0;
   }
 };

@@ -354,9 +354,8 @@ CenterlinesFromSTL::run()
             Msg::SetVerbosity( verbosityLevel );
 
             AngioTkCenterline centerlinesTool;
-            centerlinesTool.createFromGeoCenterlinesFile( this->inputGeoCenterlinesPath(),this->inputPath() );
+            centerlinesTool.createFromFile( this->inputGeoCenterlinesPath(),this->inputPath() );
             centerlinesTool.addFieldBranchIds();
-            //centerlinesTool.addFieldRadiusMin("RadiusMin");
             centerlinesTool.addFieldRadiusMin("MaximumInscribedSphereRadius");
             centerlinesTool.writeCenterlinesVTK( this->outputPath() );
         }
@@ -701,7 +700,10 @@ CenterlinesManager::CenterlinesManager( std::string prefix )
     M_applyThresholdZoneMinRadius( doption(_name="thresholdzone-radius.min",_prefix=this->prefix() ) ),
     M_applyThresholdZoneMaxRadius( doption(_name="thresholdzone-radius.max",_prefix=this->prefix() ) ),
     M_avoidTubularColision( boption(_name="avoid-tubular-colision.apply",_prefix=this->prefix() ) ),
-    M_avoidTubularColisionInputPointPairPath( AngioTkEnvironment::expand( soption(_name="avoid-tubular-colision.point-pair.filename",_prefix=this->prefix() ) ) )
+    M_avoidTubularColisionInputPointPairPath( AngioTkEnvironment::expand( soption(_name="avoid-tubular-colision.point-pair.filename",_prefix=this->prefix() ) ) ),
+    M_smoothResample( boption(_name="smooth-resample.apply",_prefix=this->prefix() ) ),
+    M_smoothResampleMeshSize( doption(_name="smooth-resample.mesh-size",_prefix=this->prefix() ) ),
+    M_smoothResampleGeoPointSpacing( doption(_name="smooth-resample.geo-points-spacing",_prefix=this->prefix() ) )
 {
     if ( Environment::vm().count(prefixvm(this->prefix(),"input.centerlines.filename").c_str()) )
         M_inputCenterlinesPath = Environment::vm()[prefixvm(this->prefix(),"input.centerlines.filename").c_str()].as<std::vector<std::string> >();
@@ -854,11 +856,12 @@ CenterlinesManager::run()
     std::cout << coutStr.str();
 
 
-    fs::path directory;
+    fs::path directory = fs::path(this->outputPath()).parent_path();
+    std::string filename = fs::path(this->outputPath()).stem().string();
     // build directories if necessary
     if ( !this->outputPath().empty() && this->worldComm().isMasterRank() )
     {
-        directory = fs::path(this->outputPath()).parent_path();
+        //directory = fs::path(this->outputPath()).parent_path();
         if ( !fs::exists( directory ) )
             fs::create_directories( directory );
     }
@@ -915,18 +918,43 @@ CenterlinesManager::run()
 
         if ( M_avoidTubularColision )
         {
-            std::string fileTubeColision = AngioTkEnvironment::expand( soption(_name="avoid-tubular-colision.point-pair.filename",_prefix=this->prefix() ) );
             if ( !M_avoidTubularColisionInputPointPairPath.empty() && fs::exists( M_avoidTubularColisionInputPointPairPath ) )
             {
-                auto pointPairData = AngioTk::loadFromPointPairFile( fileTubeColision );
+                auto pointPairData = AngioTk::loadFromPointPairFile( M_avoidTubularColisionInputPointPairPath );
                 centerlinesTool->applyTubularColisionFix( pointPairData );
             }
             else
                 centerlinesTool->applyTubularColisionFix();
         }
 
-        centerlinesTool->writeCenterlinesVTK( this->outputPath() );
+        if ( M_smoothResample )
+        {
+            fs::path outputOriginalPath = directory / fs::path(filename+"_original.vtk");
+            centerlinesTool->writeCenterlinesVTK( outputOriginalPath.string() );
+
+            fs::path outputSmoothGeoPath = directory / fs::path(filename+".geo");
+            AngioTkCenterline centerlinesSmooth;
+            centerlinesSmooth.createFromCenterlines( *centerlinesTool, outputSmoothGeoPath.string(),
+                                                     M_smoothResampleMeshSize, M_smoothResampleGeoPointSpacing );
+            centerlinesSmooth.addFieldBranchIds();
+            // redo TubularColision if asked
+            if ( M_avoidTubularColision )
+            {
+                if ( !M_avoidTubularColisionInputPointPairPath.empty() && fs::exists( M_avoidTubularColisionInputPointPairPath ) )
+                {
+                    auto pointPairData = AngioTk::loadFromPointPairFile( M_avoidTubularColisionInputPointPairPath );
+                    centerlinesSmooth.applyTubularColisionFix( pointPairData );
+                }
+                else
+                    centerlinesSmooth.applyTubularColisionFix();
+            }
+
+            centerlinesSmooth.writeCenterlinesVTK( this->outputPath() );
+        }
+        else
+            centerlinesTool->writeCenterlinesVTK( this->outputPath() );
     }
+
 
 }
 
@@ -954,6 +982,9 @@ CenterlinesManager::options( std::string const& prefix )
         (prefixvm(prefix,"thresholdzone-radius.min").c_str(), Feel::po::value<double>()->default_value(-1), "(double) threshold-radius.max")
         (prefixvm(prefix,"avoid-tubular-colision.apply").c_str(), po::value<bool>()->default_value( false ), "(string) input point-set filename" )
         (prefixvm(prefix,"avoid-tubular-colision.point-pair.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input point-set filename" )
+        (prefixvm(prefix,"smooth-resample.apply").c_str(), po::value<bool>()->default_value( false ), "(bool) smooth-resample.apply" )
+        (prefixvm(prefix,"smooth-resample.mesh-size").c_str(), po::value<double>()->default_value( 1.0 ), "(double) mesh size" )
+        (prefixvm(prefix,"smooth-resample.geo-points-spacing").c_str(), po::value<double>()->default_value( 4.0 ), "(double) geo-points-spacing" )
 
         ;
     return myCenterlinesManagerOptions;
