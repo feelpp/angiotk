@@ -3133,7 +3133,21 @@ void AngioTkCenterline::cutMesh(std::string const& remeshPartitionMeshFile)
 	  SVector3 pt((v1->x()+v2->x())/2., (v1->y()+v2->y())/2., (v1->z()+v2->z())/2.);//new
 	  SVector3 dir(v2->x()-v1->x(),v2->y()-v1->y(),v2->z()-v1->z());
 	  std::map<MLine*,double>::iterator itr = radiusl.find(lines[j]);
-	  double radius= itr->second;
+	  double radiusBase = itr->second;
+	  double radius = radiusBase;
+	  double lengthLook = 0.;
+	  for ( int jLook = (j+1); jLook < lines.size() && lengthLook < radiusBase;++jLook )
+	    {
+	      radius = std::max(radius,radiusl.find(lines[jLook])->second);
+	      lengthLook += lines[jLook]->getLength();
+	    }
+	  lengthLook = 0.;
+	  for ( int jLook = (j-1); jLook >= 0 && lengthLook < radiusBase;--jLook )
+	    {
+	      radius = std::max(radius,radiusl.find(lines[jLook])->second);
+	      lengthLook += lines[jLook]->getLength();
+	    }
+
 	  //cutByDisk(pt, dir, itr->second);
 
 	  /*bool*/ applyCut=true;
@@ -3226,7 +3240,7 @@ void AngioTkCenterline::cutMesh(std::string const& remeshPartitionMeshFile)
 	    }
 	  //nbSplit--;
 	  //lc = 0.0;
-      } // if ( lc > li && nbSplit > 1)
+	} // if ( lc > li && nbSplit > 1)
 #if USE_NEW_ANGIOTK_DEV
 	  if ( !applyCut )
 	    {
