@@ -142,6 +142,30 @@ InletOutletDesc::save( std::string outputPath )
 
 }
 
+void
+InletOutletDesc::saveJSON( std::string outputPath )
+{
+    std::cout << "save json in : " << outputPath << "\n";
+    fs::path dir = fs::path(outputPath).parent_path();
+    if ( !fs::exists( dir ) )
+        fs::create_directories( dir );
+    
+    boost::property_tree::ptree root, entries;
+    for ( auto const& desc : *this )
+    {
+        boost::property_tree::ptree entry, marker, point, pdata;
+        entry.put("marker", desc.markerLumen());
+        for( int i = 0; i < desc.node().size(); i++)
+        {
+            pdata.put("", desc.node().at(i));
+            point.push_back(std::make_pair("", pdata));
+        }
+        entry.add_child("point", point);
+        root.add_child("fluid", entry);
+    }
+    write_json(outputPath, root);
+}
+
 
 CenterlinesFromSTL::CenterlinesFromSTL( std::string prefix )
     :

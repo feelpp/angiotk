@@ -8,6 +8,10 @@
 #include <angiotkMeshingConfig.h>
 
 #include <feel/feelfilters/gmsh.hpp>
+
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+
 #if defined( FEELPP_HAS_GMSH_H )
 
 #include <GmshConfig.h>
@@ -110,6 +114,7 @@ public :
 
     void loadFromSTL( std::string inputPath );
     void save( std::string outputPath );
+    void saveJSON( std::string outputPath );
 
  private :
 //std::string M_path;
