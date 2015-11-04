@@ -674,12 +674,14 @@ AngioTkCenterline::updateMergeFromExtremities( AngioTkCenterline const& centerli
       //std::cout << "curMinDist " << curMinDist << " VS dist[0] " << dist[0] << " indexSearch "<< indexSearch << "\n";
       // store lines which use this point 
       std::vector<std::pair<MLine*,int> > myvecLine;
-      myvecLine.push_back( std::make_pair(_lineWhichHasToReplaced,_idVertexInLine) );
+      //myvecLine.push_back( std::make_pair(_lineWhichHasToReplaced,_idVertexInLine) );
       if ( indexSearch > 0 )
 	{
-	  for ( int q=0; q<indexSearch ; ++q )
+	  for ( int q=0; q<(indexSearch+2) ; ++q )
 	    {
 	      int newLineId = (isForwardSearch)?lineIdInBranch+q : lineIdInBranch-q;
+	      if ( newLineId < 0 || newLineId >= mylines.size() )
+		break;
 	      MLine* mylineSearch = mylines[newLineId];
 	      int v0Id = mylineSearch->getVertex(0)->getIndex();
 	      int v1Id = mylineSearch->getVertex(1)->getIndex();
@@ -689,6 +691,8 @@ AngioTkCenterline::updateMergeFromExtremities( AngioTkCenterline const& centerli
 		myvecLine.push_back( std::make_pair(mylineSearch,1) );
 	    }
 	}
+      else
+	myvecLine.push_back( std::make_pair(_lineWhichHasToReplaced,_idVertexInLine) );
 
       // insert new vertex to replace
       auto itFindVertexReplaced = indexVertexReplaced.find(_ptToReplaced);

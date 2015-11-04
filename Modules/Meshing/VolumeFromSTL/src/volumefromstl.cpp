@@ -538,6 +538,7 @@ CenterlinesFromSTL::run()
                     }
                     centerlinesTool->importFile( pathCenterline );
                 }
+                centerlinesTool->addFieldBranchIds();
                 centerlinesTool->writeCenterlinesVTK( this->outputPath() );
             }
         }
