@@ -283,6 +283,7 @@ private :
     double M_thresholdLower,M_thresholdUpper;
     bool M_hasThresholdLower,M_hasThresholdUpper;
     bool M_applyConnectivityLargestRegion;
+    int M_applyConnectivityNumberOfRegion;
     bool M_forceRebuild;
 };
 
