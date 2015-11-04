@@ -3074,10 +3074,10 @@ void AngioTkCenterline::cutMesh(std::string const& remeshPartitionMeshFile)
   Msg::Info("AngioTkCenterline: action (cutMesh) splits surface mesh (%d tris) using %s ",
             triangles.size(), fileName.c_str());
 
-  // i->j->(pt,radius)
-  //std::vector< std::map<int, std::pair<SVector3,double> > > cutDiskToPerform(edges.size());
-  std::vector< std::map<int, std::tuple<SVector3,double,double> > > cutDiskToPerform(edges.size());//pt,radius,lengthFromBranchBegin
-  // first pass
+  // i->j->(pt,radius,lengthFromBranchBegin)
+  std::vector< std::map<int, std::tuple<SVector3,double,double> > > cutDiskToPerform(edges.size());
+
+  // evaluate pt where cut must be applied
   for(unsigned int i = 0; i < edges.size(); i++){
     std::vector<MLine*> lines = edges[i].lines;
     if ( lines.empty() ) continue;
@@ -3095,34 +3095,19 @@ void AngioTkCenterline::cutMesh(std::string const& remeshPartitionMeshFile)
     double radiusB = radiusl.find(lines.front())->second;
     double radiusE = radiusl.find(lines.back())->second;
 
-#define USE_NEW_ANGIOTK_DEV 1
 
 
-    // printf("*** AngioTkCenterline branch %d (AR=%.1f) \n", edges[i].tag, AR);
-#if 0 //VINCENT
-    int nbSplit = (int)ceil(AR/2 + 1.1); //AR/2 + 0.9
-#else
-    //int nbSplit = 4*(int)ceil(AR + 1.1); //AR/2 + 0.9
-    int nbSplit = (int)ceil(AR + 1.1); //AR/2 + 0.9
-    nbSplit = (int)ceil(1.5*AR + 1.1); // celui-ci a marcher
-    nbSplit = (int)ceil(AR + 1.1);
-    nbSplit = std::max( nbSplit, 3 );//3;//std::min( nbSplit, 3 );
-#endif
-    //int nbSplit = (int)ceil(AR/4 + 1.1); //AR/2 + 0.9
-    //nbSplit = std::min( nbSplit, 8 );
+    int nbSplit = (int)ceil(AR + 1.1);
+    nbSplit = std::max( nbSplit, 3 );
+
     if( nbSplit > 1 ){
       double li  = L/nbSplit;
       if ( false ) Msg::Info("->> prepare cut branch %i in %d parts (L=%f,D=%f,AR=%f,li=%f,radiusB=%f,radiusE=%f)", i, nbSplit, L,D,AR,li,radiusB,radiusE);
 
-#if !USE_NEW_ANGIOTK_DEV
-      double lc = 0.0, lcTotal = 0.0;
-#else
       double lc = lines[0]->getLength()/2., lcTotal = lines[0]->getLength()/2.;
-#endif
+
       for (unsigned int j= 0; j < lines.size(); j++){
-#if !USE_NEW_ANGIOTK_DEV
-	lc += lines[j]->getLength();
-#endif
+
 	MVertex *v1 = lines[j]->getVertex(0);
 	MVertex *v2 = lines[j]->getVertex(1);
 
@@ -3148,23 +3133,14 @@ void AngioTkCenterline::cutMesh(std::string const& remeshPartitionMeshFile)
 	      lengthLook += lines[jLook]->getLength();
 	    }
 
-	  //cutByDisk(pt, dir, itr->second);
+	  applyCut=true;
 
-	  /*bool*/ applyCut=true;
-
-#if 0 //!USE_NEW_ANGIOTK_DEV
-	  if ( vBisInOut && ( lcTotal < 2*radiusB ) )
-	    applyCut=false;
-	  if ( vEisInOut && ( lcTotal > (L-2*radiusE ) ) )
-	    applyCut=false;
-#else
 	  double lenghVBjunc = (vBisInOut)? std::max(2*radiusB,li) : std::min(2*radiusB,li);
 	  double lenghVEjunc = (vEisInOut)? std::max(2*radiusE,li) : std::min(2*radiusE,li);
 	  if ( applyCut && lcTotal < lenghVBjunc )
 	    applyCut=false;
 	  if ( applyCut && lcTotal > (L-lenghVEjunc) )
 	    applyCut=false;
-#endif
 
 	  for(unsigned int ii = 0; ii < edges.size(); ii++){
 	    auto itj = cutDiskToPerform[ii].begin();
@@ -3172,46 +3148,25 @@ void AngioTkCenterline::cutMesh(std::string const& remeshPartitionMeshFile)
 	    for (; itj!=enj && applyCut;++itj)
 	      {
 		int jTest= itj->first;
-		SVector3 ptTest = std::get<0>(itj->second);//itj->second.first;
-		double radiusTest= std::get<1>(itj->second);//itj->second.second;
+		SVector3 ptTest = std::get<0>(itj->second);
+		double radiusTest= std::get<1>(itj->second);
 		double lengthFromBranchBeginTest= std::get<2>(itj->second);
 		double distBetweenCenter = std::sqrt( std::pow( pt.x()-ptTest.x(),2)+std::pow( pt.y()-ptTest.y(),2)+std::pow( pt.z()-ptTest.z(),2) );
-
-		// ignore cut done quite far of branch extremities 
-#if !USE_NEW_ANGIOTK_DEV
-		if ( ii != i &&
-		    lengthFromBranchBeginTest > 3*edges[ii].maxRad &&
-		    lengthFromBranchBeginTest < (edges[ii].length -3*edges[ii].maxRad) )
-		  {
-		    continue;
-		  }
-#elif 0
-		if ( ii != i &&
-	            lengthFromBranchBeginTest > 3*edges[ii].maxRad &&
-		    lengthFromBranchBeginTest < (edges[ii].length -3*edges[ii].maxRad) )
-		  {
-		    continue;
-		  }
-#endif
 
 		MVertex *v1Test = lines[j]->getVertex(0);
 		MVertex *v2Test = lines[j]->getVertex(1);
 		SVector3 dirTest(v2Test->x()-v1Test->x(),v2Test->y()-v1Test->y(),v2Test->z()-v1Test->z());
 
-
 		double theScaling = 1;
 
-#if USE_NEW_ANGIOTK_DEV
 		if ( ii == i )
-#endif
 		  {
-		if (norm(dir-dirTest) < 1e-2 )
-		  theScaling = 1./2;
-		if ( lc > 4*li )
-		  theScaling = 1./2;
-	}
+		    if (norm(dir-dirTest) < 1e-2 )
+		      theScaling = 1./2;
+		    if ( lc > 4*li )
+		      theScaling = 1./2;
+		  }
 
-#if 1
 		if ( ii == i )
 		  {
 		    double theScalingCoarse = 2;
@@ -3226,44 +3181,38 @@ void AngioTkCenterline::cutMesh(std::string const& remeshPartitionMeshFile)
 		    if ( !vBisJunc && !vEisJunc )
 		      theScaling = theScalingCoarse;
 		  }
-#endif
+
 		double epsDist = (radius+radiusTest)/100.;
 		if ( distBetweenCenter < (radius+radiusTest+epsDist)*theScaling ) //if ( distBetweenCenter < (radius+radiusTest) )
 		  applyCut=false;
 	      }
-	} // for ( ii
+	  } // for ( ii
 	  if ( applyCut )
 	    {
-	      //cutDiskToPerform[i][j] = std::make_pair(pt,itr->second );
-	      cutDiskToPerform[i][j] = std::make_tuple(pt,radius/*itr->second*/,lcTotal );
+	      cutDiskToPerform[i][j] = std::make_tuple(pt,radius,lcTotal );
 	      lc = 0.0;
 	    }
-	  //nbSplit--;
-	  //lc = 0.0;
 	} // if ( lc > li && nbSplit > 1)
-#if USE_NEW_ANGIOTK_DEV
-	  if ( !applyCut )
-	    {
-	  lc += lines[j]->getLength()/2.;
-	  if ( (j+1) < lines.size() )
-	    lc += lines[j+1]->getLength()/2.;
-	}
-	  lcTotal += lines[j]->getLength()/2.;
-	  if ( (j+1) < lines.size() )
-	    lcTotal += lines[j+1]->getLength()/2.;
+	if ( !applyCut )
+	  {
+	    lc += lines[j]->getLength()/2.;
+	    if ( (j+1) < lines.size() )
+	      lc += lines[j+1]->getLength()/2.;
+	  }
+	lcTotal += lines[j]->getLength()/2.;
+	if ( (j+1) < lines.size() )
+	  lcTotal += lines[j+1]->getLength()/2.;
 
-#else
-	lcTotal += lines[j]->getLength();
-#endif
-         } // for (unsigned int j= 0; j < lines.size(); j++)
-     }
-   } // end first for ( i
+      } // for (unsigned int j= 0; j < lines.size(); j++)
+    }
+  } // end first for ( i
 
+
+  // apply cut from cutDiskToPerform container
   for(unsigned int i = 0; i < edges.size(); i++){
-    //if (i==2) continue;
     std::vector<MLine*> lines = edges[i].lines;
-    auto/*std::map<int, std::pair<SVector3,double> >::iterator*/ itj = cutDiskToPerform[i].begin();
-    auto/*std::map<int, std::pair<SVector3,double> >::iterator*/ enj = cutDiskToPerform[i].end();
+    auto itj = cutDiskToPerform[i].begin();
+    auto enj = cutDiskToPerform[i].end();
     int cptRealCut=0;
     for (; itj!=enj;++itj)
       {
@@ -3287,68 +3236,6 @@ void AngioTkCenterline::cutMesh(std::string const& remeshPartitionMeshFile)
 
   }
 
-#if 0
-  //splitMesh
-  for(unsigned int i = 0; i < edges.size(); i++){
-    std::vector<MLine*> lines = edges[i].lines;
-    double L = edges[i].length;
-    double D = 2.*edges[i].minRad;  //(edges[i].minRad+edges[i].maxRad);
-    double AR = L/D;
-    // printf("*** AngioTkCenterline branch %d (AR=%.1f) \n", edges[i].tag, AR);
-
-    int nbSplit = (int)ceil(AR/2 + 1.1); //AR/2 + 0.9
-    //int nbSplit = (int)ceil(AR/4 + 1.1); //AR/2 + 0.9
-    //nbSplit = std::min( nbSplit, 8 );
-    if( nbSplit > 1 ){
-      printf("->> cut branch in %d parts \n",  nbSplit);
-      std::cout << "->> cut branch "<< i << "(L="<< L << " ,D="<< D << " ,AR=" << AR << ")"
-		<< " in " << nbSplit << " parts\n";
-      double li  = L/nbSplit;
-      double lc = 0.0;
-      for (unsigned int j= 0; j < lines.size(); j++){
-      //for (unsigned int j= 2/*0*/; j < lines.size()-2; j++){
-	lc += lines[j]->getLength();
-	//if ( j < 3 || j >  lines.size()-3 ) continue;
-	//if ( j != (int)ceil( lines.size()/2) ) continue;
-	if (lc > li && nbSplit > 1) {
-	  MVertex *v1 = lines[j]->getVertex(0);
-	  MVertex *v2 = lines[j]->getVertex(1);
-	  SVector3 pt(v1->x(), v1->y(), v1->z());
-	  SVector3 dir(v2->x()-v1->x(),v2->y()-v1->y(),v2->z()-v1->z());
-	  std::map<MLine*,double>::iterator itr = radiusl.find(lines[j]);
-	  cutByDisk(pt, dir, itr->second);
-	  nbSplit--;
-	  lc = 0.0;
-	}
-      }
-    }
-#if 0
-    if(edges[i].children.size() > 0.0 && AR > 1.0){
-      MVertex *v1 = lines[lines.size()-1]->getVertex(1);//end vertex
-      MVertex *v2;
-      if(AR < 1.5) v2 = lines[0]->getVertex(0);
-      else if (lines.size() > 4) v2 = lines[lines.size()-4]->getVertex(0);
-      else v2 = lines[lines.size()-1]->getVertex(0);
-      SVector3 pt(v1->x(), v1->y(), v1->z());
-      SVector3 dir(v2->x()-v1->x(),v2->y()-v1->y(),v2->z()-v1->z());
-      //printf("-->> cut branch at bifurcation \n");
-      std::map<MLine*,double>::iterator itr = radiusl.find(lines[lines.size()-1]);
-      //bool cutted =
-      cutByDisk(pt, dir, itr->second);
-      // if(!cutted){
-      //   int l = lines.size()-1-lines.size()/(4*nbSplit); //chech this!
-      //   v1 = lines[l]->getVertex(1);
-      //   v2 = lines[l]->getVertex(0);
-      //   pt = SVector3(v1->x(), v1->y(), v1->z());
-      //   dir = SVector3(v2->x()-v1->x(),v2->y()-v1->y(),v2->z()-v1->z());
-      //   printf("-->> cut bifurcation NEW \n");
-      //   itr = radiusl.find(lines[l]);
-      //   cutted = cutByDisk(pt, dir, itr->second);
-      // }
-    }
-#endif
- }
-#endif
   //create discreteFaces
   createFaces();
   current->createTopologyFromFaces(discFaces);
@@ -3358,15 +3245,7 @@ void AngioTkCenterline::cutMesh(std::string const& remeshPartitionMeshFile)
   std::string _remeshPartitionMeshFile = ( remeshPartitionMeshFile.empty() )? "myPARTS.msh" : remeshPartitionMeshFile;
   Msg::Info("AngioTkCenterline: writing splitted mesh '%s'",_remeshPartitionMeshFile.c_str());
   current->writeMSH(remeshPartitionMeshFile, 2.2, false, false);
-  //exit(0);
-#if 0
-  //create compounds
-  createSplitCompounds();
-#endif
-#if 0
-  if ( !useGmshExecutable )
-    current->writeSTL("myPARTS.stl",  false, false);
-#endif
+
   Msg::Info("Done splitting mesh by centerlines");
 }
 
