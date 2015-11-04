@@ -14,6 +14,7 @@
 #include <vtkImageTranslateExtent.h>
 #include <vtkPolyDataConnectivityFilter.h>
 #include <vtkPointData.h>
+//#include <vtkCellData.h>
 #include <vtkCleanPolyData.h>
 
 //#include <vtkvmtkPolyBallModeller.h>
@@ -1195,6 +1196,7 @@ SurfaceFromImage::SurfaceFromImage( std::string prefix )
     M_hasThresholdLower(false), M_hasThresholdUpper(false),
     M_thresholdLower(0.0),M_thresholdUpper(0.0),
     M_applyConnectivityLargestRegion( boption(_name="apply-connectivity.largest-region",_prefix=this->prefix()) ),
+    M_applyConnectivityNumberOfRegion( ioption(_name="apply-connectivity.number",_prefix=this->prefix()) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
 {
 
@@ -1440,9 +1442,55 @@ SurfaceFromImage::run()
         vtkSmartPointer<vtkPolyDataConnectivityFilter> connectivityFilter = vtkSmartPointer<vtkPolyDataConnectivityFilter>::New();
         if ( M_applyConnectivityLargestRegion )
         {
-            connectivityFilter->SetInput(/*surface*/cleanPolyData->GetOutput());
-            connectivityFilter->SetExtractionModeToLargestRegion();
-            connectivityFilter->Update();
+            if ( M_applyConnectivityNumberOfRegion == 1 )
+            {
+                connectivityFilter->SetInput(/*surface*/cleanPolyData->GetOutput());
+                connectivityFilter->SetExtractionModeToLargestRegion();
+                connectivityFilter->Update();
+            }
+            else if ( M_applyConnectivityNumberOfRegion > 1 )
+            {
+                connectivityFilter->SetInput(/*surface*/cleanPolyData->GetOutput());
+                connectivityFilter->SetExtractionModeToAllRegions();
+                connectivityFilter->ColorRegionsOn();
+                connectivityFilter->Update();
+                int nRegion = connectivityFilter->GetNumberOfExtractedRegions();
+
+                if ( connectivityFilter->GetOutput()->GetPointData()->HasArray("RegionId") == 0 )
+                    CHECK( false ) << "RegionId must be present";
+
+                std::vector<int> counterCellInRegion(nRegion,0);
+                vtkIdType dataRegionIdSize = connectivityFilter->GetOutput()->GetPointData()->GetArray("RegionId")->GetSize();
+                auto arrayRegionId = connectivityFilter->GetOutput()->GetPointData()->GetArray("RegionId");
+                for (vtkIdType k=0;k<dataRegionIdSize;++k)
+                {
+                    double* val = arrayRegionId->GetTuple(k);
+                    vtkIdType curRegionId = static_cast<vtkIdType>( val[0] );
+                    CHECK( curRegionId >= 0 && curRegionId <= nRegion ) << "invalid curRegionId" << curRegionId;
+                    ++counterCellInRegion[curRegionId];
+                }
+
+                // thanks to std::set with tuple, we can have automaticaly an ordering with respect to connectivity size
+                std::set<std::tuple<int,int> > cellInRegionIdSet;
+                for (int k=0;k<nRegion;++k )
+                {
+                    cellInRegionIdSet.insert( std::make_pair( counterCellInRegion[k],k ) );
+                }
+
+                std::set<int> regionIdExtracted;
+                for ( auto rit=cellInRegionIdSet.rbegin(); rit != cellInRegionIdSet.rend(); ++rit)
+                {
+                    regionIdExtracted.insert(std::get<1>(*rit));
+                    if ( regionIdExtracted.size() == M_applyConnectivityNumberOfRegion ) break;
+                }
+
+                connectivityFilter->SetExtractionModeToSpecifiedRegions();
+                connectivityFilter->InitializeSpecifiedRegionList();
+                for ( vtkIdType _regionId : regionIdExtracted )
+                    connectivityFilter->AddSpecifiedRegion(_regionId);
+                connectivityFilter->Update();
+
+            }
         }
 
         // save stl on disk
@@ -1474,6 +1522,7 @@ SurfaceFromImage::options( std::string const& prefix )
         (prefixvm(prefix,"threshold.lower").c_str(), Feel::po::value<double>(), "(double) threshold lower")
         (prefixvm(prefix,"threshold.upper").c_str(), Feel::po::value<double>(), "(double) threshold upper")
         (prefixvm(prefix,"apply-connectivity.largest-region").c_str(), Feel::po::value<bool>()->default_value(true), "(bool) apply-connectivity.largest-region")
+        (prefixvm(prefix,"apply-connectivity.number").c_str(), Feel::po::value<int>()->default_value(1), "(bool) number of largest region")
         (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         ;
     return mySurfaceFromImageOptions;
