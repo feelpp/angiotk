@@ -441,7 +441,7 @@ static void cutTriangle(MTriangle *tri,
 
 
 
-int numberOfVertices( std::vector<Branch> const& edges )
+int numberOfVertices( std::vector<BranchDesc> const& edges )
 {
   // get the number of vertices in centerlines
   std::set<int> thePtIds;
@@ -461,7 +461,7 @@ int numberOfVertices( std::vector<Branch> const& edges )
   return thePtIds.size();
 }
 
-int maxVerticesIndex( std::vector<Branch> const& edges )
+int maxVerticesIndex( std::vector<BranchDesc> const& edges )
 {
   int nBranch = edges.size();
   int maxId = 0;
@@ -1815,19 +1815,26 @@ void AngioTkCenterline::createBranches(int maxN)
       }
 
       orderMLines(myLines, vB, vE);
-      std::vector<Branch> children;
+      //std::vector<Branch> children;
 
+      //Branch newBranch ={ tag++, myLines, computeLength(myLines), vB, vE,
+      //                    children, 1.e6, 0.0};
+#if 0
       Branch newBranch ={ tag++, myLines, computeLength(myLines), vB, vE,
-                          children, 1.e6, 0.0};
-      edges.push_back(newBranch) ;
+			  1.e6, 0.0,
+			  0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+#else
+      BranchDesc newBranch(myLines,tag++, computeLength(myLines), vB, vE, 1.e6, 0.0 );
+#endif
+      edges.push_back(newBranch);
     }
   }
 
   Msg::Info("AngioTkCenterline: build %d branches in centerlines",(int)edges.size());
 
 
-
   //create children
+#if 0
   for(unsigned int i = 0; i < edges.size(); ++i) {
     //std::cout << "edges["<<i<<"].lines.size()" << edges[i].lines.size() << "\n";
     MVertex *vE = edges[i].vE;
@@ -1838,6 +1845,7 @@ void AngioTkCenterline::createBranches(int maxN)
     }
     edges[i].children = myChildren;
   }
+#endif
 
   // compute junction and extremity points and branch bounds
   M_vertexToLinesId.clear();
@@ -3842,7 +3850,7 @@ int readVTKPolyDataFields( const std::string &name, std::map<std::string,std::ve
 }
 
 
-int writeVTKPolyData( std::shared_ptr<GModel>/*GModel **/ gmodel,std::vector<Branch> const& edges,
+int writeVTKPolyData( std::shared_ptr<GModel>/*GModel **/ gmodel,std::vector<BranchDesc> const& edges,
 		      const std::string &name,
 		      std::map<std::string,std::vector<std::vector<double> > > const& fieldsPointData,
 		      bool binary=false,

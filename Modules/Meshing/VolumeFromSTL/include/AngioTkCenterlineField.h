@@ -35,18 +35,26 @@ class discreteFace;
 class MElement;
 class SPoint3;
 
+
 // A branch of a 1D tree
-struct Branch{
+struct BranchDesc {
   int tag;
   std::vector<MLine*> lines;
   double length;
   MVertex *vB;
   MVertex *vE;
-  std::vector<Branch> children;
+  //std::vector<Branch> children;
   double minRad;
   double maxRad;
   double boundMinX,boundMaxX,boundMinY,boundMaxY,boundMinZ,boundMaxZ;
 
+  BranchDesc( std::vector<MLine*> _lines, int _tag, double _length,  MVertex *_vB, MVertex *_vE,double _minRad,double _maxRad )
+  :
+  lines(  _lines ), tag(_tag), length( _length ), vB(_vB),vE(_vE),minRad(_minRad), maxRad(_maxRad),
+    boundMinX(0.),boundMaxX(0.),boundMinY(0.),boundMaxY(0.),boundMinZ(0.),boundMaxZ(0.)
+  {}
+  BranchDesc( BranchDesc const& _branch ) = default;
+  //~BranchDesc(){}
   bool
   isInsideBox( MVertex * vertex, double dist )
   {
@@ -99,7 +107,7 @@ class AngioTkCenterline : public Field{
   //all (unique) lines of centerlines
   std::vector<MLine*> lines;
   //the stuctured tree of the centerlines
-  std::vector<Branch> edges;
+  std::vector<BranchDesc> edges;
   //the radius of the surface mesh at a given line
   std::map<MLine*,double> radiusl;
   //the junctions of the tree
@@ -220,8 +228,8 @@ class AngioTkCenterline : public Field{
 
   std::map<MVertex*, std::pair<int,int> > const&
     centerlinesExtremities() const { return M_extremityVertex; }
-  std::vector<Branch> const& centerlinesBranch() const { return edges; }
-  Branch const& centerlinesBranch(int k) const { return edges[k]; }
+  std::vector<BranchDesc> const& centerlinesBranch() const { return edges; }
+  BranchDesc const& centerlinesBranch(int k) const { return edges[k]; }
 
   std::tuple<MVertex*,double> foundClosestPointInCenterlines( double ptToLocalize[3]);
   //std::tuple< std::vector<MLine*> , std::map<MVertex*,int>, double > pathBetweenVertex( MVertex* vertexA, MVertex* vertexB );
