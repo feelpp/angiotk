@@ -4,7 +4,7 @@ export MY_CFG_DIR=$HOME/AngioTK/angiotk/Examples/MeshFromMRI/Base2_GEO26/artery/
 
 $ANGIOTK_BINARY_DIR/meshing_surfacefromimage --config-file $MY_CFG_DIR/surfacefromimage.cfg  || exit 1
 
-for CenterlineId in 1 2 3 4 5
+for CenterlineId in 1 2 3 4 5 6
 do
 $ANGIOTK_BINARY_DIR/meshing_centerlines --config-file $MY_CFG_DIR/centerlines.cfg \
     --input.pointpair.filename=\$cfgdir/data/pointpair$CenterlineId.data \
