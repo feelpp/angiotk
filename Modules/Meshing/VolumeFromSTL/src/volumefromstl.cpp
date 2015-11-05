@@ -1191,8 +1191,10 @@ ImageFromCenterlines::options( std::string const& prefix )
 SurfaceFromImage::SurfaceFromImage( std::string prefix )
     :
     M_prefix( prefix ),
-    M_inputPath( AngioTkEnvironment::expand( soption(_name="input.filename",_prefix=this->prefix()) ) ),
+    M_inputPath( /*AngioTkEnvironment::expand( soption(_name="input.filename",_prefix=this->prefix()) )*/ ),
     M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
+    M_outputPath( AngioTkEnvironment::expand( soption(_name="output.filename",_prefix=this->prefix()) ) ),
+    M_imageFusionOperator( soption(_name="image-fusion.operator",_prefix=this->prefix()) ),
     M_method( soption(_name="method",_prefix=this->prefix()) ),
     M_hasThresholdLower(false), M_hasThresholdUpper(false),
     M_thresholdLower(0.0),M_thresholdUpper(0.0),
@@ -1200,11 +1202,19 @@ SurfaceFromImage::SurfaceFromImage( std::string prefix )
     M_applyConnectivityNumberOfRegion( ioption(_name="apply-connectivity.number",_prefix=this->prefix()) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
 {
+    if ( Environment::vm().count(prefixvm(this->prefix(),"input.filename").c_str()) )
+        M_inputPath = Environment::vm()[prefixvm(this->prefix(),"input.filename").c_str()].as<std::vector<std::string> >();
+    for ( int k=0;k<M_inputPath.size();++k)
+        M_inputPath[k] = AngioTkEnvironment::expand( M_inputPath[k] );
 
     CHECK( M_method == "threshold" || M_method == "isosurface" ) << "invalid method : " << M_method << " -> must be threshold or isosurface";
 
-    if ( !M_inputPath.empty() && fs::path(M_inputPath).is_relative() )
-        M_inputPath = (AngioTkEnvironment::pathInitial()/fs::path(M_inputPath) ).string();
+    CHECK( M_imageFusionOperator == "max" || M_imageFusionOperator == "min" || M_imageFusionOperator == "multiply" || M_imageFusionOperator == "subtract" )
+        << "invalid fusion operator : " << M_imageFusionOperator << " -> must be max,min,multiply,subtract";
+
+    for ( int k=0;k<M_inputPath.size();++k)
+        if ( !M_inputPath[k].empty() && fs::path(M_inputPath[k]).is_relative() )
+            M_inputPath[k] = (AngioTkEnvironment::pathInitial()/fs::path(M_inputPath[k]) ).string();
 
     if ( Environment::vm().count(prefixvm(this->prefix(),"threshold.lower").c_str()) )
     {
@@ -1217,10 +1227,15 @@ SurfaceFromImage::SurfaceFromImage( std::string prefix )
         M_thresholdUpper = doption(_name="threshold.upper",_prefix=this->prefix());
     }
 
-
-    if ( !M_inputPath.empty() && M_outputPath.empty() )
+    if ( M_outputPath.empty() )
     {
-        this->updateOutputPathFromInputFileName();
+        if ( !M_inputPath.empty() && !M_inputPath[0].empty() )
+            this->updateOutputPathFromInputFileName();
+    }
+    else
+    {
+        if ( fs::path(M_outputPath).is_relative() )
+            M_outputPath = (fs::path(Environment::rootRepository())/fs::path(M_outputPath)).string();
     }
 }
 
@@ -1228,6 +1243,7 @@ void
 SurfaceFromImage::updateOutputPathFromInputFileName()
 {
     CHECK( !M_inputPath.empty() ) << "input path is empty";
+    CHECK( !M_inputPath[0].empty() ) << "input path is empty";
 
     // define output directory
     fs::path meshesdirectories;
@@ -1239,7 +1255,7 @@ SurfaceFromImage::updateOutputPathFromInputFileName()
         meshesdirectories = fs::path(M_outputDirectory);
 
     // get filename without extension
-    fs::path gp = M_inputPath;
+    fs::path gp = M_inputPath[0];
     std::string nameMeshFile = gp.stem().string();
 
     std::string newFileName = (boost::format("%1%.stl")%nameMeshFile ).str();
@@ -1250,7 +1266,7 @@ SurfaceFromImage::updateOutputPathFromInputFileName()
 void
 SurfaceFromImage::run()
 {
-    if ( !fs::exists( this->inputPath() ) )
+    if ( this->inputPath().empty() || !fs::exists( this->inputPath(0) ) )
     {
         if ( this->worldComm().isMasterRank() )
             std::cout << "WARNING : surface segmentation not done because this input path not exist :" << this->inputPath() << "\n";
@@ -1270,7 +1286,8 @@ SurfaceFromImage::run()
             << "---------------------------------------\n"
             << "run SurfaceFromImage \n"
             << "---------------------------------------\n";
-    coutStr << "inputPath         : " << this->inputPath() << "\n";
+    for ( int k=0;k<M_inputPath.size();++k)
+        coutStr << "inputPath         : " << this->inputPath(k) << "\n";
     if ( M_hasThresholdLower )
         coutStr << "threshold lower   : " << M_thresholdLower << "\n";
     if ( M_hasThresholdUpper )
@@ -1281,11 +1298,12 @@ SurfaceFromImage::run()
     std::cout << coutStr.str();
 
 
-    fs::path directory;
+    fs::path directory = fs::path(this->outputPath()).parent_path();
+    std::string outputNameWithoutExt = fs::path(this->outputPath()).stem().string();
+
     // build directories if necessary
     if ( !this->outputPath().empty() && this->worldComm().isMasterRank() )
     {
-        directory = fs::path(this->outputPath()).parent_path();
         if ( !fs::exists( directory ) )
             fs::create_directories( directory );
     }
@@ -1297,13 +1315,31 @@ SurfaceFromImage::run()
         std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
         std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
 
-        std::string nameImageInit = fs::path(this->outputPath()).stem().string()+"_levelsetInit.vti";
-        std::string outputPathImageInit = (fs::path(this->outputPath()).parent_path()/fs::path(nameImageInit)).string();
+        std::string nameImageInit = outputNameWithoutExt+"_levelsetInit.vti";
+        std::string outputPathImageInit = (directory/fs::path(nameImageInit)).string();
+
+        std::string inputImagePath = this->inputPath(0);
+
+        CHECK( M_inputPath.size() <= 2 ) << "TODO image fusion with more than 2 images";
+        if ( M_inputPath.size() == 2 )
+        {
+            std::string nameImageFusion = outputNameWithoutExt+"_fusion.mha";
+            std::string outputPathImageFusion = (directory/fs::path(nameImageFusion)).string();
+            std::ostringstream ostrImageFusion;
+            ostrImageFusion << pythonExecutable << " " << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkimagecompose ";
+            ostrImageFusion << "-ifile " << this->inputPath(0) << " -i2file " << this->inputPath(1) << " -operation " <<  M_imageFusionOperator << " ";
+            ostrImageFusion << "-ofile " << outputPathImageFusion;
+            // run vmtk script
+            auto err = ::system( ostrImageFusion.str().c_str() );
+            // use new image generated as input
+            inputImagePath = outputPathImageFusion;
+        }
+
 
         std::ostringstream __str;
         __str << pythonExecutable << " ";
         __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkimageinitialization ";
-        __str << "-ifile " << this->inputPath() << " -interactive 0 ";
+        __str << "-ifile " << inputImagePath << " -interactive 0 ";
         if ( M_method == "threshold" )
         {
             __str << "-method threshold ";
@@ -1327,7 +1363,7 @@ SurfaceFromImage::run()
         std::ostringstream __str2;
         __str2 << pythonExecutable << " ";
         __str2 << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtklevelsetsegmentation ";
-        __str2 << "-ifile " << this->inputPath() << " -initiallevelsetsfile " << outputPathImageInit << " -iterations 1 ";
+        __str2 << "-ifile " << inputImagePath << " -initiallevelsetsfile " << outputPathImageInit << " -iterations 1 ";
         //__str2 << "--pipe vmtkmarchingcubes -i @.o -ofile " << this->outputPath();
         __str2 << "--pipe vmtkmarchingcubes -i @.o ";
         if ( true )
@@ -1345,7 +1381,7 @@ SurfaceFromImage::run()
         std::ostringstream __str2;
         __str2 << pythonExecutable << " ";
         __str2 << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtklevelsetsegmentation ";
-        __str2 << "-ifile " << this->inputPath() << " ";
+        __str2 << "-ifile " << inputImagePath << " ";
         //__str2 << "-levelsetstype isosurface -isosurfacevalue 0 ";
         __str2 << "-initiallevelsetsfile " << outputPathImageInit << " ";
         //__str2 << "-initializationimagefile " << outputPathImageInit << " ";
@@ -1365,7 +1401,7 @@ SurfaceFromImage::run()
 
         // read initial image
         vtkSmartPointer<vtkMetaImageReader> readerInitialImage = vtkSmartPointer<vtkMetaImageReader>::New();
-        readerInitialImage->SetFileName(this->inputPath().c_str());
+        readerInitialImage->SetFileName(inputImagePath/*this->inputPath()*/.c_str());
         readerInitialImage->Update();
 #if 0
         double boundIMG[6];
@@ -1517,9 +1553,12 @@ SurfaceFromImage::options( std::string const& prefix )
     po::options_description mySurfaceFromImageOptions( "Create Surface from Image options" );
 
     mySurfaceFromImageOptions.add_options()
-        (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
+        //(prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input image filename" )
+        (prefixvm(prefix,"input.filename").c_str(), po::value<std::vector<std::string> >()->multitoken(), "(vector of string) input image filename" )
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
+        (prefixvm(prefix,"output.filename").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output filename")
         (prefixvm(prefix,"method").c_str(), Feel::po::value<std::string>()->default_value("threshold"), "(string) method : threshold, isosurface")
+        (prefixvm(prefix,"image-fusion.operator").c_str(), Feel::po::value<std::string>()->default_value("max"), "(string) operator : max, min, multiply, subtract")
         (prefixvm(prefix,"threshold.lower").c_str(), Feel::po::value<double>(), "(double) threshold lower")
         (prefixvm(prefix,"threshold.upper").c_str(), Feel::po::value<double>(), "(double) threshold upper")
         (prefixvm(prefix,"apply-connectivity.largest-region").c_str(), Feel::po::value<bool>()->default_value(true), "(bool) apply-connectivity.largest-region")
