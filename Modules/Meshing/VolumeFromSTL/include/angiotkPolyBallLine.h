@@ -109,6 +109,7 @@ class VTK_VMTK_COMPUTATIONAL_GEOMETRY_EXPORT angiotkPolyBallLine : public vtkImp
   vtkDataArray *polyballRadiusArray;
   vtkIdList* cellIds;
   std::map<vtkIdType, std::vector<double> > branchBounds;
+  std::map<vtkIdType, double > branchRadiusMax;
 
 
   private:
