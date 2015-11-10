@@ -4946,7 +4946,7 @@ AngioTkCenterline::applyTubularColisionFix( std::map< MVertex*,std::set<MVertex*
   if ( !newMapVertexInColision.empty() )
     {
 	  //if ( nrecurrence < 10 )
-	  this->applyTubularColisionFix( newMapVertexInColision, method, maxrecurrence, nrecurrence+1 );
+      this->applyTubularColisionFix( newMapVertexInColision, distMin, method, maxrecurrence, nrecurrence+1 );
     }
 
 
