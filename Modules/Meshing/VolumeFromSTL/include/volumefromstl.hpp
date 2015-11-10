@@ -225,6 +225,7 @@ private :
     std::string M_applyThresholdZonePointSetPath;
     double M_applyThresholdZoneMinRadius,M_applyThresholdZoneMaxRadius;
     bool M_avoidTubularColision;
+    double M_avoidTubularColisionDistanceMin;
     std::string M_avoidTubularColisionInputPointPairPath;
     bool M_smoothResample;
     double M_smoothResampleMeshSize, M_smoothResampleGeoPointSpacing;
@@ -414,8 +415,7 @@ public :
     std::string packageType() const { return M_packageType; }
     std::string inputSurfacePath() const { return M_inputSurfacePath; }
     std::string inputCenterlinesPath() const { return M_inputCenterlinesPath; }
-    int remeshNbPointsInCircle() const { return M_gmshRemeshNbPointsInCircle; }
-    double area() const { return M_vmtkArea; }
+
     std::string outputPath() const
     {
         if ( this->packageType() =="gmsh" || this->packageType() == "gmsh-executable" )
@@ -423,6 +423,12 @@ public :
         else return M_outputPathVMTK;
     }
     bool forceRebuild() const { return M_forceRebuild; }
+
+    // gmsh
+    int remeshNbPointsInCircle() const { return M_gmshRemeshNbPointsInCircle; }
+    double gmshRemeshRadiusUncertainty() const { return M_gmshRemeshRadiusUncertainty; }
+    // vmtk
+    double area() const { return M_vmtkArea; }
 
     void setPackageType( std::string type)
     {
@@ -458,6 +464,7 @@ private :
     std::string M_inputCenterlinesPath;
     int M_gmshRemeshNbPointsInCircle;
     bool M_gmshRemeshPartitionForceRebuild;
+    double M_gmshRemeshRadiusUncertainty;
     // with vmtk
     double M_vmtkArea;
     int M_vmtkNumberOfIteration;

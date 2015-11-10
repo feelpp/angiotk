@@ -218,10 +218,10 @@ class AngioTkCenterline : public Field{
   void applyFieldThresholdZoneMax(std::vector<std::string> const& fieldName, double value, std::map<int,std::vector<std::tuple<double,double,double> > > const& mapPointPair );
   void applyFieldThresholdZoneImpl(std::vector<std::string> const& fieldName, double value, std::map<int,std::vector<std::tuple<double,double,double> > > const& mapPointPair, int type );
 
-  void applyTubularColisionFix( std::vector<MVertex*> const& vTestedSet );
-  void applyTubularColisionFix( std::map< MVertex*,std::set<MVertex*> > const& mapVertexTested, int method /*= 0*/, int maxrecurrence/*=-1*/,int nrecurrence = 0 );
-  void applyTubularColisionFix( AngioTk::pointpair_data_type const& pointPair );
-  void applyTubularColisionFix();
+  void applyTubularColisionFix( std::vector<MVertex*> const& vTestedSet, double distMin );
+  void applyTubularColisionFix( std::map< MVertex*,std::set<MVertex*> > const& mapVertexTested, double distMin, int method /*= 0*/, int maxrecurrence/*=-1*/,int nrecurrence = 0 );
+  void applyTubularColisionFix( AngioTk::pointpair_data_type const& pointPair, double distMin );
+  void applyTubularColisionFix( double distMin );
 
 
   void writeCenterlinesVTK( std::string fileName );
@@ -313,6 +313,7 @@ class AngioTkCenterline : public Field{
   // mode remesh
   void setIsCut(bool b) { is_cut = b; }
   void setRemeshNbPoints( int i ) { nbPoints=i; }
+  void setSurfaceRemeshRadiusUncertainty(double d) { M_surfaceRemeshRadiusUncertainty = d; }
   void runSurfaceRemesh( std::string const& remeshPartitionMeshFile="", bool forceRebuildPartition=true );
   void saveSurfaceRemeshSTL(std::string const outputPath, bool binary );
 
@@ -326,12 +327,14 @@ class AngioTkCenterline : public Field{
   void runTubularExtension();
   void saveTubularExtensionSTL(std::string const outputPath, bool binary );
 
+
  private :
   void saveCurrentGModelSTL(std::string const outputPath, bool binary );
   void updateMergeFromExtremities( AngioTkCenterline const& centerlinesMerged,
 				   std::map<MVertex*,std::pair< std::vector<std::pair<MLine*,int> >, MVertex*> > & indexVertexReplaced );
 
-
+  // represent a length where the radius can vary ( e.g. can be equal to the image accuracy )
+  double M_surfaceRemeshRadiusUncertainty;
 };
 #else
 class AngioTkCenterline : public Field{

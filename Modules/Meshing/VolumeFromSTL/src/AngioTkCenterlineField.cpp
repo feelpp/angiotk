@@ -483,7 +483,7 @@ int maxVerticesIndex( std::vector<BranchDesc> const& edges )
 
 
 
-AngioTkCenterline::AngioTkCenterline(std::string fileName): kdtree(0), kdtreeR(0)
+AngioTkCenterline::AngioTkCenterline(std::string fileName): kdtree(0), kdtreeR(0), M_surfaceRemeshRadiusUncertainty(0.)
 {
   recombine = (CTX::instance()->mesh.recombineAll) || (CTX::instance()->mesh.recombine3DAll);
   nbPoints = 25;
@@ -501,7 +501,7 @@ AngioTkCenterline::AngioTkCenterline(std::string fileName): kdtree(0), kdtreeR(0
   update_needed = false;
 }
 
-AngioTkCenterline::AngioTkCenterline(): kdtree(0), kdtreeR(0)
+AngioTkCenterline::AngioTkCenterline(): kdtree(0), kdtreeR(0), M_surfaceRemeshRadiusUncertainty(0.)
 {
 
   recombine = (CTX::instance()->mesh.recombineAll) || (CTX::instance()->mesh.recombine3DAll);
@@ -3144,7 +3144,7 @@ void AngioTkCenterline::cutMesh(std::string const& remeshPartitionMeshFile)
 	      radius = std::max(radius,radiusl.find(lines[jLook])->second);
 	      lengthLook += lines[jLook]->getLength();
 	    }
-
+	  radius+=M_surfaceRemeshRadiusUncertainty;//(0.5/2.);
 	  applyCut=true;
 
 	  double lenghVBjunc = (vBisInOut)? std::max(2*radiusB,li) : std::min(2*radiusB,li);
@@ -4786,11 +4786,11 @@ double AngioTkCenterline::maxScalarValueInPath( std::vector<MLine*> const& path,
   return res;
 }
 
-void AngioTkCenterline::applyTubularColisionFix( std::vector<MVertex*> const& vTestedSet )
+void AngioTkCenterline::applyTubularColisionFix( std::vector<MVertex*> const& vTestedSet, double distMin )
 {
   std::set<int> branchToReApplyTubularColisionFix;
-  double spaceMinBetweenTubularStructure = 0.5;//2*0.5;//2*1.2;//0.6;//0.5;
-  double radiusMinAllowed = 0.5;
+  //double spaceMinBetweenTubularStructure = 0.5;//2*0.5;//2*1.2;//0.6;//0.5;
+  //double radiusMinAllowed = 0.5;
 
   std::map< MVertex*,std::set<MVertex*> > mapVertexTested;
   for ( MVertex* vTested : vTestedSet )
@@ -4802,7 +4802,7 @@ void AngioTkCenterline::applyTubularColisionFix( std::vector<MVertex*> const& vT
       for( int i = 0; i < edges.size(); ++i )
 	{
 #if 1
-	  if ( !edges[i].isInsideBox( vTested, spaceMinBetweenTubularStructure+2*radius ) )
+	  if ( !edges[i].isInsideBox( vTested, /*spaceMinBetweenTubularStructure*/distMin+2*radius ) )
 	    continue;
 #endif
 
@@ -4841,23 +4841,24 @@ void AngioTkCenterline::applyTubularColisionFix( std::vector<MVertex*> const& vT
 
     } // for ( MVertex* vTested : vTestedSet )
 
-  //this->applyTubularColisionFix( mapVertexTested,1,2 );
-  //this->applyTubularColisionFix( mapVertexTested,0,-1 );
-  //this->applyTubularColisionFix( mapVertexTested,2,1 );
-  this->applyTubularColisionFix( mapVertexTested,1,1 );
-  this->applyTubularColisionFix( mapVertexTested,0,-1 );
+  //this->applyTubularColisionFix( mapVertexTested,distMin,1,2 );
+  //this->applyTubularColisionFix( mapVertexTested,distMin,0,-1 );
+  //this->applyTubularColisionFix( mapVertexTested,distMin,2,1 );
+  this->applyTubularColisionFix( mapVertexTested,distMin,1,1 );
+  this->applyTubularColisionFix( mapVertexTested,distMin,0,-1 );
 
 }
 
 
 void
-AngioTkCenterline::applyTubularColisionFix( std::map< MVertex*,std::set<MVertex*> > const& mapVertexTested, int method, int maxrecurrence, int nrecurrence )
+AngioTkCenterline::applyTubularColisionFix( std::map< MVertex*,std::set<MVertex*> > const& mapVertexTested,
+					    double distMin, int method, int maxrecurrence, int nrecurrence )
 {
   if ( maxrecurrence > 0 && nrecurrence >= maxrecurrence )
     return;
   //if (method == 0)
   //std::cout <<"applyTubularColisionFix start : " << mapVertexTested.size() << " nrecurrence="<<nrecurrence <<"\n";
-  double spaceMinBetweenTubularStructure = 2*0.5;//1.5*0.5;//2*0.5;//2*1.2;//0.6;//0.5;
+  //double spaceMinBetweenTubularStructure = 2*0.5;//1.5*0.5;//2*0.5;//2*1.2;//0.6;//0.5;
   std::map< MVertex*,std::set<MVertex*> > newMapVertexInColision;
   std::vector<std::pair<double,SPoint3>> newDirs;
   for ( auto const& vertexTestedPair : mapVertexTested )
@@ -4871,7 +4872,7 @@ AngioTkCenterline::applyTubularColisionFix( std::map< MVertex*,std::set<MVertex*
 	{
 	  double distBetweenPoints = vTested->point().distance( vTestedInSearch->point() );
 	  double radiusInSearch = M_centerlinesFieldsPointData["RadiusMin"][M_mapVertexGmshIdToVtkId[vTestedInSearch->getIndex()]][0];
-	  double distTubeColision = distBetweenPoints - ( radius + radiusInSearch + spaceMinBetweenTubularStructure );
+	  double distTubeColision = distBetweenPoints - ( radius + radiusInSearch + distMin/*spaceMinBetweenTubularStructure*/ );
 
 	  if ( /*false &&*/ distTubeColision < 0 )
 	    {
@@ -4889,7 +4890,7 @@ AngioTkCenterline::applyTubularColisionFix( std::map< MVertex*,std::set<MVertex*
 	  if ( distTubeColision < distTubeColisionMin )
 	    {
 	      distTubeColisionMin = distTubeColision;
-	      newRadius = distBetweenPoints - ( radiusInSearch + spaceMinBetweenTubularStructure );
+	      newRadius = distBetweenPoints - ( radiusInSearch + distMin/*spaceMinBetweenTubularStructure*/ );
 	      vTestedInSearchMin = vTestedInSearch;
 	      //std::cout << "newRadius " << newRadius <<"\n";
 	      if ( method == 0 && newRadius < 0  )
@@ -4952,10 +4953,9 @@ AngioTkCenterline::applyTubularColisionFix( std::map< MVertex*,std::set<MVertex*
 }
 
 
-void AngioTkCenterline::applyTubularColisionFix( AngioTk::pointpair_data_type const& pointPairData )
+void AngioTkCenterline::applyTubularColisionFix( AngioTk::pointpair_data_type const& pointPairData, double distMin )
 {
   Msg::Info("AngioTkCenterline::applyTubularColisionFix");
-  double spaceMinBetweenTubularStructure = 0.5;//2*0.5;//2*1.2;//0.6;//0.5;
 
   this->buildKdTree();
 
@@ -4992,12 +4992,12 @@ void AngioTkCenterline::applyTubularColisionFix( AngioTk::pointpair_data_type co
 	      ptDone.insert(v1->getIndex());
 	    }
 
-	  this->applyTubularColisionFix( vTestedSet );
+	  this->applyTubularColisionFix( vTestedSet, distMin );
 	}
     }
 }
 
-void AngioTkCenterline::applyTubularColisionFix()
+void AngioTkCenterline::applyTubularColisionFix( double distMin )
 {
   Msg::Info("AngioTkCenterline::applyTubularColisionFix");
 
@@ -5023,7 +5023,7 @@ void AngioTkCenterline::applyTubularColisionFix()
 	    }
 	}
       Msg::Info("AngioTkCenterline::applyTubularColisionFix start for branch id %d",i);
-      this->applyTubularColisionFix( vTestedSet );
+      this->applyTubularColisionFix( vTestedSet, distMin );
     }
 }
 

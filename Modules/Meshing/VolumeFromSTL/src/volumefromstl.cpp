@@ -726,6 +726,7 @@ CenterlinesManager::CenterlinesManager( std::string prefix )
     M_applyThresholdZoneMinRadius( doption(_name="thresholdzone-radius.min",_prefix=this->prefix() ) ),
     M_applyThresholdZoneMaxRadius( doption(_name="thresholdzone-radius.max",_prefix=this->prefix() ) ),
     M_avoidTubularColision( boption(_name="avoid-tubular-colision.apply",_prefix=this->prefix() ) ),
+    M_avoidTubularColisionDistanceMin( doption(_name="avoid-tubular-colision.distance-min",_prefix=this->prefix() ) ),
     M_avoidTubularColisionInputPointPairPath( AngioTkEnvironment::expand( soption(_name="avoid-tubular-colision.point-pair.filename",_prefix=this->prefix() ) ) ),
     M_smoothResample( boption(_name="smooth-resample.apply",_prefix=this->prefix() ) ),
     M_smoothResampleMeshSize( doption(_name="smooth-resample.mesh-size",_prefix=this->prefix() ) ),
@@ -947,10 +948,10 @@ CenterlinesManager::run()
             if ( !M_avoidTubularColisionInputPointPairPath.empty() && fs::exists( M_avoidTubularColisionInputPointPairPath ) )
             {
                 auto pointPairData = AngioTk::loadFromPointPairFile( M_avoidTubularColisionInputPointPairPath );
-                centerlinesTool->applyTubularColisionFix( pointPairData );
+                centerlinesTool->applyTubularColisionFix( pointPairData, M_avoidTubularColisionDistanceMin );
             }
             else
-                centerlinesTool->applyTubularColisionFix();
+                centerlinesTool->applyTubularColisionFix( M_avoidTubularColisionDistanceMin );
         }
 
         if ( M_smoothResample )
@@ -969,10 +970,10 @@ CenterlinesManager::run()
                 if ( !M_avoidTubularColisionInputPointPairPath.empty() && fs::exists( M_avoidTubularColisionInputPointPairPath ) )
                 {
                     auto pointPairData = AngioTk::loadFromPointPairFile( M_avoidTubularColisionInputPointPairPath );
-                    centerlinesSmooth.applyTubularColisionFix( pointPairData );
+                    centerlinesSmooth.applyTubularColisionFix( pointPairData, M_avoidTubularColisionDistanceMin );
                 }
                 else
-                    centerlinesSmooth.applyTubularColisionFix();
+                    centerlinesSmooth.applyTubularColisionFix( M_avoidTubularColisionDistanceMin );
             }
 
             centerlinesSmooth.writeCenterlinesVTK( this->outputPath() );
@@ -1007,6 +1008,7 @@ CenterlinesManager::options( std::string const& prefix )
         (prefixvm(prefix,"thresholdzone-radius.max").c_str(), Feel::po::value<double>()->default_value(-1), "(double) threshold-radius.max")
         (prefixvm(prefix,"thresholdzone-radius.min").c_str(), Feel::po::value<double>()->default_value(-1), "(double) threshold-radius.max")
         (prefixvm(prefix,"avoid-tubular-colision.apply").c_str(), po::value<bool>()->default_value( false ), "(string) input point-set filename" )
+        (prefixvm(prefix,"avoid-tubular-colision.distance-min").c_str(), po::value<double>()->default_value( 2*0.5 ), "(double) distance-min" )
         (prefixvm(prefix,"avoid-tubular-colision.point-pair.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input point-set filename" )
         (prefixvm(prefix,"smooth-resample.apply").c_str(), po::value<bool>()->default_value( false ), "(bool) smooth-resample.apply" )
         (prefixvm(prefix,"smooth-resample.mesh-size").c_str(), po::value<double>()->default_value( 1.0 ), "(double) mesh size" )
@@ -2020,6 +2022,7 @@ RemeshSTL::RemeshSTL( std::string prefix )
     M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.filename",_prefix=this->prefix())) ),
     M_inputCenterlinesPath( AngioTkEnvironment::expand(soption(_name="centerlines.filename",_prefix=this->prefix())) ),
     M_gmshRemeshNbPointsInCircle( ioption(_name="nb-points-in-circle",_prefix=this->prefix()) ),
+    M_gmshRemeshRadiusUncertainty( doption(_name="gmsh.radius-uncertainty",_prefix=this->prefix()) ),
     M_gmshRemeshPartitionForceRebuild( boption(_name="gmsh.remesh-partition.force-rebuild",_prefix=this->prefix()) ),
     M_vmtkArea( doption(_name="area",_prefix=this->prefix()) ),
     M_vmtkNumberOfIteration( ioption(_name="vmtk.n-iteration",_prefix=this->prefix()) ),
@@ -2196,8 +2199,10 @@ RemeshSTL::runGMSH()
     std::shared_ptr<AngioTkCenterline> centerlinesTool( new AngioTkCenterline );
     centerlinesTool->setIsCut(true);
     centerlinesTool->setRemeshNbPoints( this->remeshNbPointsInCircle() );
+    centerlinesTool->setSurfaceRemeshRadiusUncertainty( this->gmshRemeshRadiusUncertainty() );
     centerlinesTool->importSurfaceFromFile( this->inputSurfacePath() );
     centerlinesTool->importFile( this->inputCenterlinesPath() );
+
 
     fs::path gp = this->inputSurfacePath();
     std::string remeshPartitionMeshFileName = gp.stem().string() + "_remeshpartition.msh";
@@ -2226,6 +2231,7 @@ RemeshSTL::options( std::string const& prefix )
         ( prefixvm(prefix,"centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "centerlines.filename" )
         ( prefixvm(prefix,"nb-points-in-circle").c_str(), po::value<int>()->default_value( 15 ), "nb-points-in-circle" )
         ( prefixvm(prefix,"gmsh.remesh-partition.force-rebuild").c_str(), Feel::po::value<bool>()->default_value(true), "(bool) force-rebuild")
+        ( prefixvm(prefix,"gmsh.radius-uncertainty").c_str(), Feel::po::value<double>()->default_value(0.), "(double) radius-uncertainty")
         // vmtk options
         ( prefixvm(prefix,"area").c_str(), po::value<double>()->default_value( 0.5 ), "area" )
         ( prefixvm(prefix,"vmtk.n-iteration").c_str(), po::value<int>()->default_value( 10 ), "maxit" )
