@@ -296,6 +296,62 @@ private :
     bool M_forceRebuild;
 };
 
+class AngioTkFilterBase
+{
+public :
+    AngioTkFilterBase( std::string prefix )
+        :
+        M_prefix( prefix ),
+        M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
+        M_outputPath( AngioTkEnvironment::expand( soption(_name="output.filename",_prefix=this->prefix()) ) ),
+        M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
+    {
+        if ( !this->outputPath().empty() )
+            {
+                if ( !fs::exists( this->outputPath() ) )
+                    M_outputPath.clear();
+                else if ( fs::path(M_outputPath).is_relative() )
+                    M_outputPath = (fs::path(Environment::rootRepository())/fs::path(M_outputPath)).string();
+            }
+    }
+    WorldComm const& worldComm() const { return Environment::worldComm(); }
+    std::string const& prefix() const { return M_prefix; }
+    std::string const& outputDirectory() const { return M_outputDirectory; }
+    std::string const& outputPath() const { return M_outputPath; }
+    bool forceRebuild() const { return M_forceRebuild; }
+    void setOutputPath( std::string const& path ) { M_outputPath=path; }
+    void setOutputDirectory( std::string const& path ) { M_outputDirectory=path; }
+
+private :
+    std::string M_prefix;
+    std::string M_outputDirectory, M_outputPath;
+    bool M_forceRebuild;
+};
+
+class ImagesManager : public AngioTkFilterBase
+{
+    typedef AngioTkFilterBase super_type;
+public :
+
+    ImagesManager( std::string const& prefix );
+    ImagesManager( ImagesManager const& e ) = default;
+    void updateOutputPathFromInputFileName();
+    void run();
+    void printInfo() const;
+    static po::options_description options( std::string const& prefix );
+    std::vector<std::string> const& inputPath() const { return M_inputPath; }
+    std::string const& inputPath(int k) const { return M_inputPath[k]; }
+    bool resizeFromRefImageApply() const { return M_resizeFromRefImageApply; }
+    std::string const& resizeFromRefImagePath() const { return M_resizeFromRefImagePath; }
+private :
+    void updateResizeFromRefImage();
+private :
+    std::vector<std::string> M_inputPath;
+    bool M_resizeFromRefImageApply;
+    std::string M_resizeFromRefImagePath;
+};
+
+
 class SubdivideSurface
 {
 public :

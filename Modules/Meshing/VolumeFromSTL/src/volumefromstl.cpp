@@ -8,6 +8,7 @@
 #include <vtkPolyDataReader.h>
 #include <vtkMetaImageWriter.h>
 #include <vtkMetaImageReader.h> // mha
+#include <vtkImageChangeInformation.h>
 #include <vtkXMLImageDataReader.h> // vti
 #include <vtkMarchingCubes.h>
 #include <vtkSTLWriter.h>
@@ -1572,6 +1573,166 @@ SurfaceFromImage::options( std::string const& prefix )
 
 
 
+ImagesManager::ImagesManager( std::string const& prefix )
+    :
+    super_type( prefix ),
+    M_inputPath(),
+    M_resizeFromRefImageApply( boption(_name="resize-from-reference-image.apply",_prefix=this->prefix()) ),
+    M_resizeFromRefImagePath( AngioTkEnvironment::expand( soption(_name="resize-from-reference-image.path",_prefix=this->prefix()) ) )
+{
+    if ( Environment::vm().count(prefixvm(this->prefix(),"input.image.path").c_str()) )
+        M_inputPath = Environment::vm()[prefixvm(this->prefix(),"input.image.path").c_str()].as<std::vector<std::string> >();
+    for ( int k=0;k<M_inputPath.size();++k)
+        M_inputPath[k] = AngioTkEnvironment::expand( M_inputPath[k] );
+
+    if ( this->outputPath().empty() && !this->inputPath().empty() && !this->inputPath(0).empty() )
+        this->updateOutputPathFromInputFileName();
+}
+
+void
+ImagesManager::updateOutputPathFromInputFileName()
+{
+    CHECK( !this->inputPath().empty() ) << "input path is empty";
+    CHECK( !this->inputPath(0).empty() ) << "input path is empty";
+
+    // define output directory
+    fs::path meshesdirectories;
+    if ( this->outputDirectory().empty() )
+        meshesdirectories = fs::current_path();
+    else if ( fs::path(this->outputDirectory()).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(this->outputDirectory());
+    else
+        meshesdirectories = fs::path(this->outputDirectory());
+
+    // get filename without extension
+    fs::path gp = M_inputPath[0];
+    std::string nameMeshFile = gp.stem().string();
+
+    std::string newFileName = (boost::format("%1%_cvrt.mha")%nameMeshFile ).str();
+    fs::path outputPath = meshesdirectories / fs::path(newFileName);
+    this->setOutputPath( outputPath.string() );
+}
+
+void
+ImagesManager::printInfo() const
+{
+    std::ostringstream coutStr;
+    coutStr << "\n"
+            << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
+            << "---------------------------------------\n"
+            << "run ImagesManager \n"
+            << "---------------------------------------\n";
+    for ( int k=0;k<this->inputPath().size();++k)
+        coutStr << "inputPath         : " << this->inputPath(k) << "\n";
+    coutStr << "output path       : " << this->outputPath() << "\n";
+    if ( this->resizeFromRefImageApply() )
+        coutStr << "input reference image path : " << this->resizeFromRefImagePath() << "\n";
+    coutStr << "---------------------------------------\n"
+            << "---------------------------------------\n";
+    std::cout << coutStr.str();
+}
+
+void
+ImagesManager::run()
+{
+    this->printInfo();
+
+    if ( this->inputPath().empty() )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : ImagesManager do nothing because input path is empty\n";
+        return;
+    }
+    if ( !fs::exists( this->inputPath(0) ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : ImagesManager do nothing done because this input path does not exist :" << this->inputPath(0) << "\n";
+        return;
+    }
+    if ( this->resizeFromRefImageApply() && !fs::exists( this->resizeFromRefImagePath() ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : ImagesManager do nothing because resizeFromRefImage path does not exist :" << this->resizeFromRefImagePath() << "\n";
+        return;
+    }
+
+    if ( this->resizeFromRefImageApply() )
+        this->updateResizeFromRefImage();
+}
+
+void
+ImagesManager::updateResizeFromRefImage()
+{
+
+    vtkSmartPointer<vtkMetaImageReader> readerRefImage = vtkSmartPointer<vtkMetaImageReader>::New();
+    readerRefImage->SetFileName(this->resizeFromRefImagePath().c_str());
+    readerRefImage->Update();
+    double originRefImage[3];
+    readerRefImage->GetOutput()->GetOrigin(originRefImage);
+    int dimRefImage[3];
+    readerRefImage->GetOutput()->GetDimensions( dimRefImage );
+    double spacingRefImage[3];
+    readerRefImage->GetOutput()->GetSpacing( spacingRefImage );
+    double lengthRefImage[3] = { spacingRefImage[0]*(dimRefImage[0]-1), spacingRefImage[1]*(dimRefImage[1]-1),spacingRefImage[2]*(dimRefImage[2]-1) };
+
+    vtkSmartPointer<vtkMetaImageReader> readerInitialImage = vtkSmartPointer<vtkMetaImageReader>::New();
+    readerInitialImage->SetFileName(this->inputPath(0).c_str());
+    readerInitialImage->Update();
+    double originInitialImage[3];
+    readerInitialImage->GetOutput()->GetOrigin(originInitialImage);
+    int dimInitialImage[3];
+    readerInitialImage->GetOutput()->GetDimensions( dimInitialImage );
+    double spacingInitialImage[3];
+    readerInitialImage->GetOutput()->GetSpacing( spacingInitialImage );
+    double lengthInitialImage[3] = { spacingInitialImage[0]*(dimInitialImage[0]-1), spacingInitialImage[1]*(dimInitialImage[1]-1),spacingInitialImage[2]*(dimInitialImage[2]-1) };
+
+    if ( true )
+    {
+        std::cout << "originRefImage " << originRefImage[0] << "," << originRefImage[1] << "," << originRefImage[2] << "\n";
+        std::cout << "dimRefImage " << dimRefImage[0] << "," << dimRefImage[1] << "," << dimRefImage[2] << "\n";
+        std::cout << "lengthRefImage " << lengthRefImage[0] << "," << lengthRefImage[1] << "," << lengthRefImage[2] << "\n";
+        std::cout << "spacingRefImage " << spacingRefImage[0] << "," << spacingRefImage[1] << "," << spacingRefImage[2] << "\n";
+        std::cout << "originInitialImage " << originInitialImage[0] << "," << originInitialImage[1] << "," << originInitialImage[2] << "\n";
+        std::cout << "dimInitialImage " << dimInitialImage[0] << "," << dimInitialImage[1] << "," << dimInitialImage[2] << "\n";
+        std::cout << "spacingInitialImage " << spacingInitialImage[0] << "," << spacingInitialImage[1] << "," << spacingInitialImage[2] << "\n";
+        std::cout << "lengthInitialImage " << lengthInitialImage[0] << "," << lengthInitialImage[1] << "," << lengthInitialImage[2] << "\n";
+    }
+
+    double spacingNewImage[3] = { lengthRefImage[0]/(dimInitialImage[0]-1), lengthRefImage[1]/(dimInitialImage[1]-1), lengthRefImage[2]/(dimInitialImage[2]-1) };
+
+    vtkSmartPointer<vtkImageChangeInformation> imageChangeInfo = vtkSmartPointer<vtkImageChangeInformation>::New();
+    imageChangeInfo->SetInput(readerInitialImage->GetOutput());
+    imageChangeInfo->SetOutputOrigin(originRefImage);
+    imageChangeInfo->SetOutputSpacing(spacingNewImage);
+    imageChangeInfo->Update();
+
+    vtkSmartPointer<vtkMetaImageWriter> metaImageWriter = vtkSmartPointer<vtkMetaImageWriter>::New();
+    metaImageWriter->SetFileName(this->outputPath().c_str());
+    metaImageWriter->SetInput(imageChangeInfo->GetOutput());
+
+    metaImageWriter->Write();
+
+}
+
+po::options_description
+ImagesManager::options( std::string const& prefix )
+{
+    po::options_description myImagesManagerOptions( "Modified an Image" );
+
+    myImagesManagerOptions.add_options()
+        (prefixvm(prefix,"input.image.path").c_str(), po::value<std::vector<std::string> >()->multitoken(), "(vector of string) input image filename" )
+        (prefixvm(prefix,"resize-from-reference-image.path").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) reference-image path")
+        (prefixvm(prefix,"resize-from-reference-image.apply").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) resize-from-reference-image")
+
+        (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
+        (prefixvm(prefix,"output.filename").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output filename")
+        (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
+        ;
+    return myImagesManagerOptions;
+}
+
+
+
 SubdivideSurface::SubdivideSurface( std::string prefix )
     :
     M_prefix( prefix ),
@@ -1587,8 +1748,6 @@ SubdivideSurface::SubdivideSurface( std::string prefix )
         this->updateOutputPathFromInputFileName();
     }
 }
-
-
 
 void
 SubdivideSurface::updateOutputPathFromInputFileName()

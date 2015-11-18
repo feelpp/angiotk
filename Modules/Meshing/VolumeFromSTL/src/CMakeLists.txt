@@ -37,6 +37,9 @@ target_link_libraries( meshing_imagefromcenterlines ${FEELPP_LIBRARY} ${FEELPP_L
 angiotk_add_component( meshing_surfacefromimage surfacefromimage_main.cpp )
 target_link_libraries( meshing_surfacefromimage ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
 
+angiotk_add_component( meshing_imagesmanager imagesmanager_main.cpp )
+target_link_libraries( meshing_imagesmanager ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
+
 angiotk_add_component( meshing_opensurface opensurface_main.cpp )
 target_link_libraries( meshing_opensurface ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
 
