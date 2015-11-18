@@ -7,9 +7,9 @@
 #include <vtkSmartPointer.h>
 #include <vtkPolyDataReader.h>
 #include <vtkMetaImageWriter.h>
-#include <vtkMetaImageReader.h> // mha
+#include <vtkMetaImageReader.h> // .mha
 #include <vtkImageChangeInformation.h>
-#include <vtkXMLImageDataReader.h> // vti
+#include <vtkXMLImageDataReader.h> // .vti
 #include <vtkMarchingCubes.h>
 #include <vtkSTLWriter.h>
 #include <vtkImageTranslateExtent.h>
@@ -1198,6 +1198,7 @@ SurfaceFromImage::SurfaceFromImage( std::string prefix )
     M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
     M_outputPath( AngioTkEnvironment::expand( soption(_name="output.filename",_prefix=this->prefix()) ) ),
     M_imageFusionOperator( soption(_name="image-fusion.operator",_prefix=this->prefix()) ),
+    M_resizeFromRefImagePath( soption(_name="pre-process.resize-from-reference-image.path",_prefix=this->prefix()) ),
     M_method( soption(_name="method",_prefix=this->prefix()) ),
     M_hasThresholdLower(false), M_hasThresholdUpper(false),
     M_thresholdLower(0.0),M_thresholdUpper(0.0),
@@ -1218,6 +1219,9 @@ SurfaceFromImage::SurfaceFromImage( std::string prefix )
     for ( int k=0;k<M_inputPath.size();++k)
         if ( !M_inputPath[k].empty() && fs::path(M_inputPath[k]).is_relative() )
             M_inputPath[k] = (AngioTkEnvironment::pathInitial()/fs::path(M_inputPath[k]) ).string();
+
+    if ( !M_resizeFromRefImagePath.empty() && !fs::exists(M_resizeFromRefImagePath) )
+        M_resizeFromRefImagePath.clear();
 
     if ( Environment::vm().count(prefixvm(this->prefix(),"threshold.lower").c_str()) )
     {
@@ -1338,6 +1342,19 @@ SurfaceFromImage::run()
             inputImagePath = outputPathImageFusion;
         }
 
+        if ( !M_resizeFromRefImagePath.empty() )
+        {
+            std::string nameImageResized = outputNameWithoutExt+"_resized.mha";
+            std::string outputPathImageResized = (directory/fs::path(nameImageResized)).string();
+            ImagesManager myImagesManager;
+            myImagesManager.setInputPath( inputImagePath );
+            myImagesManager.setOutputPath( outputPathImageResized );
+            myImagesManager.setResizeFromRefImageApply( true );
+            myImagesManager.setForceRebuild( true );
+            myImagesManager.setResizeFromRefImagePath( M_resizeFromRefImagePath );
+            myImagesManager.run();
+            inputImagePath = myImagesManager.outputPath();
+        }
 
         std::ostringstream __str;
         __str << pythonExecutable << " ";
@@ -1562,6 +1579,8 @@ SurfaceFromImage::options( std::string const& prefix )
         (prefixvm(prefix,"output.filename").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output filename")
         (prefixvm(prefix,"method").c_str(), Feel::po::value<std::string>()->default_value("threshold"), "(string) method : threshold, isosurface")
         (prefixvm(prefix,"image-fusion.operator").c_str(), Feel::po::value<std::string>()->default_value("max"), "(string) operator : max, min, multiply, subtract")
+        (prefixvm(prefix,"pre-process.resize-from-reference-image.path").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) resize-from-reference-image")
+
         (prefixvm(prefix,"threshold.lower").c_str(), Feel::po::value<double>(), "(double) threshold lower")
         (prefixvm(prefix,"threshold.upper").c_str(), Feel::po::value<double>(), "(double) threshold upper")
         (prefixvm(prefix,"apply-connectivity.largest-region").c_str(), Feel::po::value<bool>()->default_value(true), "(bool) apply-connectivity.largest-region")
@@ -1572,6 +1591,11 @@ SurfaceFromImage::options( std::string const& prefix )
 }
 
 
+ImagesManager::ImagesManager()
+    :
+    super_type(),
+    M_resizeFromRefImageApply( false )
+{}
 
 ImagesManager::ImagesManager( std::string const& prefix )
     :
@@ -1656,6 +1680,8 @@ ImagesManager::run()
         return;
     }
 
+    this->createOutputDirectory();
+
     if ( this->resizeFromRefImageApply() )
         this->updateResizeFromRefImage();
 }
@@ -1663,6 +1689,10 @@ ImagesManager::run()
 void
 ImagesManager::updateResizeFromRefImage()
 {
+    std::string extInitialImage = fs::path(this->inputPath(0)).extension().string();
+    std::string extRefImage = fs::path(this->resizeFromRefImagePath()).extension().string();
+    CHECK( extInitialImage == ".mha" /*|| extInitialImage == ".nii"*/ ) << "image formart not support " << extInitialImage;
+    CHECK( extRefImage == ".mha" /*|| extInitialImage == ".nii"*/ ) << "image formart not support " << extRefImage;
 
     vtkSmartPointer<vtkMetaImageReader> readerRefImage = vtkSmartPointer<vtkMetaImageReader>::New();
     readerRefImage->SetFileName(this->resizeFromRefImagePath().c_str());
@@ -1725,7 +1755,7 @@ ImagesManager::options( std::string const& prefix )
         (prefixvm(prefix,"resize-from-reference-image.apply").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) resize-from-reference-image")
 
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
-        (prefixvm(prefix,"output.filename").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output filename")
+        (prefixvm(prefix,"output.path").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output filename")
         (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         ;
     return myImagesManagerOptions;

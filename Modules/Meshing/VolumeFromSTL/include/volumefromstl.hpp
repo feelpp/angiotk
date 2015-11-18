@@ -288,6 +288,7 @@ private :
     std::vector<std::string> M_inputPath;
     std::string M_outputDirectory,M_outputPath;
     std::string M_imageFusionOperator;
+    std::string M_resizeFromRefImagePath;
     std::string M_method;
     double M_thresholdLower,M_thresholdUpper;
     bool M_hasThresholdLower,M_hasThresholdUpper;
@@ -299,11 +300,15 @@ private :
 class AngioTkFilterBase
 {
 public :
+    AngioTkFilterBase()
+        :
+        M_forceRebuild( true )
+    {}
     AngioTkFilterBase( std::string prefix )
         :
         M_prefix( prefix ),
         M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
-        M_outputPath( AngioTkEnvironment::expand( soption(_name="output.filename",_prefix=this->prefix()) ) ),
+        M_outputPath( AngioTkEnvironment::expand( soption(_name="output.path",_prefix=this->prefix()) ) ),
         M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
     {
         if ( !this->outputPath().empty() )
@@ -312,17 +317,37 @@ public :
                     M_outputPath.clear();
                 else if ( fs::path(M_outputPath).is_relative() )
                     M_outputPath = (fs::path(Environment::rootRepository())/fs::path(M_outputPath)).string();
+                this->updateOutputDirFromOutputPath();
             }
     }
+    AngioTkFilterBase( AngioTkFilterBase const& e ) = default;
     WorldComm const& worldComm() const { return Environment::worldComm(); }
     std::string const& prefix() const { return M_prefix; }
     std::string const& outputDirectory() const { return M_outputDirectory; }
     std::string const& outputPath() const { return M_outputPath; }
     bool forceRebuild() const { return M_forceRebuild; }
-    void setOutputPath( std::string const& path ) { M_outputPath=path; }
+    void setOutputPath( std::string const& path ) { M_outputPath=path; this->updateOutputDirFromOutputPath(); }
     void setOutputDirectory( std::string const& path ) { M_outputDirectory=path; }
+    void setForceRebuild( bool b ) { M_forceRebuild = b; }
 
+    void createOutputDirectory()
+    {
+        // build directories if necessary
+        if ( !this->outputDirectory().empty() && this->worldComm().isMasterRank() )
+            {
+                if ( !fs::exists( this->outputDirectory() ) )
+                    fs::create_directories( this->outputDirectory() );
+            }
+        // // wait all process
+        this->worldComm().globalComm().barrier();
+    }
 private :
+    void updateOutputDirFromOutputPath()
+    {
+        if ( this->outputPath().empty() ) return;
+        if ( fs::path(this->outputPath()).is_absolute() )
+            M_outputDirectory = fs::path(this->outputPath()).parent_path().string();
+    }
     std::string M_prefix;
     std::string M_outputDirectory, M_outputPath;
     bool M_forceRebuild;
@@ -333,16 +358,23 @@ class ImagesManager : public AngioTkFilterBase
     typedef AngioTkFilterBase super_type;
 public :
 
+    ImagesManager();
     ImagesManager( std::string const& prefix );
     ImagesManager( ImagesManager const& e ) = default;
     void updateOutputPathFromInputFileName();
     void run();
     void printInfo() const;
     static po::options_description options( std::string const& prefix );
+
     std::vector<std::string> const& inputPath() const { return M_inputPath; }
     std::string const& inputPath(int k) const { return M_inputPath[k]; }
     bool resizeFromRefImageApply() const { return M_resizeFromRefImageApply; }
     std::string const& resizeFromRefImagePath() const { return M_resizeFromRefImagePath; }
+
+    void setInputPath( std::string const& path ) { M_inputPath.clear(); M_inputPath.push_back( path ); }
+    void setResizeFromRefImageApply( bool b ) { M_resizeFromRefImageApply = b; }
+    void setResizeFromRefImagePath( std::string const& path ) { M_resizeFromRefImagePath = path; }
+
 private :
     void updateResizeFromRefImage();
 private :
