@@ -2,7 +2,6 @@
 
 #include <volumefromstl.hpp>
 #include <AngioTkCenterlineField.h>
-#include <centerlinesmanagerwindowinteractor.hpp>
 
 #include <vtkSmartPointer.h>
 #include <vtkPolyDataReader.h>
@@ -720,7 +719,6 @@ CenterlinesManager::CenterlinesManager( std::string prefix )
     M_inputPointPairPath( AngioTkEnvironment::expand( soption(_name="input.point-pair.filename",_prefix=this->prefix()) ) ),
     M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
-    M_useWindowInteractor( boption(_name="use-window-interactor",_prefix=this->prefix() ) ),
     M_applyThresholdMinRadius( doption(_name="threshold-radius.min",_prefix=this->prefix() ) ),
     M_applyThresholdMaxRadius( doption(_name="threshold-radius.max",_prefix=this->prefix() ) ),
     M_applyThresholdZonePointSetPath( AngioTkEnvironment::expand( soption(_name="thresholdzone-radius.point-set.filename",_prefix=this->prefix()) ) ),
@@ -801,34 +799,6 @@ CenterlinesManager::loadPointSetFile( std::string const& filepath )
 void
 CenterlinesManager::run()
 {
-    if ( M_useWindowInteractor )
-    {
-        if ( !this->inputSurfacePath().empty() && fs::exists( this->inputSurfacePath() ) )
-        {
-            CenterlinesManagerWindowInteractor windowInteractor;
-            windowInteractor.setWindowWidth( ioption(_name="window-width",_prefix=this->prefix() ) );
-            windowInteractor.setWindowHeight( ioption(_name="window-height",_prefix=this->prefix() ) );
-
-            windowInteractor.setInputSurfacePath( this->inputSurfacePath() );
-            if ( !this->inputPointSetPath().empty() && fs::exists( this->inputPointSetPath() ) )
-                windowInteractor.setInputPointSetPath( this->inputPointSetPath() );
-            if ( !this->inputPointPairPath().empty() && fs::exists( this->inputPointPairPath() ) )
-                windowInteractor.setInputPointPairPath( this->inputPointPairPath() );
-
-            std::vector<std::string> centerlinesPath;
-            for (int k = 0;k<this->inputCenterlinesPath().size();++k)
-                if ( !this->inputCenterlinesPath(k).empty() && fs::exists( this->inputCenterlinesPath(k) ) )
-                    centerlinesPath.push_back( this->inputCenterlinesPath(k) );
-            windowInteractor.setInputCenterlinesPath( centerlinesPath );
-
-            windowInteractor.run();
-        }
-        else if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : Centerlines Manager not run because this input surface path not exist :" << this->inputSurfacePath() << "\n";
-
-        return;
-    }
-
     if ( this->inputCenterlinesPath().empty() )
     {
         if ( this->worldComm().isMasterRank() )
@@ -2012,6 +1982,7 @@ OpenSurface::OpenSurface( std::string prefix )
     M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
     M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_distanceClipScalingFactor( doption(_name="distance-clip.scaling-factor",_prefix=this->prefix() ) ),
+    M_radiusUncertainty( doption(_name="radius-uncertainty",_prefix=this->prefix()) ),
     M_saveOutputSurfaceBinary( boption(_name="output.save-binary",_prefix=this->prefix() ) )
 {
     if ( !M_inputSurfacePath.empty() && M_outputPath.empty() )
@@ -2120,6 +2091,7 @@ OpenSurface::runGMSH()
     std::shared_ptr<AngioTkCenterline> centerlinesTool( new AngioTkCenterline );
     centerlinesTool->setModeClipMesh(true);
     centerlinesTool->setClipMeshScalingFactor( M_distanceClipScalingFactor );
+    centerlinesTool->setCutMeshRadiusUncertainty( M_radiusUncertainty );
     centerlinesTool->importSurfaceFromFile( this->inputSurfacePath() );
     centerlinesTool->importFile( this->inputCenterlinesPath() );
     centerlinesTool->runClipMesh();
@@ -2196,6 +2168,7 @@ OpenSurface::options( std::string const& prefix )
         (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
         (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         (prefixvm(prefix,"distance-clip.scaling-factor").c_str(), Feel::po::value<double>()->default_value(0.0), "(double) scaling-factor")
+        (prefixvm(prefix,"radius-uncertainty").c_str(), Feel::po::value<double>()->default_value(0.), "(double) radius-uncertainty")
         (prefixvm(prefix,"output.save-binary").c_str(), Feel::po::value<bool>()->default_value(true), "(bool) save-binary")
         ;
     return myOpenSurfaceOptions;
@@ -2388,7 +2361,7 @@ RemeshSTL::runGMSH()
     std::shared_ptr<AngioTkCenterline> centerlinesTool( new AngioTkCenterline );
     centerlinesTool->setIsCut(true);
     centerlinesTool->setRemeshNbPoints( this->remeshNbPointsInCircle() );
-    centerlinesTool->setSurfaceRemeshRadiusUncertainty( this->gmshRemeshRadiusUncertainty() );
+    centerlinesTool->setCutMeshRadiusUncertainty( this->gmshRemeshRadiusUncertainty() );
     centerlinesTool->importSurfaceFromFile( this->inputSurfacePath() );
     centerlinesTool->importFile( this->inputCenterlinesPath() );
 

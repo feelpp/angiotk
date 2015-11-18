@@ -59,6 +59,8 @@ public :
     //{}
     static std::string expand( std::string const& expr ) { return Feel::Environment::expand( expr ); }
 
+    static Feel::po::variables_map const& vm() { return Feel::Environment::vm(); }
+
 private :
     static Feel::fs::path S_pathInitial;
     static boost::shared_ptr<Feel::Environment> S_feelEnvironment;
@@ -219,7 +221,6 @@ private :
     std::vector<std::string> M_inputCenterlinesPath;
     std::string M_inputSurfacePath, M_inputPointSetPath, M_inputPointPairPath, M_outputDirectory, M_outputPath;
     bool M_forceRebuild;
-    bool M_useWindowInteractor;
     std::set<int> M_removeBranchIds;
     double M_applyThresholdMinRadius,M_applyThresholdMaxRadius;
     std::string M_applyThresholdZonePointSetPath;
@@ -482,7 +483,7 @@ private :
     std::string M_prefix;
     std::string M_inputSurfacePath, M_inputCenterlinesPath, M_outputDirectory, M_outputPath;
     bool M_forceRebuild;
-    double M_distanceClipScalingFactor;
+    double M_distanceClipScalingFactor, M_radiusUncertainty;
     bool M_saveOutputSurfaceBinary;
 };
 

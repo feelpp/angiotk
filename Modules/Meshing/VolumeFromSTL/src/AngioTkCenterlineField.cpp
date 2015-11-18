@@ -483,7 +483,7 @@ int maxVerticesIndex( std::vector<BranchDesc> const& edges )
 
 
 
-AngioTkCenterline::AngioTkCenterline(std::string fileName): kdtree(0), kdtreeR(0), M_surfaceRemeshRadiusUncertainty(0.)
+AngioTkCenterline::AngioTkCenterline(std::string fileName): kdtree(0), kdtreeR(0), M_cutMeshRadiusUncertainty(0.)
 {
   recombine = (CTX::instance()->mesh.recombineAll) || (CTX::instance()->mesh.recombine3DAll);
   nbPoints = 25;
@@ -501,7 +501,7 @@ AngioTkCenterline::AngioTkCenterline(std::string fileName): kdtree(0), kdtreeR(0
   update_needed = false;
 }
 
-AngioTkCenterline::AngioTkCenterline(): kdtree(0), kdtreeR(0), M_surfaceRemeshRadiusUncertainty(0.)
+AngioTkCenterline::AngioTkCenterline(): kdtree(0), kdtreeR(0), M_cutMeshRadiusUncertainty(0.)
 {
 
   recombine = (CTX::instance()->mesh.recombineAll) || (CTX::instance()->mesh.recombine3DAll);
@@ -757,8 +757,13 @@ void AngioTkCenterline::importFile(std::string fileName)
 
   newCenterlines.reset( new AngioTkCenterline );
   newCenterlines->importFile( fileName );
-
   this->attachAngioTkCenterline(newCenterlines);
+
+  if ( newCenterlines->edges.empty() )
+    {
+      Msg::Warning("ignore  a centerlines data empty in merge");
+      return;
+    }
 
   // copy previous mapping
   std::map<int,int> _previousMapVertexGmshIdToVtkId;
@@ -3050,6 +3055,8 @@ void AngioTkCenterline::runClipMesh()
 	  SVector3/*auto const&*/ pt =  std::get<0>(cutDesc);
 	  SVector3/*auto const&*/ dir =  std::get<1>(cutDesc);
 	  double radius =  std::get<2>(cutDesc);
+	  radius+=M_cutMeshRadiusUncertainty;//(0.5/2.);
+
 	  fileWrited << 0 << " " << pt[0] << " " << pt[1] << " " << pt[2] << " " << radius << "\n";
 	  cutSucess = cutByDisk(pt, dir, radius, cptRealCut+1);
 	  if (cutSucess)
@@ -3144,7 +3151,7 @@ void AngioTkCenterline::cutMesh(std::string const& remeshPartitionMeshFile)
 	      radius = std::max(radius,radiusl.find(lines[jLook])->second);
 	      lengthLook += lines[jLook]->getLength();
 	    }
-	  radius+=M_surfaceRemeshRadiusUncertainty;//(0.5/2.);
+	  radius+=M_cutMeshRadiusUncertainty;//(0.5/2.);
 	  applyCut=true;
 
 	  double lenghVBjunc = (vBisInOut)? std::max(2*radiusB,li) : std::min(2*radiusB,li);

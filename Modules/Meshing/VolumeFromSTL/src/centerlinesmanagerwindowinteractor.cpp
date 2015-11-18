@@ -1291,12 +1291,6 @@ CenterlinesManagerWindowInteractor::run()//bool fullscreen, int windowWidth, int
     //vtkSmartPointer<picker_type> worldPointPicker = vtkSmartPointer<picker_type>::New();
     //worldPointPicker->SetTolerance(0.0005);
     //--------------------------------------------
-    // read stl
-    if ( this->inputSurfacePath().empty() )
-    {
-        std::cout << "Required parameters: Filename" << endl;
-        return;
-    }
     // Create a renderer, render window, and interactor
     vtkSmartPointer<vtkRenderer> renderer = vtkSmartPointer<vtkRenderer>::New();
     vtkSmartPointer<vtkRenderWindow> renderWindow = vtkSmartPointer<vtkRenderWindow>::New();
@@ -1321,30 +1315,33 @@ CenterlinesManagerWindowInteractor::run()//bool fullscreen, int windowWidth, int
 
 
     // load surface
-    std::string inputFilename = this->inputSurfacePath();
-    vtkSmartPointer<vtkSTLReader> readerSTL = vtkSmartPointer<vtkSTLReader>::New();
-    readerSTL->SetFileName(inputFilename.c_str());
-    readerSTL->Update();
-    // Create a mapper and actor
-    vtkSmartPointer<vtkPolyDataMapper> mapperSTL = vtkSmartPointer<vtkPolyDataMapper>::New();
-    mapperSTL->SetInputConnection(readerSTL->GetOutputPort());
-    vtkSmartPointer<vtkActor> actorSTL = vtkSmartPointer<vtkActor>::New();
-    actorSTL->SetMapper(mapperSTL);
-    actorSTL->GetProperty()->SetOpacity(0.25);//0.8);//0.7//0.3
-    //actorSTL->GetProperty()->SetOpacity(0.8);//0.7//0.3
+    if ( !this->inputSurfacePath().empty() )
+    {
+        std::string inputFilename = this->inputSurfacePath();
+        vtkSmartPointer<vtkSTLReader> readerSTL = vtkSmartPointer<vtkSTLReader>::New();
+        readerSTL->SetFileName(inputFilename.c_str());
+        readerSTL->Update();
+        // Create a mapper and actor
+        vtkSmartPointer<vtkPolyDataMapper> mapperSTL = vtkSmartPointer<vtkPolyDataMapper>::New();
+        mapperSTL->SetInputConnection(readerSTL->GetOutputPort());
+        vtkSmartPointer<vtkActor> actorSTL = vtkSmartPointer<vtkActor>::New();
+        actorSTL->SetMapper(mapperSTL);
+        actorSTL->GetProperty()->SetOpacity(0.25);//0.8);//0.7//0.3
+        //actorSTL->GetProperty()->SetOpacity(0.8);//0.7//0.3
 
-    // Add the actor to the scene
-    renderer->AddActor(actorSTL);
+        // Add the actor to the scene
+        renderer->AddActor(actorSTL);
 
-    // update info in style
-    style->setActorSTL( actorSTL );
-    style->setBoundsSTL(mapperSTL->GetBounds());
-    style->setLenghtSTL(mapperSTL->GetLength());
+        // update info in style
+        style->setActorSTL( actorSTL );
+        style->setBoundsSTL(mapperSTL->GetBounds());
+        style->setLenghtSTL(mapperSTL->GetLength());
 
-    std::string namePointSetFile = Feel::fs::path(this->inputSurfacePath()).stem().string()+"_pointset.data";
-    std::string namePointPairFile = Feel::fs::path(this->inputSurfacePath()).stem().string()+"_pointpair.data";
-    style->setOutputPathPointSetFile(namePointSetFile);
-    style->setOutputPathPointPairFile(namePointPairFile);
+        std::string namePointSetFile = Feel::fs::path(this->inputSurfacePath()).stem().string()+"_pointset.data";
+        std::string namePointPairFile = Feel::fs::path(this->inputSurfacePath()).stem().string()+"_pointpair.data";
+        style->setOutputPathPointSetFile(namePointSetFile);
+        style->setOutputPathPointPairFile(namePointPairFile);
+    }
 
     boost::shared_ptr<AngioTkCenterline> centerlinesTool;
     for ( int k=0;k<this->inputCenterlinesPath().size();++k)

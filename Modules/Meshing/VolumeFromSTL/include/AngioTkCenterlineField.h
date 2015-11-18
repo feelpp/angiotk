@@ -313,7 +313,7 @@ class AngioTkCenterline : public Field{
   // mode remesh
   void setIsCut(bool b) { is_cut = b; }
   void setRemeshNbPoints( int i ) { nbPoints=i; }
-  void setSurfaceRemeshRadiusUncertainty(double d) { M_surfaceRemeshRadiusUncertainty = d; }
+  void setCutMeshRadiusUncertainty(double d) { M_cutMeshRadiusUncertainty = d; }
   void runSurfaceRemesh( std::string const& remeshPartitionMeshFile="", bool forceRebuildPartition=true );
   void saveSurfaceRemeshSTL(std::string const outputPath, bool binary );
 
@@ -334,7 +334,7 @@ class AngioTkCenterline : public Field{
 				   std::map<MVertex*,std::pair< std::vector<std::pair<MLine*,int> >, MVertex*> > & indexVertexReplaced );
 
   // represent a length where the radius can vary ( e.g. can be equal to the image accuracy )
-  double M_surfaceRemeshRadiusUncertainty;
+  double M_cutMeshRadiusUncertainty;
 };
 #else
 class AngioTkCenterline : public Field{
