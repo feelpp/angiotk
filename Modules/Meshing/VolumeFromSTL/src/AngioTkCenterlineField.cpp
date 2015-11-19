@@ -613,6 +613,8 @@ void
 AngioTkCenterline::updateMergeFromExtremities( AngioTkCenterline const& centerlinesMerged,
 					       std::map<MVertex*,std::pair< std::vector<std::pair<MLine*,int> >, MVertex*> > & indexVertexReplaced )
 {
+  std::string fieldPointDataRadius = "RadiusMin";
+
   for ( auto const& extremityPair : centerlinesMerged.centerlinesExtremities() )
     {
       double ptToLocalize[3] = { extremityPair.first->x(),extremityPair.first->y(),extremityPair.first->z() };
@@ -621,14 +623,35 @@ AngioTkCenterline::updateMergeFromExtremities( AngioTkCenterline const& centerli
       int lineIdInBranch = extremityPair.second.second;
       std::vector<MLine*> mylines = centerlinesMerged.centerlinesBranch(branchId).lines;
       MLine* myline = mylines[lineIdInBranch];
-      if ( centerlinesMerged.centerlinesRadiusl().find(myline) == centerlinesMerged.centerlinesRadiusl().end() )
-	Msg::Error("radius not find for this line \n");
-      double radius = centerlinesMerged.centerlinesRadiusl().find(myline)->second;
+
+      double radius = 0.0;
+      if ( fieldPointDataRadius.empty() || !this->hasField( fieldPointDataRadius ) )
+	{
+	  auto itFindRadius = centerlinesMerged.centerlinesRadiusl().find(myline);
+ 	  if ( itFindRadius == centerlinesMerged.centerlinesRadiusl().end() )
+	    Msg::Error("radius not find for this line \n");
+	  else
+	    radius = itFindRadius->second;
+	}
+      else
+	{
+	  int vId = extremityPair.first->getIndex();
+	  auto itFindVertex = this->mapVertexGmshIdToVtkId().find(vId);
+	  if ( itFindVertex == this->mapVertexGmshIdToVtkId().end() )
+	      Msg::Error("vertex not find in mapVertexGmshIdToVtkId");
+	  else
+	    {
+	      int vVtkId = itFindVertex->second;
+	      radius = centerlinesMerged.M_centerlinesFieldsPointData.find(fieldPointDataRadius)->second[vVtkId][0];
+	    }
+
+	}
 
       auto ptFoundData = this->foundClosestPointInCenterlines( ptToLocalize );
       MVertex* pointFound = std::get<0>(ptFoundData);
       double dist = std::get<1>(ptFoundData);
-      if ( dist > 2*(radius+this->minRadiusAtVertex(pointFound) ) )
+      //if ( dist > 2*(radius+this->minRadiusAtVertex(pointFound) ) )
+      if ( dist > 1*(radius+this->minRadiusAtVertex(pointFound,fieldPointDataRadius) ) )
 	pointFound = NULL;
 
       if ( pointFound == NULL )
@@ -1857,14 +1880,14 @@ void AngioTkCenterline::createBranches(int maxN)
   M_junctionsVertex.clear();
   M_extremityVertex.clear();
   double _boundMinX=0,_boundMaxX=0,_boundMinY=0,_boundMaxY=0,_boundMinZ=0,_boundMaxZ=0;
-  for(unsigned int i = 0; i < edges.size(); i++){
-    std::vector<MLine*> mylines = edges[i].lines;
+  for(int branchId = 0; branchId < edges.size(); branchId++){
+    std::vector<MLine*> mylines = edges[branchId].lines;
     bool initBounds = false;
     for (unsigned int j= 0; j < mylines.size(); j++){
       MVertex *v1 = mylines[j]->getVertex(0);
       MVertex *v2 = mylines[j]->getVertex(1);
-      M_vertexToLinesId[v1].insert( std::make_pair(i,j) );
-      M_vertexToLinesId[v2].insert( std::make_pair(i,j) );
+      M_vertexToLinesId[v1].insert( std::make_pair(branchId,j) );
+      M_vertexToLinesId[v2].insert( std::make_pair(branchId,j) );
 
       if ( !initBounds ) {
 	_boundMinX=v1->x();_boundMaxX=v1->x(),_boundMinY=v1->y(),_boundMaxY=v1->y(),_boundMinZ=v1->z(),_boundMaxZ=v1->z();
@@ -1879,9 +1902,10 @@ void AngioTkCenterline::createBranches(int maxN)
       _boundMinY=std::min(v2->y(),_boundMinY);_boundMaxY=std::max(v2->y(),_boundMaxY);
       _boundMinZ=std::min(v2->z(),_boundMinZ);_boundMaxZ=std::max(v2->z(),_boundMaxZ);
     }
-    edges[i].boundMinX = _boundMinX; edges[i].boundMaxX = _boundMaxX;
-    edges[i].boundMinY = _boundMinY; edges[i].boundMaxY = _boundMaxY;
-    edges[i].boundMinZ = _boundMinZ; edges[i].boundMaxZ = _boundMaxZ;
+    edges[branchId].setBounds( _boundMinX,_boundMaxX,_boundMinY,_boundMaxY,_boundMinZ,_boundMaxZ );
+    /*edges[branchId].boundMinX = _boundMinX; edges[branchId].boundMaxX = _boundMaxX;
+    edges[branchId].boundMinY = _boundMinY; edges[branchId].boundMaxY = _boundMaxY;
+    edges[branchId].boundMinZ = _boundMinZ; edges[branchId].boundMaxZ = _boundMaxZ;*/
   }
   for ( auto const& nPtsPair : M_vertexToLinesId )
     {
@@ -1900,6 +1924,20 @@ void AngioTkCenterline::createBranches(int maxN)
   if ( false )
     for(int i = 0; i < edges.size(); ++i) {
       Msg::Info("AngioTkCenterline: number of discrete lines in edge %d = %d",i,(int)edges[i].lines.size());
+    }
+  // add branch ids connected
+  for ( auto const& juncPair : M_junctionsVertex )
+    {
+      MVertex* juncv = juncPair.first;
+      auto const& branchesConnected = juncPair.second;
+      for ( int branchIdParent : branchesConnected )
+	{
+	  for ( int branchIdToConnect : branchesConnected )
+	    {
+	      if ( branchIdParent == branchIdToConnect ) continue;
+	      edges[branchIdParent].addConnection( juncv, branchIdToConnect );
+	    }
+	}
     }
 
   // compute measures between surface and centerlines
@@ -4025,6 +4063,7 @@ void AngioTkCenterline::writeCenterlinesVTK(std::string fileName)
 
 void AngioTkCenterline::updateCenterlinesFieldsFromFile(std::string fileName)
 {
+  Msg::Info("AngioTkCenterline: updateCenterlinesFieldsFromFile start");
 
   std::vector<MVertex*> verticesPosition;
   int numVertices = numberOfVertices(edges);
@@ -4059,7 +4098,7 @@ void AngioTkCenterline::updateCenterlinesFieldsFromFile(std::string fileName)
     {
       MVertex * myvertex = entitiesInitial[i]->mesh_vertices[j];
 
-      MVertex *vertexFind = pos.find(myvertex->x(), myvertex->y(), myvertex->z(), eps);
+      MVertex *vertexFind = pos.find(myvertex->x(), myvertex->y(), myvertex->z(), eps, false );
       if ( !vertexFind )
 	continue;
       if ( !vertexFind )
@@ -4203,17 +4242,62 @@ AngioTkCenterline::addFieldRadiusMin( std::string const& fieldName )
 }
 
 double
-AngioTkCenterline::minRadiusAtVertex( MVertex* myvertex ) const
+AngioTkCenterline::minRadiusAtVertex( MVertex* myvertex, std::string const& fieldPointDataRadius ) const
 {
-  if ( !kdtreeR )
-    Msg::Error("kdtreeR not built");
 
-  double pt[3] = { myvertex->x(), myvertex->y(), myvertex->z() };
-  ANNidx index[1];
-  ANNdist dist[1];
-  kdtreeR->annkSearch(pt, 1, index, dist);
-  double minRad = sqrt(dist[0]);
-  return minRad;
+  if ( fieldPointDataRadius.empty() || !this->hasField( fieldPointDataRadius ) )
+    {
+#if 0
+      if ( !kdtreeR )
+	Msg::Error("kdtreeR not built");
+
+      double pt[3] = { myvertex->x(), myvertex->y(), myvertex->z() };
+      ANNidx index[1];
+      ANNdist dist[1];
+      kdtreeR->annkSearch(pt, 1, index, dist);
+      double minRad = sqrt(dist[0]);
+      return minRad;
+#else
+
+      auto itFindVertex = M_vertexToLinesId.find( myvertex );
+      if ( itFindVertex == M_vertexToLinesId.end() )
+	{
+	  Msg::Error("vertex not find in M_vertexToLinesId");
+	  return 0;
+	}
+      double radius = 0;int cptRadius = 0;
+      for ( auto const& lineDesc : itFindVertex->second )
+	{
+	  MLine* myline = edges[lineDesc.first].lines[lineDesc.second];
+	  auto itFindRadius = this->centerlinesRadiusl().find(myline);
+	  if ( itFindRadius == this->centerlinesRadiusl().end() )
+	    {
+	      Msg::Warning("radius not find for this line \n");
+	      continue;
+	    }
+	  radius += itFindRadius->second;
+	  ++cptRadius;
+	}
+      if ( cptRadius>1 )
+	radius = radius/cptRadius;
+      return radius;
+
+#endif
+    }
+  else
+    {
+      int vId = myvertex->getIndex();
+      auto itFindVertex = this->mapVertexGmshIdToVtkId().find(vId);
+      if ( itFindVertex == this->mapVertexGmshIdToVtkId().end() )
+	{
+	  Msg::Error("vertex not find in mapVertexGmshIdToVtkId");
+	  return 0;
+	}
+      int vVtkId = itFindVertex->second;
+      //double radius = M_centerlinesFieldsPointData[fieldPointDataRadius][vVtkId][0];
+      double radius = M_centerlinesFieldsPointData.find(fieldPointDataRadius)->second[vVtkId][0];
+      return radius;
+    }
 }
 
 void
@@ -4635,7 +4719,7 @@ AngioTkCenterline::vertexOnSameBranch( MVertex* vertexA, MVertex* vertexB )
 }
 
 std::tuple<MVertex*, std::vector<int> >
-AngioTkCenterline::vertexOnNeighboringBranch( MVertex* vertexA, MVertex* vertexB )
+AngioTkCenterline::vertexOnNeighboringBranch( MVertex* vertexA, MVertex* vertexB, std::set<int> const& branchIdsToIgnore )
 {
   std::vector<int> branchIds;
   MVertex* junc = NULL;
@@ -4644,9 +4728,16 @@ AngioTkCenterline::vertexOnNeighboringBranch( MVertex* vertexA, MVertex* vertexB
   for ( auto const& vertexInfoA : itFindVertexA->second )
     {
       int branchIdA =  vertexInfoA.first;
+      if ( branchIdsToIgnore.find( branchIdA ) != branchIdsToIgnore.end() )
+	continue;
       for ( auto const& vertexInfoB : itFindVertexB->second )
 	{
 	  int branchIdB = vertexInfoB.first;
+	  if ( branchIdB == branchIdA )
+	    continue;
+	  if ( branchIdsToIgnore.find( branchIdB ) != branchIdsToIgnore.end() )
+	    continue;
+
 	  if ( ( edges[branchIdA].vB == edges[branchIdB].vB ) ||
 	       ( edges[branchIdA].vB == edges[branchIdB].vE ) ||
 	       ( edges[branchIdA].vE == edges[branchIdB].vB ) ||
@@ -4801,6 +4892,202 @@ AngioTkCenterline::pathBetweenVertex( MVertex* vertexA, MVertex* vertexB )
   return std::make_tuple(listOfLines,lengthPath);
 }
 
+
+
+
+
+
+
+std::tuple< bool,std::vector<MLine*> , double >
+AngioTkCenterline::pathBetweenVertex2( MVertex* vertexA, MVertex* vertexB, double lengthPathMax, std::set<int> const& branchIdToIgnore, bool searchOnlyCommonBranch )
+{
+  //std::cout << "pathBetweenVertex A : " << vertexA->getIndex() << " B : " << vertexB->getIndex() << "\n";
+
+  std::vector<MLine*> listOfLines;
+  //double lengthPath = 0;
+  double lengthPath = lengthPathMax;
+  // case same points
+  if ( vertexA == vertexB )
+    return std::make_tuple(true,listOfLines,lengthPath);
+
+  std::set<int> branchIdToIgnoreUp( branchIdToIgnore.begin(), branchIdToIgnore.end() );
+
+  int branchIdCommon = this->vertexOnSameBranch( vertexA,vertexB );
+  if ( branchIdCommon >= 0 && branchIdToIgnoreUp.find( branchIdCommon ) == branchIdToIgnoreUp.end()  )
+    {
+      double lengthPathCur=0;
+      // case same branch
+      std::set<int> ptDone;
+      int state=0;
+      for ( auto const& myline : edges[branchIdCommon].lines )
+	{
+	  if ( true )
+	    {
+	      std::vector<MVertex*> ptsInLine = { myline->getVertex(0),myline->getVertex(1) };
+	      for ( MVertex* myvertex : ptsInLine )
+		{
+		  if ( ptDone.find(myvertex->getIndex()) == ptDone.end() || M_junctionsVertex.find( myvertex ) != M_junctionsVertex.end() )
+		    {
+		      if ( vertexA == myvertex || vertexB == myvertex )
+			++state;
+		      ptDone.insert(myvertex->getIndex());
+		      if ( state == 2 )
+			break;
+		    }
+		}
+	    }
+	  else
+	    {
+	      // optimisation work only the lines are ordered correctly
+	      if ( state == 0 )
+		{
+		  MVertex* myvertex = myline->getVertex(0);
+		  int myvertexId = myvertex->getIndex();
+		  //if ( ptDone.find( myvertexId ) == ptDone.end() || M_junctionsVertex.find( myvertex ) != M_junctionsVertex.end() )
+		  {
+		    if ( vertexA == myvertex || vertexB == myvertex )
+		      ++state;
+		    ptDone.insert(myvertexId);
+		  }
+		}
+	      if ( state == 1 )
+		{
+		  MVertex* myvertex = myline->getVertex(1);
+		  int myvertexId = myvertex->getIndex();
+		  //if ( ptDone.find( myvertexId ) == ptDone.end() || M_junctionsVertex.find( myvertex ) != M_junctionsVertex.end() )
+		  {
+		    if ( vertexA == myvertex || vertexB == myvertex )
+		      ++state;
+		    ptDone.insert(myvertexId);
+		  }
+		}
+	    }
+
+	  if ( state == 1 )
+	    {
+	      listOfLines.push_back(myline);
+	      lengthPathCur += myline->getLength();
+	      if ( lengthPath > lengthPathMax )
+		break;//return std::make_tuple(false,listOfLines,lengthPath);
+	    }
+	  else if ( state == 2 )
+	    {
+	      listOfLines.push_back(myline);
+	      lengthPathCur += myline->getLength();
+	      break;//return std::make_tuple( bool(lengthPath < lengthPathMax),listOfLines,lengthPath);
+	    }
+	} // for (auto const& myline ... )
+      if ( state != 2 )
+	Msg::Error("failure : path computation on same branch");
+
+      if ( lengthPathCur < lengthPathMax )
+	lengthPath = lengthPathCur;
+      else
+	listOfLines.clear();
+
+      //branchIdToIgnoreUp.insert( branchIdCommon );
+    } // if ( branchIdCommon >= 0 )
+
+  if ( !searchOnlyCommonBranch /*true*/ )
+    {
+      std::set<int> neighborBranchIdTested; 
+      auto neighborBranchTest = this->vertexOnNeighboringBranch(vertexA,vertexB, branchIdToIgnoreUp);
+      auto const& neighborBranchIds = std::get<1>( neighborBranchTest );
+      if ( !neighborBranchIds.empty() )
+	{
+	  neighborBranchIdTested.insert(neighborBranchIds.begin(),neighborBranchIds.end());
+	  // case neighboring branch
+	  MVertex *junc = std::get<0>( neighborBranchTest );
+	  auto path1 = this->pathBetweenVertex2(vertexA,junc,lengthPath,branchIdToIgnoreUp,true);
+	  if ( std::get<0>(path1) )
+	    {
+	      auto path2 = this->pathBetweenVertex2(vertexB,junc,lengthPath,branchIdToIgnoreUp,true);
+	      if ( std::get<0>(path2) )
+		{
+		  double lengthPathCur = std::get<2>(path1) + std::get<2>(path2);
+		  if ( lengthPathCur < lengthPath )
+		    {
+		      lengthPath = lengthPathCur;
+		      listOfLines.clear();
+		      listOfLines.insert(listOfLines.end(),std::get<1>(path1).begin(),std::get<1>(path1).end());
+		      listOfLines.insert(listOfLines.end(),std::get<1>(path2).begin(),std::get<1>(path2).end());
+		      //return std::make_tuple(true,listOfLines,lengthPath);
+		    }
+		}
+	    }
+	}
+  //   }
+  // if ( !searchOnlyCommonBranch/*false*/ )
+  //   {
+      //Msg::Error("TODO : point pair are not localized in same branch and not have a near connection, must be implemented");
+
+      std::vector<int> branchIds;
+      //MVertex* junc = NULL;
+      auto itFindVertexA = M_vertexToLinesId.find( vertexA );
+      //if ( itFindVertexA == M_vertexToLinesId.end() || itFindVertexB == M_vertexToLinesId.end() )
+      //  return false;
+      for ( auto const& vertexInfoA : itFindVertexA->second )
+	{
+	  int branchIdA =  vertexInfoA.first;
+	  for ( auto const& connectInfo  : edges[branchIdA].connectedTobranchIds() )
+	    {
+	      MVertex* vJunc = connectInfo.first;
+	      auto pathA = this->pathBetweenVertex2(vertexA,vJunc,lengthPath,branchIdToIgnoreUp,true);
+	      if ( !std::get<0>(pathA) )
+		continue;
+	      double lengthPathA = std::get<2>(pathA);
+	      for (int branchIdConnected : connectInfo.second )
+		{
+		  if ( edges[branchIdConnected].length > lengthPath )
+		    continue;
+		  if ( branchIdToIgnoreUp.find( branchIdConnected ) != branchIdToIgnoreUp.end() )
+		    continue;
+		  if ( neighborBranchIdTested.find( branchIdConnected ) != neighborBranchIdTested.end() )
+		    continue;
+
+		  MVertex* vBconnect = edges[branchIdConnected].vB;
+		  MVertex* vEconnect = edges[branchIdConnected].vE;
+		  MVertex* vJuncOther = (vBconnect == vJunc )? vEconnect : vBconnect;
+
+		  auto pathMiddle = this->pathBetweenVertex2(vJunc,vJuncOther,lengthPath-lengthPathA,branchIdToIgnoreUp, true);
+		  branchIdToIgnoreUp.insert( branchIdConnected );
+		  if ( !std::get<0>(pathMiddle) )
+		    continue;
+		  double lengthPathMiddle = std::get<2>(pathMiddle);
+
+
+		  auto pathB = this->pathBetweenVertex2(vJuncOther,vertexB,lengthPath-lengthPathA-lengthPathMiddle,branchIdToIgnoreUp/*, true*/);
+		  if ( !std::get<0>(pathB) )
+		    continue;
+		  double lengthPathB = std::get<2>(pathB);
+
+
+		  if ( (lengthPathA+lengthPathB+lengthPathMiddle) < lengthPath )
+		    {
+		      listOfLines.clear();
+		      listOfLines.insert(listOfLines.end(),std::get<1>(pathA).begin(),std::get<1>(pathA).end());
+		      listOfLines.insert(listOfLines.end(),std::get<1>(pathMiddle).begin(),std::get<1>(pathMiddle).end());
+		      listOfLines.insert(listOfLines.end(),std::get<1>(pathB).begin(),std::get<1>(pathB).end());
+		      lengthPath = lengthPathA+lengthPathB+lengthPathMiddle;
+		      //return std::make_tuple(true,listOfLines,lengthPath);
+		    }
+		}
+	    }
+	}
+    }
+
+  return std::make_tuple( bool(lengthPath < lengthPathMax),listOfLines,lengthPath);
+  //return std::make_tuple(false,listOfLines,lengthPath);
+}
+
+
+
+
+
+
+
+
+
 double AngioTkCenterline::maxScalarValueInPath( std::vector<MLine*> const& path, std::string const& fieldName ) const
 {
   double res=0;
@@ -4851,9 +5138,10 @@ void AngioTkCenterline::applyTubularColisionFix( std::vector<MVertex*> const& vT
 		  if ( ptDoneInSearch.find(vInSearch->getIndex()) == ptDoneInSearch.end() )
 		    {
 		      double radiusSearch = M_centerlinesFieldsPointData["RadiusMin"][M_mapVertexGmshIdToVtkId[vInSearch->getIndex()]][0];
-		      if ( distBetweenLine < 1.2*(radius+distMin+radiusSearch+mylineInSearch->getLength()/2.) )
+		      if ( distBetweenLine < 1.2*(radius+distMin+radiusSearch+mylineInSearch->getLength()/2.) &&
+			   ( distBetweenLine > (1.0*radius) && distBetweenLine > (1.0*radiusSearch) ) )
 			{
-
+#if 0
 			  if ( this->canFindPathBetweenVertex( vTested, vInSearch ) )
 			    {
 			      auto mypathSearch = this->pathBetweenVertex( vTested, vInSearch );
@@ -4863,8 +5151,16 @@ void AngioTkCenterline::applyTubularColisionFix( std::vector<MVertex*> const& vT
 			    }
 			  else
 			    mapVertexTested[ vTested ].insert( v0InSearch );
+#else // NEW
+			  auto mypathSearch = this->pathBetweenVertex2( vTested, vInSearch,/*100*/ /*20*/20*(radius+radiusSearch) /*10*edges[i].maxRad*//*1000000.0*/ );
+			  if ( !std::get<0>( mypathSearch ) )
+			    mapVertexTested[ vTested ].insert( vInSearch );
+			  else if ( std::get<2>( mypathSearch ) > 10*this->maxScalarValueInPath(std::get<1>(mypathSearch),"RadiusMin") )
+			    mapVertexTested[ vTested ].insert( vInSearch );
+
+#endif
 			}
-		      ptDoneInSearch.insert(v0InSearch->getIndex());
+		      ptDoneInSearch.insert(vInSearch->getIndex());
 		    }
 		}
 	    }

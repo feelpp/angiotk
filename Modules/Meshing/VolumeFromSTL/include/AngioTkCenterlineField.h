@@ -56,13 +56,31 @@ struct BranchDesc {
   BranchDesc( BranchDesc const& _branch ) = default;
   //~BranchDesc(){}
   bool
-  isInsideBox( MVertex * vertex, double dist )
+  isInsideBox( MVertex * vertex, double dist ) const
   {
     double lengthAdded = maxRad+dist;
     return ( ( vertex->x() > ( boundMinX - lengthAdded ) ) && ( vertex->x() < ( boundMaxX + lengthAdded ) ) &&
 	     ( vertex->y() > ( boundMinY - lengthAdded ) ) && ( vertex->y() < ( boundMaxY + lengthAdded ) ) &&
 	     ( vertex->z() > ( boundMinZ - lengthAdded ) ) && ( vertex->z() < ( boundMaxZ + lengthAdded ) ) );
   }
+
+  void setBounds( double minX,double maxX,double minY,double maxY,double minZ,double maxZ )
+  {
+    boundMinX = minX; boundMaxX = maxX;
+    boundMinY = minY; boundMaxY = maxY;
+    boundMinZ = minZ; boundMaxZ = maxZ;
+  }
+
+  void addConnection( MVertex* vertex, int id )
+  {
+    if ( vertex == vB || vertex == vE )
+      M_connectedTobranchIds[vertex].insert( id );
+    else
+      Msg::Error("connection not add because vertex given doesnt vB or vE");
+  }
+  std::map<MVertex*,std::set<int>> const& connectedTobranchIds() const { return M_connectedTobranchIds; }
+private :
+  std::map<MVertex*,std::set<int>> M_connectedTobranchIds;
 
 };
 
@@ -118,13 +136,11 @@ class AngioTkCenterline : public Field{
 
   std::vector<GEdge*> modEdges;
 
-  // save map from vertex to set of ( branchId,lineId )
+  // store points map : vertex -> setOf( branchId,lineId )
   std::map<MVertex*,std::set<std::pair<int,int> > > M_vertexToLinesId;
-  // save junction points and extremity points 
-  //std::set<MVertex*> M_junctionsVertex;
+  // store junction points : vertex -> setOf(BranchIds)
   std::map<MVertex*,std::set<int> > M_junctionsVertex;
-  //std::set<MVertex*> M_extremityVertex;
-  // vertex -> ( branchId, lineIdInBranch )
+  // store extremity points : vertex -> ( branchId, lineIdInBranch )
   std::map<MVertex*, std::pair<int,int> > M_extremityVertex;
 
 
@@ -232,17 +248,21 @@ class AngioTkCenterline : public Field{
   BranchDesc const& centerlinesBranch(int k) const { return edges[k]; }
 
   std::tuple<MVertex*,double> foundClosestPointInCenterlines( double ptToLocalize[3]);
-  //std::tuple< std::vector<MLine*> , std::map<MVertex*,int>, double > pathBetweenVertex( MVertex* vertexA, MVertex* vertexB );
   std::tuple< std::vector<MLine*> , double > pathBetweenVertex( MVertex* vertexA, MVertex* vertexB );
+
+std::tuple< bool,std::vector<MLine*> , double >
+  pathBetweenVertex2( MVertex* vertexA, MVertex* vertexB, double lengthPathMax, std::set<int> const& branchIdsToIgnore = std::set<int>(), bool searchOnlyCommonBranch = false );
+
+
   int vertexOnSameBranch( MVertex* vertexA, MVertex* vertexB );
   //std::set<int>
-  std::tuple<MVertex*, std::vector<int> > vertexOnNeighboringBranch( MVertex* vertexA, MVertex* vertexB );
+  std::tuple<MVertex*, std::vector<int> > vertexOnNeighboringBranch( MVertex* vertexA, MVertex* vertexB, std::set<int> const& branchIdsToIgnore = std::set<int>() );
   bool canFindPathBetweenVertex( MVertex* vertexA, MVertex* vertexB );
 
   double maxScalarValueInPath( std::vector<MLine*> const& path, std::string const& fieldName ) const;
 
   std::map<MLine*,double> const& centerlinesRadiusl() const { return radiusl; }
-  double minRadiusAtVertex( MVertex* myvertex ) const;
+  double minRadiusAtVertex( MVertex* myvertex, std::string const& fieldPointDataRadius = "" ) const;
 
   //double centerlinesRadiusFromLine() const { 
     //auto itr = M_angioTkCenterlines->centerlinesRadiusl().find( mylines[lineIdInBranch]/*mylines.front()*/);
@@ -252,6 +272,8 @@ class AngioTkCenterline : public Field{
   void updateRelationMapVertex(std::map<int,int> & _mapVertexGmshIdToVtkId,
 			       std::map<int,int> & _mapVertexVtkIdToGmshId );
   std::map<int,int> M_mapVertexGmshIdToVtkId, M_mapVertexVtkIdToGmshId;
+  std::map<int,int> const& mapVertexGmshIdToVtkId() const { return M_mapVertexGmshIdToVtkId; }
+  std::map<int,int> const& mapVertexVtkIdToGmshId() const { return M_mapVertexVtkIdToGmshId; }
   int mapVertexGmshIdToVtkId(int k) const { return M_mapVertexGmshIdToVtkId.find(k)->second; }
   int mapVertexVtkIdToGmshId(int k) const { return M_mapVertexVtkIdToGmshId.find(k)->second; }
 
