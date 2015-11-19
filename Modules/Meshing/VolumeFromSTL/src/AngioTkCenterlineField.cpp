@@ -4719,20 +4719,50 @@ AngioTkCenterline::pathBetweenVertex( MVertex* vertexA, MVertex* vertexB )
       // case same branch
       std::set<int> ptDone;
       int state=0;
-      for ( auto myline : edges[branchIdCommon].lines )
+      for ( auto const& myline : edges[branchIdCommon].lines )
 	{
-	  std::vector<MVertex*> ptsInLine = { myline->getVertex(0),myline->getVertex(1) };
-	  for ( MVertex* myvertex : ptsInLine )
+	  if ( true )
 	    {
-	      if ( ptDone.find(myvertex->getIndex()) == ptDone.end() || M_junctionsVertex.find( myvertex ) != M_junctionsVertex.end() )
+	      std::vector<MVertex*> ptsInLine = { myline->getVertex(0),myline->getVertex(1) };
+	      for ( MVertex* myvertex : ptsInLine )
 		{
-		  if ( vertexA == myvertex || vertexB == myvertex )
-		      ++state;
-		  ptDone.insert(myvertex->getIndex());
-		  if ( state == 2 )
-		    break;
+		  if ( ptDone.find(myvertex->getIndex()) == ptDone.end() || M_junctionsVertex.find( myvertex ) != M_junctionsVertex.end() )
+		    {
+		      if ( vertexA == myvertex || vertexB == myvertex )
+			++state;
+		      ptDone.insert(myvertex->getIndex());
+		      if ( state == 2 )
+			break;
+		    }
 		}
 	    }
+	  else
+	    {
+	      // optimisation work only the lines are ordered correctly
+	      if ( state == 0 )
+		{
+		  MVertex* myvertex = myline->getVertex(0);
+		  int myvertexId = myvertex->getIndex();
+		  //if ( ptDone.find( myvertexId ) == ptDone.end() || M_junctionsVertex.find( myvertex ) != M_junctionsVertex.end() )
+		  {
+		    if ( vertexA == myvertex || vertexB == myvertex )
+		      ++state;
+		    ptDone.insert(myvertexId);
+		  }
+		}
+	      if ( state == 1 )
+		{
+		  MVertex* myvertex = myline->getVertex(1);
+		  int myvertexId = myvertex->getIndex();
+		  //if ( ptDone.find( myvertexId ) == ptDone.end() || M_junctionsVertex.find( myvertex ) != M_junctionsVertex.end() )
+		  {
+		    if ( vertexA == myvertex || vertexB == myvertex )
+		      ++state;
+		    ptDone.insert(myvertexId);
+		  }
+		}
+	    }
+
 	  if ( state == 1 )
 	    {
 	      listOfLines.push_back(myline);
@@ -4796,8 +4826,6 @@ double AngioTkCenterline::maxScalarValueInPath( std::vector<MLine*> const& path,
 void AngioTkCenterline::applyTubularColisionFix( std::vector<MVertex*> const& vTestedSet, double distMin )
 {
   std::set<int> branchToReApplyTubularColisionFix;
-  //double spaceMinBetweenTubularStructure = 0.5;//2*0.5;//2*1.2;//0.6;//0.5;
-  //double radiusMinAllowed = 0.5;
 
   std::map< MVertex*,std::set<MVertex*> > mapVertexTested;
   for ( MVertex* vTested : vTestedSet )
@@ -4808,51 +4836,44 @@ void AngioTkCenterline::applyTubularColisionFix( std::vector<MVertex*> const& vT
       std::set<int> ptDoneInSearch;
       for( int i = 0; i < edges.size(); ++i )
 	{
-#if 1
-	  if ( !edges[i].isInsideBox( vTested, /*spaceMinBetweenTubularStructure*/distMin+2*radius ) )
+	  if ( !edges[i].isInsideBox( vTested, distMin+2*radius ) )
 	    continue;
-#endif
 
-	  for ( auto mylineInSearch : edges[i].lines )
+	  for ( auto const& mylineInSearch : edges[i].lines )
 	    {
 	      MVertex* v0InSearch = mylineInSearch->getVertex(0);
 	      MVertex* v1InSearch = mylineInSearch->getVertex(1);
-	      if ( ptDoneInSearch.find(v0InSearch->getIndex()) == ptDoneInSearch.end() )
+	      double distBetweenLine = vTested->point().distance( (0.5*(v0InSearch->point() + v1InSearch->point())).point() );
+
+	      std::vector<MVertex*> ptsInLineSearch = { mylineInSearch->getVertex(0),mylineInSearch->getVertex(1) };
+	      for ( MVertex* vInSearch : ptsInLineSearch )
 		{
-		  if ( this->canFindPathBetweenVertex( vTested, v0InSearch ) )
+		  if ( ptDoneInSearch.find(vInSearch->getIndex()) == ptDoneInSearch.end() )
 		    {
-		      auto mypathSearch = this->pathBetweenVertex( vTested, v0InSearch );
-		      double lengthPathSearch = std::get<1>( mypathSearch );
-		      if ( lengthPathSearch > 10*this->maxScalarValueInPath(std::get<0>(mypathSearch),"RadiusMin") /*12*//*2*5*edges[i].maxRad*/ )
-			mapVertexTested[ vTested ].insert( v0InSearch );
+		      double radiusSearch = M_centerlinesFieldsPointData["RadiusMin"][M_mapVertexGmshIdToVtkId[vInSearch->getIndex()]][0];
+		      if ( distBetweenLine < 1.2*(radius+distMin+radiusSearch+mylineInSearch->getLength()/2.) )
+			{
+
+			  if ( this->canFindPathBetweenVertex( vTested, vInSearch ) )
+			    {
+			      auto mypathSearch = this->pathBetweenVertex( vTested, vInSearch );
+			      double lengthPathSearch = std::get<1>( mypathSearch );
+			      if ( lengthPathSearch > 10*this->maxScalarValueInPath(std::get<0>(mypathSearch),"RadiusMin") )
+				mapVertexTested[ vTested ].insert( vInSearch );
+			    }
+			  else
+			    mapVertexTested[ vTested ].insert( v0InSearch );
+			}
+		      ptDoneInSearch.insert(v0InSearch->getIndex());
 		    }
-		  else
-		    mapVertexTested[ vTested ].insert( v0InSearch );
-		  ptDoneInSearch.insert(v0InSearch->getIndex());
-		}
-	      if ( ptDoneInSearch.find(v1InSearch->getIndex()) == ptDoneInSearch.end() )
-		{
-		  if ( this->canFindPathBetweenVertex( vTested, v1InSearch ) )
-		    {
-		      auto mypathSearch = this->pathBetweenVertex( vTested, v1InSearch );
-		      double lengthPathSearch = std::get<1>( mypathSearch );
-		      if ( lengthPathSearch > 10*this->maxScalarValueInPath(std::get<0>(mypathSearch),"RadiusMin")/*12*//*2*5*edges[i].maxRad*/ )
-			mapVertexTested[ vTested ].insert( v1InSearch );
-		    }
-		  else
-		    mapVertexTested[ vTested ].insert( v1InSearch );
-		  ptDoneInSearch.insert(v1InSearch->getIndex());
 		}
 	    }
 	} // for(int i = 0; i < edges.size(); ++i)
 
     } // for ( MVertex* vTested : vTestedSet )
 
-  //this->applyTubularColisionFix( mapVertexTested,distMin,1,2 );
-  //this->applyTubularColisionFix( mapVertexTested,distMin,0,-1 );
-  //this->applyTubularColisionFix( mapVertexTested,distMin,2,1 );
   this->applyTubularColisionFix( mapVertexTested,distMin,1,1 );
-  this->applyTubularColisionFix( mapVertexTested,distMin,0,-1 );
+  this->applyTubularColisionFix( mapVertexTested,distMin,0,100/*-1*/ );
 
 }
 
