@@ -7,6 +7,7 @@
 
 #include <vtkWorldPointPicker.h>
 #include <vtkPointPicker.h>
+#include <vtkCellPicker.h>
 #include <vtkPropPicker.h>
 
 #include <vtkSphereSource.h>
@@ -790,17 +791,22 @@ public:
             }
             else if ( M_sphereActorSelectionId.empty() )
             {
-                typedef vtkPointPicker picker_type; // vtkPointPicker, vtkWorldPointPicker
+                //typedef vtkPointPicker picker_type; // vtkPointPicker, vtkWorldPointPicker
+                typedef vtkCellPicker picker_type; // vtkPointPicker, vtkWorldPointPicker
                 vtkSmartPointer<picker_type> myPicker = vtkSmartPointer<picker_type>::New();
                 //myPicker->SetTolerance(0.0005);
                 //myPicker->SetTolerance( 1e-4*M_lenghtSTL );
                 //myPicker->SetTolerance( (1./M_lenghtSTL) );
                 //std::cout << "M_lenghtSTL " << M_lenghtSTL << "\n";
                 //myPicker->SetTolerance( 1e-4*M_lenghtSTL );
+#if 0
                 if ( M_lenghtSTL > 50 )
                     myPicker->SetTolerance(1e-3);
                 else
                     myPicker->SetTolerance(1e-2);
+#else
+                myPicker->SetTolerance(5e-3);
+#endif
                 int result = myPicker->Pick(this->Interactor->GetEventPosition()[0],
                                             this->Interactor->GetEventPosition()[1],
                                             0,  // always zero.
