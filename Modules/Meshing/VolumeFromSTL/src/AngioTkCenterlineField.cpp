@@ -5110,15 +5110,15 @@ double AngioTkCenterline::maxScalarValueInPath( std::vector<MLine*> const& path,
   return res;
 }
 
-void AngioTkCenterline::applyTubularColisionFix( std::vector<MVertex*> const& vTestedSet, double distMin )
+void AngioTkCenterline::applyTubularColisionFix( std::vector<MVertex*> const& vTestedSet, std::pair<double,double> const& param )
 {
+  double distMin = param.first;
   std::set<int> branchToReApplyTubularColisionFix;
-
+  std::string fieldName = "RadiusMin";
   std::map< MVertex*,std::set<MVertex*> > mapVertexTested;
   for ( MVertex* vTested : vTestedSet )
     {
-      double radius = M_centerlinesFieldsPointData["RadiusMin"][M_mapVertexGmshIdToVtkId[vTested->getIndex()]][0];
-
+      double radius = this->centerlinesFieldsPointData(fieldName,vTested)[0];
       std::vector<MVertex*> vTestedSetInSearch;
       std::set<int> ptDoneInSearch;
       for( int i = 0; i < edges.size(); ++i )
@@ -5137,28 +5137,16 @@ void AngioTkCenterline::applyTubularColisionFix( std::vector<MVertex*> const& vT
 		{
 		  if ( ptDoneInSearch.find(vInSearch->getIndex()) == ptDoneInSearch.end() )
 		    {
-		      double radiusSearch = M_centerlinesFieldsPointData["RadiusMin"][M_mapVertexGmshIdToVtkId[vInSearch->getIndex()]][0];
+		      double radiusSearch = this->centerlinesFieldsPointData(fieldName,vInSearch)[0];
 		      if ( distBetweenLine < 1.2*(radius+distMin+radiusSearch+mylineInSearch->getLength()/2.) &&
-			   ( distBetweenLine > (1.0*radius) && distBetweenLine > (1.0*radiusSearch) ) )
+			//( distBetweenLine > (1.0*radius) && distBetweenLine > (1.0*radiusSearch) ) )
+			true )
 			{
-#if 0
-			  if ( this->canFindPathBetweenVertex( vTested, vInSearch ) )
-			    {
-			      auto mypathSearch = this->pathBetweenVertex( vTested, vInSearch );
-			      double lengthPathSearch = std::get<1>( mypathSearch );
-			      if ( lengthPathSearch > 10*this->maxScalarValueInPath(std::get<0>(mypathSearch),"RadiusMin") )
-				mapVertexTested[ vTested ].insert( vInSearch );
-			    }
-			  else
-			    mapVertexTested[ vTested ].insert( v0InSearch );
-#else // NEW
-			  auto mypathSearch = this->pathBetweenVertex2( vTested, vInSearch,/*100*/ /*20*/20*(radius+radiusSearch) /*10*edges[i].maxRad*//*1000000.0*/ );
+			  auto mypathSearch = this->pathBetweenVertex2( vTested, vInSearch, 20*(radius+radiusSearch) );
 			  if ( !std::get<0>( mypathSearch ) )
 			    mapVertexTested[ vTested ].insert( vInSearch );
-			  else if ( std::get<2>( mypathSearch ) > 10*this->maxScalarValueInPath(std::get<1>(mypathSearch),"RadiusMin") )
+			  else if ( std::get<2>( mypathSearch ) > (3*2*this->maxScalarValueInPath(std::get<1>(mypathSearch),fieldName)+2*distMin) )
 			    mapVertexTested[ vTested ].insert( vInSearch );
-
-#endif
 			}
 		      ptDoneInSearch.insert(vInSearch->getIndex());
 		    }
@@ -5168,60 +5156,69 @@ void AngioTkCenterline::applyTubularColisionFix( std::vector<MVertex*> const& vT
 
     } // for ( MVertex* vTested : vTestedSet )
 
-  this->applyTubularColisionFix( mapVertexTested,distMin,1,1 );
-  this->applyTubularColisionFix( mapVertexTested,distMin,0,100/*-1*/ );
-
+  //this->applyTubularColisionFix( mapVertexTested,distMin,1,1 );
+  this->applyTubularColisionFix( mapVertexTested,param,1,3 );
+  this->applyTubularColisionFix( mapVertexTested,param,0,100/*-1*/ );
 }
 
 
 void
 AngioTkCenterline::applyTubularColisionFix( std::map< MVertex*,std::set<MVertex*> > const& mapVertexTested,
-					    double distMin, int method, int maxrecurrence, int nrecurrence )
+					    std::pair<double,double> const& param, int method, int maxrecurrence, int nrecurrence )
 {
-  if ( maxrecurrence > 0 && nrecurrence >= maxrecurrence )
+  if ( maxrecurrence >= 0 && nrecurrence >= maxrecurrence )
     return;
-  //if (method == 0)
-  //std::cout <<"applyTubularColisionFix start : " << mapVertexTested.size() << " nrecurrence="<<nrecurrence <<"\n";
-  //double spaceMinBetweenTubularStructure = 2*0.5;//1.5*0.5;//2*0.5;//2*1.2;//0.6;//0.5;
+
+  std::string fieldName = "RadiusMin";
+  double distMin = param.first;
+  double radiusThresholdMin = param.second;
   std::map< MVertex*,std::set<MVertex*> > newMapVertexInColision;
   std::vector<std::pair<double,SPoint3>> newDirs;
   for ( auto const& vertexTestedPair : mapVertexTested )
     {
       MVertex* vTested = vertexTestedPair.first;
-      double distTubeColisionMin = 0;
-      double radius = M_centerlinesFieldsPointData["RadiusMin"][M_mapVertexGmshIdToVtkId[vTested->getIndex()]][0];
+      double distTubeColisionMin = 1;//0;
+      double radius = this->centerlinesFieldsPointData(fieldName,vTested)[0];
+      if ( method == 1 && radius < (radiusThresholdMin+1e-8) )
+	continue;
+
       double newRadius = radius;
       MVertex* vTestedInSearchMin = NULL;
       for ( MVertex* vTestedInSearch : vertexTestedPair.second )
 	{
+	  if ( vTested == vTestedInSearch ) continue;
 	  double distBetweenPoints = vTested->point().distance( vTestedInSearch->point() );
-	  double radiusInSearch = M_centerlinesFieldsPointData["RadiusMin"][M_mapVertexGmshIdToVtkId[vTestedInSearch->getIndex()]][0];
-	  double distTubeColision = distBetweenPoints - ( radius + radiusInSearch + distMin/*spaceMinBetweenTubularStructure*/ );
+	  double radiusInSearch = this->centerlinesFieldsPointData(fieldName,vTestedInSearch)[0];
+	  double distTubeColision = distBetweenPoints - ( radius + radiusInSearch + distMin );
 
-	  if ( /*false &&*/ distTubeColision < 0 )
+	  if ( distTubeColision < 0 )
 	    {
 	      newMapVertexInColision[vTestedInSearch].insert( vTested );
-	    }
-	  if ( method == 2 && distTubeColision < 0 )
-	    {
+
+	      if ( method == 2 )
+		{
 		  SPoint3 dir = vTested->point()-vTestedInSearch->point();
 		  double normDir = std::sqrt( std::pow(dir.x(),2) + std::pow(dir.y(),2) + std::pow(dir.z(),2));
 		  SPoint3 dirNormalized = ((1./normDir)*dir).point();
 		  newDirs.push_back( std::make_pair( -distTubeColision,dirNormalized ) );
-	    }
+		}
 
-
-	  if ( distTubeColision < distTubeColisionMin )
-	    {
-	      distTubeColisionMin = distTubeColision;
-	      newRadius = distBetweenPoints - ( radiusInSearch + distMin/*spaceMinBetweenTubularStructure*/ );
-	      vTestedInSearchMin = vTestedInSearch;
-	      //std::cout << "newRadius " << newRadius <<"\n";
-	      if ( method == 0 && newRadius < 0  )
-		Msg::Error("failure : newRadius not usable : %g",newRadius );
-	      double radiusMinAllowed = 0.8*radius;
-	      if ( newRadius < radiusMinAllowed )
-		  newRadius = radiusMinAllowed;
+	      if ( distTubeColision < distTubeColisionMin )
+		{
+		  distTubeColisionMin = distTubeColision;
+		  vTestedInSearchMin = vTestedInSearch;
+		  if ( method == 1 )
+		    {
+		      newRadius = distBetweenPoints - ( radiusInSearch + distMin )+1e-8;
+		      if ( method == 0 && newRadius < 0  )
+			Msg::Error("failure : newRadius not usable : %g (distBetweenPoints=%g,radiusInSearch=%g,distMin=%g)",newRadius,distBetweenPoints,radiusInSearch,distMin );
+		      double radiusMinAllowed = 0.8*radius;
+		      if ( newRadius < radiusMinAllowed)
+			newRadius = radiusMinAllowed;
+		      if ( newRadius < radiusThresholdMin )
+			newRadius = radiusThresholdMin;
+		    }
+		}
 	    }
 	}
 
@@ -5230,7 +5227,8 @@ AngioTkCenterline::applyTubularColisionFix( std::map< MVertex*,std::set<MVertex*
 	  if ( method == 0 )
 	    {
 	      //CHECK( newRadius > 1e-5 ) << "new radius must be positive : " << newRadius;
-	      M_centerlinesFieldsPointData["RadiusMin"][M_mapVertexGmshIdToVtkId[vTested->getIndex()]][0] = newRadius;
+	      //std::cout << "M_mapVertexGmshIdToVtkId[vTested->getIndex()] " << M_mapVertexGmshIdToVtkId[vTested->getIndex()] << " newRadius " << newRadius << "\n";
+	      M_centerlinesFieldsPointData[fieldName][M_mapVertexGmshIdToVtkId[vTested->getIndex()]][0] = newRadius;
 	    }
 	  else if ( method == 1 )
 	    {
@@ -5238,16 +5236,9 @@ AngioTkCenterline::applyTubularColisionFix( std::map< MVertex*,std::set<MVertex*
 		{
 		  SPoint3 dir = vTested->point()-vTestedInSearchMin->point();
 		  double normDir = std::sqrt( std::pow(dir.x(),2) + std::pow(dir.y(),2) + std::pow(dir.z(),2));
-#if 0
-		  double distBetweenPoints = vTested->point().distance( vTestedInSearchMin->point() );
-		  //SPoint3 dirToUse = (((distBetweenPoints-distTubeColisionMin)/normDir)*dir).point();
-		  SPoint3 dirToUse = (((distBetweenPoints+std::abs(newRadius-radius))/normDir)*dir).point();
-		  //SPoint3 dirToUse = (-(std::abs(newRadius-radius)/normDir)*dir).point();
-		  SPoint3 newPos = vTestedInSearchMin->point() + dirToUse;
-#else
-		  SPoint3 dirToUse = ((-distTubeColisionMin/normDir)*dir).point();
+		  //SPoint3 dirToUse = ((-distTubeColisionMin/normDir)*dir).point();
+		  SPoint3 dirToUse = ((-0.3*distTubeColisionMin/normDir)*dir).point();
 		  SPoint3 newPos = vTested->point() + dirToUse;
-#endif
 		  vTested->setXYZ(newPos.x(),newPos.y(),newPos.z());
 		}
 	    }
@@ -5265,19 +5256,13 @@ AngioTkCenterline::applyTubularColisionFix( std::map< MVertex*,std::set<MVertex*
 	}
     } // for ( MVertex* vTested : vTestedSet )
 
-  //std::cout <<"applyTubularColisionFix finish : " << newMapVertexInColision.size() << "\n";
-
+  // recurence on points
   if ( !newMapVertexInColision.empty() )
-    {
-	  //if ( nrecurrence < 10 )
-      this->applyTubularColisionFix( newMapVertexInColision, distMin, method, maxrecurrence, nrecurrence+1 );
-    }
-
-
+      this->applyTubularColisionFix( newMapVertexInColision, param, method, maxrecurrence, nrecurrence+1 );
 }
 
 
-void AngioTkCenterline::applyTubularColisionFix( AngioTk::pointpair_data_type const& pointPairData, double distMin )
+void AngioTkCenterline::applyTubularColisionFix( AngioTk::pointpair_data_type const& pointPairData, std::pair<double,double> const& param )
 {
   Msg::Info("AngioTkCenterline::applyTubularColisionFix");
 
@@ -5316,12 +5301,12 @@ void AngioTkCenterline::applyTubularColisionFix( AngioTk::pointpair_data_type co
 	      ptDone.insert(v1->getIndex());
 	    }
 
-	  this->applyTubularColisionFix( vTestedSet, distMin );
+	  this->applyTubularColisionFix( vTestedSet, param );
 	}
     }
 }
 
-void AngioTkCenterline::applyTubularColisionFix( double distMin )
+void AngioTkCenterline::applyTubularColisionFix( std::pair<double,double> const& param )
 {
   Msg::Info("AngioTkCenterline::applyTubularColisionFix");
 
@@ -5347,7 +5332,7 @@ void AngioTkCenterline::applyTubularColisionFix( double distMin )
 	    }
 	}
       Msg::Info("AngioTkCenterline::applyTubularColisionFix start for branch id %d",i);
-      this->applyTubularColisionFix( vTestedSet, distMin );
+      this->applyTubularColisionFix( vTestedSet, param );
     }
 }
 

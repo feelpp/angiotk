@@ -160,17 +160,22 @@ class AngioTkCenterline : public Field{
  public:
   std::map<std::string,std::vector<std::vector<double> > >  M_centerlinesFieldsPointData;
 
-  std::vector<std::vector<double> > const& centerlinesFieldsPointData(std::string const& key ) const
+  std::vector<std::vector<double> > const& centerlinesFieldsPointData( std::string const& key ) const
     {
-      return M_centerlinesFieldsPointData.find(key)->second;
+      auto itFindFieldName = M_centerlinesFieldsPointData.find(key);
+      CHECK( itFindFieldName != M_centerlinesFieldsPointData.end() ) << "fieldname " << key << " not found";
+      return itFindFieldName->second;
     }
   std::vector<double> const& centerlinesFieldsPointData(std::string const& key, MVertex* vertex ) const
     {
       return this->centerlinesFieldsPointData(key, this->mapVertexGmshIdToVtkId(vertex->getIndex()));
     }
-  std::vector<double> const& centerlinesFieldsPointData(std::string const& key,int vtkId ) const
+  std::vector<double> const& centerlinesFieldsPointData( std::string const& key,int vtkId ) const
     {
-      return M_centerlinesFieldsPointData.find(key)->second[vtkId];
+      //return M_centerlinesFieldsPointData.find(key)->second[vtkId];
+      auto const& data = this->centerlinesFieldsPointData( key );
+      CHECK( vtkId < data.size() ) << "wrong vtkId " << vtkId;
+      return data[vtkId];
     }
 
  public:
@@ -234,10 +239,11 @@ class AngioTkCenterline : public Field{
   void applyFieldThresholdZoneMax(std::vector<std::string> const& fieldName, double value, std::map<int,std::vector<std::tuple<double,double,double> > > const& mapPointPair );
   void applyFieldThresholdZoneImpl(std::vector<std::string> const& fieldName, double value, std::map<int,std::vector<std::tuple<double,double,double> > > const& mapPointPair, int type );
 
-  void applyTubularColisionFix( std::vector<MVertex*> const& vTestedSet, double distMin );
-  void applyTubularColisionFix( std::map< MVertex*,std::set<MVertex*> > const& mapVertexTested, double distMin, int method /*= 0*/, int maxrecurrence/*=-1*/,int nrecurrence = 0 );
-  void applyTubularColisionFix( AngioTk::pointpair_data_type const& pointPair, double distMin );
-  void applyTubularColisionFix( double distMin );
+  void applyTubularColisionFix( std::vector<MVertex*> const& vTestedSet, std::pair<double,double> const& param );
+  void applyTubularColisionFix( std::map< MVertex*,std::set<MVertex*> > const& mapVertexTested, std::pair<double,double> const& param,
+				int method /*= 0*/, int maxrecurrence/*=-1*/,int nrecurrence = 0 );
+  void applyTubularColisionFix( AngioTk::pointpair_data_type const& pointPair, std::pair<double,double> const& param );
+  void applyTubularColisionFix( std::pair<double,double> const& param );
 
 
   void writeCenterlinesVTK( std::string fileName );
