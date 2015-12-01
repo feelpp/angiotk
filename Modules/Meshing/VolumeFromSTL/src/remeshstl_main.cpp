@@ -5,10 +5,10 @@
 
 int main( int argc, char** argv )
 {
-    using namespace Feel;
+    using namespace AngioTk;
 
     po::options_description myoptions;
-    myoptions.add( RemeshSTL::options("") );
+    myoptions.add( RemeshSurface::options("") );
     myoptions.add_options()
       ("pre-process.open-surface", Feel::po::value<bool>()->default_value(false), "preprocess : open-surface ");
     myoptions.add( OpenSurface::options("open-surface") );
@@ -21,30 +21,30 @@ int main( int argc, char** argv )
 
     bool preProcessOpenSurface = boption(_name="pre-process.open-surface");
 
-    RemeshSTL myRemeshSTL("");
+    RemeshSurface myRemeshSurface("");
     if ( preProcessOpenSurface )
       {
-	if ( myRemeshSTL.inputCenterlinesPath().empty() )
+	if ( myRemeshSurface.inputCenterlinesPath().empty() )
 	  {
 	    std::cout << "no inputCenterlinesPath -> exit";
 	    return 0;
 	  }
 
 	OpenSurface myOpenSurface("open-surface");
-	myOpenSurface.setInputSurfacePath(myRemeshSTL.inputSurfacePath());
-	myOpenSurface.setInputCenterlinesPath(myRemeshSTL.inputCenterlinesPath());
+	myOpenSurface.setInputSurfacePath(myRemeshSurface.inputSurfacePath());
+	myOpenSurface.setInputCenterlinesPath(myRemeshSurface.inputCenterlinesPath());
 
-	myOpenSurface.setOutputDirectory( fs::path(myRemeshSTL.outputPath()).parent_path().string() );
+	myOpenSurface.setOutputDirectory( fs::path(myRemeshSurface.outputPath()).parent_path().string() );
 	myOpenSurface.updateOutputPathFromInputFileName();
 	myOpenSurface.run();
 
-	// update RemeshSTL
-	myRemeshSTL.setInputSurfacePath( myOpenSurface.outputPath() );
+	// update RemeshSurface
+	myRemeshSurface.setInputSurfacePath( myOpenSurface.outputPath() );
 	if ( myOpenSurface.forceRebuild() )
-	  myRemeshSTL.setForceRebuild( true );
+	  myRemeshSurface.setForceRebuild( true );
       }
 
-    myRemeshSTL.run();
+    myRemeshSurface.run();
 
     return 0;
 }

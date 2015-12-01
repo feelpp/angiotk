@@ -2,6 +2,7 @@
 
 int main( int argc, char** argv )
 {
+    using namespace AngioTk;
     using namespace Feel;
 
     po::options_description myoptions = CenterlinesManager::options("");

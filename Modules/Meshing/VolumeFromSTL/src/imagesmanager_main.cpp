@@ -2,7 +2,7 @@
 
 int main( int argc, char** argv )
 {
-    using namespace Feel;
+    using namespace AngioTk;
 
     po::options_description myoptions = ImagesManager::options("");
 

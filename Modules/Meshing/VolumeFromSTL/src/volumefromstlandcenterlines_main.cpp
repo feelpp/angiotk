@@ -5,7 +5,7 @@
 
 int main( int argc, char** argv )
 {
-    using namespace Feel;
+    using namespace AngioTk;
 
     po::options_description myoptions = VolumeMeshing::options("");
 
@@ -19,7 +19,7 @@ int main( int argc, char** argv )
     VolumeMeshing myMeshingVolume("");
     if ( myMeshingVolume.inputInletOutletDescPath().empty() )
       {
-	std::string inputSurfacePath = myMeshingVolume.inputSTLPath();
+	std::string inputSurfacePath = myMeshingVolume.inputSurfacePath();
 	std::string nameWithoutExt = fs::path(inputSurfacePath).stem().string();
 	std::string outputDescPath = (fs::path(myMeshingVolume.outputPath()).parent_path()/fs::path(nameWithoutExt+".desc")).string();
 

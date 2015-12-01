@@ -5,13 +5,13 @@
 
 int main( int argc, char** argv )
 {
-    using namespace Feel;
+    using namespace AngioTk;
 
     po::options_description myoptions = SurfaceFromImage::options("");
     myoptions.
       add( SubdivideSurface::options("subdivide-surface") ).
       add( SmoothSurface::options("smooth-surface") ).
-      add( RemeshSTL::options("remesh-surface") );
+      add( RemeshSurface::options("remesh-surface") );
     myoptions.add_options()
       ("post-process.subdivide-surface", Feel::po::value<bool>()->default_value(false), "subdivide-surface")
       ("post-process.smooth-surface", Feel::po::value<bool>()->default_value(false), "smooth-surface")
@@ -74,7 +74,7 @@ int main( int argc, char** argv )
 	mySmoothSurface.run();
       }
 
-    RemeshSTL myRemeshSurface("remesh-surface");
+    RemeshSurface myRemeshSurface("remesh-surface");
     if ( postProcessRemeshSurface )
       {
 	myRemeshSurface.setPackageType("vmtk");

@@ -6,7 +6,7 @@
 
 int main( int argc, char** argv )
 {
-    using namespace Feel;
+    using namespace AngioTk;
 
     //std::cout << "fs::current_path() " << fs::current_path() << "\n";
     fs::path initialPath = fs::current_path();
