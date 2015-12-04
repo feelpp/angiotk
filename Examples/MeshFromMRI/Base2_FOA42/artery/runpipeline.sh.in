@@ -2,8 +2,8 @@
 
 export PATH=@CMAKE_INSTALL_PREFIX@/bin/AngioTK/Modules/Meshing:@CMAKE_INSTALL_PREFIX@/bin/AngioTK/Data:${PATH}
 export LD_LIBRARY_PATH=@FEELPP_INSTALL_DIR@/lib:@CMAKE_INSTALL_PREFIX@/lib/AngioTK/Modules/Meshing:${LD_LIBRARY_PATH}
-export MY_CFG_DIR=@CMAKE_INSTALL_PREFIX@/share/AngioTK/Examples/MeshFromMRI/Base2_FOA42/artery/
 
+export MY_CFG_DIR=@CMAKE_INSTALL_PREFIX@/share/AngioTK/Examples/MeshFromMRI/Base2_FOA42/artery/
 export OUTPUT_PATH=${HOME}/AngioTK/Base2_FOA42
 export FEELPP_WORKDIR=${OUTPUT_PATH}
 
