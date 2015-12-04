@@ -32,6 +32,11 @@ endmacro()
 macro( angiotk_add_component _target _srcs )
   message( STATUS "Creating python file for ${AngioTk_CURRENT_MODULE_NAME}.${_target}")
   add_executable( ${_target} ${_srcs} )
+
+  install(TARGETS ${_target}
+      RUNTIME DESTINATION bin/AngioTK/Modules/${AngioTk_CURRENT_MODULE_NAME}
+      )
+  
   file( APPEND ${AngioTk_EXECUTABLE_PATH}/${AngioTk_CURRENT_MODULE_NAME}.py
         "def ${_target}(inputFile, outputFile, componentArgs=\"\"):\n"
         "  os.system(\"${AngioTk_EXECUTABLE_PATH}/${_target} \"
