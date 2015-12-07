@@ -17,7 +17,8 @@ if [[ ! -f "$OUTPUT_PATH/data/TOF_art_FOA42_RORPO_30_1.34_7.mha" ]]; then
 fi
 
 meshing_surfacefromimage --config-file $MY_CFG_DIR/surfacefromimage.cfg \
-        --input.image.filename=$OUTPUT_PATH/data/TOF_art_FOA42_RORPO_30_1.34_7.mha || exit 1
+        --input.image.filename=$OUTPUT_PATH/data/TOF_art_FOA42_RORPO_30_1.34_7.mha \
+        --pre-process.resize-from-reference-image.path=$OUTPUT_PATH/data/TOF_art.mha || exit 1
 
 for CenterlineId in 1 2 3 4
 do

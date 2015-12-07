@@ -1214,7 +1214,8 @@ SurfaceFromImage::SurfaceFromImage( std::string const& prefix )
     if ( !M_resizeFromRefImagePath.empty() && !fs::exists(M_resizeFromRefImagePath) )
     {
         //M_resizeFromRefImagePath.clear();
-        std::cout << "The pre-process.resize-from-reference-image.path option has been set, but the specified path does not exist ("
+        std::cout << "SurfaceFromImage::Initialization" << std::endl
+                  << "The pre-process.resize-from-reference-image.path option has been set, but the specified path does not exist ("
                   << M_resizeFromRefImagePath
                   << "). Please set it to a correct path or unset the option." << std::endl;
         exit(1);
