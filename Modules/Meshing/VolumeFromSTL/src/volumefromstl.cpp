@@ -1212,7 +1212,13 @@ SurfaceFromImage::SurfaceFromImage( std::string const& prefix )
             M_inputImagesPath[k] = (AngioTkEnvironment::pathInitial()/fs::path(M_inputImagesPath[k]) ).string();
 
     if ( !M_resizeFromRefImagePath.empty() && !fs::exists(M_resizeFromRefImagePath) )
-        M_resizeFromRefImagePath.clear();
+    {
+        //M_resizeFromRefImagePath.clear();
+        std::cout << "The pre-process.resize-from-reference-image.path option has been set, but the specified path does not exist ("
+                  << M_resizeFromRefImagePath
+                  << "). Please set it to a correct path or unset the option." << std::endl;
+        exit(1);
+    }
 
     if ( Environment::vm().count(prefixvm(this->prefix(),"threshold.lower").c_str()) )
     {
