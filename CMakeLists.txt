@@ -225,3 +225,6 @@ INCLUDE("${AngioTk_SOURCE_DIR}/CMake/AngioTkModules.cmake")
 
 ExternalData_Add_Target(angioTkData)
 
+add_subdirectory(Data)
+add_subdirectory(Examples/MeshFromMRI)
+

@@ -1,0 +1,35 @@
+#!/bin/bash
+
+export PATH=@CMAKE_INSTALL_PREFIX@/bin/AngioTK/Modules/Meshing:@CMAKE_INSTALL_PREFIX@/bin/AngioTK/Data:${PATH}
+export LD_LIBRARY_PATH=@FEELPP_INSTALL_DIR@/lib:@CMAKE_INSTALL_PREFIX@/lib/AngioTK/Modules/Meshing:${LD_LIBRARY_PATH}
+
+export MY_CFG_DIR=@CMAKE_INSTALL_PREFIX@/share/AngioTK/@RELATIVE_PATH_FROM_TOP_SOURCE_DIR@
+export OUTPUT_PATH=${HOME}/AngioTK/@RELATIVE_PATH_FROM_TOP_SOURCE_DIR@
+export FEELPP_WORKDIR=${OUTPUT_PATH}
+
+# First fetch the input data file
+if [[ ! -f "$OUTPUT_PATH/data/TOF_art_FOA42_RORPO_30_1.34_7.mha" ]]; then 
+    mkdir -p $OUTPUT_PATH/data
+    cd $OUTPUT_PATH/data
+    fetch-data.py "Private/MRI/Base2/TOF/RORPO_multiscale/FOA42/TOF_art_FOA42_RORPO_30_1.34_7.nii" || exit 1
+    vmtkimagereader -ifile TOF_art_FOA42_RORPO_30_1.34_7.nii --pipe vmtkimagewriter -ofile TOF_art_FOA42_RORPO_30_1.34_7.mha || exit 1
+    cd -
+fi
+
+meshing_surfacefromimage --config-file $MY_CFG_DIR/surfacefromimage.cfg \
+        --input.image.filename=$OUTPUT_PATH/data/TOF_art_FOA42_RORPO_30_1.34_7.mha \
+        --pre-process.resize-from-reference-image.path=$OUTPUT_PATH/data/TOF_art.mha || exit 1
+
+for CenterlineId in 1 2 3 4
+do
+meshing_centerlines --config-file $MY_CFG_DIR/centerlines.cfg \
+    --input.pointpair.filename=\$cfgdir/data/pointpair$CenterlineId.data \
+    --output.directory=angiotk/Base2/FOA42/artery/centerlines/part$CenterlineId
+done
+
+meshing_centerlinesmanager --config-file $MY_CFG_DIR/centerlinesmanager.cfg || exit 1
+meshing_imagefromcenterlines --config-file $MY_CFG_DIR/imagefromcenterlines.cfg  || exit 1
+meshing_surfacefromimage --config-file $MY_CFG_DIR/surfacefromimage2.cfg || exit 1
+meshing_remeshstl --config-file $MY_CFG_DIR/remeshstlgmsh.cfg || exit 1
+
+meshing_volumefromstlandcenterlines --config-file $MY_CFG_DIR/volumefromstlandcenterlines.cfg || exit 1
