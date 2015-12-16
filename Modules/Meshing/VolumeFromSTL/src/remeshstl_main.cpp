@@ -26,8 +26,9 @@ int main( int argc, char** argv )
       {
 	if ( myRemeshSurface.inputCenterlinesPath().empty() )
 	  {
-	    std::cout << "no inputCenterlinesPath -> exit";
-	    return 0;
+	    std::cout << "inputCenterlinesPath is not specified. The program cannot continue." << std::endl
+	              << "Please set it with the \"gmsh.centerlines.filename\" option.";
+	    return 1;
 	  }
 
 	OpenSurface myOpenSurface("open-surface");
@@ -36,7 +37,11 @@ int main( int argc, char** argv )
 
 	myOpenSurface.setOutputDirectory( fs::path(myRemeshSurface.outputPath()).parent_path().string() );
 	myOpenSurface.updateOutputPathFromInputFileName();
-	myOpenSurface.run();
+    /* Checking for errors, exiting if on is returned */
+	if(myOpenSurface.run())
+    {
+        return 1;
+    }
 
 	// update RemeshSurface
 	myRemeshSurface.setInputSurfacePath( myOpenSurface.outputPath() );
@@ -44,7 +49,11 @@ int main( int argc, char** argv )
 	  myRemeshSurface.setForceRebuild( true );
       }
 
-    myRemeshSurface.run();
+    /* Checking for errors, exiting if on is returned */
+    if(myRemeshSurface.run())
+    {
+        return 1;
+    }
 
     return 0;
 }

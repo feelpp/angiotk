@@ -91,7 +91,7 @@ InletOutletDesc::add( InletOutletData const& data )
     this->push_back( data );
 }
 
-void
+int
 InletOutletDesc::loadFromSTL( std::string inputPath )
 {
 
@@ -99,6 +99,11 @@ InletOutletDesc::loadFromSTL( std::string inputPath )
     std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
 
     //if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
+    if ( !fs::exists(inputPath) )
+    {
+        std::cout << "WARNING!, the inputPath does not exist : " << inputPath <<"\n";
+        return 1;
+    }
 
     //fs::path gp = M_inputPath;
     std::string nameWithoutExt = fs::path(inputPath).stem().string();
@@ -116,10 +121,10 @@ InletOutletDesc::loadFromSTL( std::string inputPath )
               << "---------------------------------------\n";
     auto err = ::system( __str.str().c_str() );
 
-    if ( !fs::exists(inputPath) )
+    if ( !fs::exists(outputPath) )
     {
         std::cout << "WARNING!, outputPath does not exist : " << outputPath <<"\n";
-        return;
+        return 1;
     }
 
     std::ifstream fileDat(outputPath.c_str(), std::ios::in); // load file .dat
@@ -147,6 +152,8 @@ InletOutletDesc::loadFromSTL( std::string inputPath )
 
     fileDat.close();
     //std::cout << "number of inlet-outlet " << this->size() << "\n";
+
+    return 0;
 }
 void
 InletOutletDesc::save( std::string outputPath )
@@ -684,7 +691,7 @@ CenterlinesFromSurface::run()
     }
     else
     {
-        std::cout << "already file exist, ignore centerline\n";
+        std::cout << "The output file already exists in " << this->outputPath() << ", skipping step." << std::endl;
     }
 
 
@@ -1074,14 +1081,15 @@ ImageFromCenterlines::updateOutputPathFromInputFileName()
     this->setOutputPath( outputPath.string() );
 }
 
-void
+int
 ImageFromCenterlines::run()
 {
     if ( !fs::exists( this->inputCenterlinesPath() ) )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : image building not done because this input path not exist :" << this->inputCenterlinesPath() << "\n";
-        return;
+            std::cout << "WARNING : image building not done because this input path for centerlines does not exist :" << this->inputCenterlinesPath() << std::endl
+                      << "Please set it with the \"input.centerlines.filename\" option." << std::endl;
+        return 1;
     }
 
     std::ostringstream coutStr;
@@ -1170,6 +1178,7 @@ ImageFromCenterlines::run()
 #endif
     }
 
+    return 0;
 }
 
 po::options_description
@@ -2013,7 +2022,12 @@ OpenSurface::OpenSurface( std::string const& prefix )
 void
 OpenSurface::updateOutputPathFromInputFileName()
 {
-    CHECK( !M_inputSurfacePath.empty() ) << "input path is empty";
+    if(M_inputSurfacePath.empty())
+    {
+        std::cout << "WARNING : opening surface step will not be done, because this input surface path for centerlines does not exist: " << this->inputSurfacePath() << std::endl
+                  << "Please set it with the input.surface.filename option" << std::endl; 
+        exit(1);
+    }
 
     // define output directory
     fs::path meshesdirectories;
@@ -2033,20 +2047,22 @@ OpenSurface::updateOutputPathFromInputFileName()
     this->setOutputPath( outputPath.string() );
 }
 
-void
+int
 OpenSurface::run()
 {
     if ( !fs::exists( this->inputSurfacePath() ) )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : opening surface not done because this input surface path for centerlines not exist :" << this->inputSurfacePath() << "\n";
-        return;
+            std::cout << "WARNING : opening surface step will not be done, because this input surface path for centerlines does not exist: " << this->inputSurfacePath() << std::endl
+                      << "Please set it with the \"input.surface.filename\" option" << std::endl; 
+        return 1;
     }
     if ( !fs::exists( this->inputCenterlinesPath() ) )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : opening surface not done because this input centerlines path for centerlines not exist :" << this->inputCenterlinesPath() << "\n";
-        return;
+            std::cout << "WARNING : opening surface not done because this input centerlines path for centerlines not exist :" << this->inputCenterlinesPath() << std::endl
+                      << "Please set it with the \"input.centerlines.filename\" option" << std::endl; 
+        return 1;
     }
 
     std::ostringstream coutStr;
@@ -2085,6 +2101,7 @@ OpenSurface::run()
             this->runVMTK();
     }
 
+    return 0;
 }
 
 
@@ -2242,20 +2259,22 @@ RemeshSurface::updateOutputPathFromInputFileName()
     this->setOutputPath( ( meshesdirectories / fs::path(newFileName) ).string() );
 }
 
-void
+int
 RemeshSurface::run()
 {
     if ( !fs::exists( this->inputSurfacePath() ) )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : remesh surface not done because this input surface path for centerlines not exist :" << this->inputSurfacePath() << "\n";
-        return;
+            std::cout << "WARNING : remesh surface not done because this input surface path for centerlines not exist :" << this->inputSurfacePath() << std::endl
+                      << "Please set it with the \"input.surface.filename\" option." << std::endl;
+        return 1;
     }
     if ( ( this->packageType() == "gmsh" || this->packageType() == "gmsh-executable" ) && !fs::exists( this->inputCenterlinesPath() ) )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : remesh surface not done because this input centerlines path for centerlines not exist :" << this->inputCenterlinesPath() << "\n";
-        return;
+            std::cout << "WARNING : remesh surface not done because this input centerlines path for centerlines not exist :" << this->inputCenterlinesPath() << std::endl
+                      << "Please set it with the \"gmsh.centerlines.filename\" option." << std::endl;
+        return 1;
     }
 
     std::cout << "\n"
@@ -2277,9 +2296,9 @@ RemeshSurface::run()
 
     if ( !this->forceRebuild() && fs::exists( this->outputPath() ) )
     {
-        std::cout << "already file exist, ignore remeshSTL\n"
-                  << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n";
-        return;
+        std::cout << "The output file already exists in " << this->outputPath() << ", skipping remeshSTL." << std::endl
+                  << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" << std::endl;
+        return 0;
     }
 
     fs::path directory;
@@ -2301,6 +2320,8 @@ RemeshSurface::run()
         this->runVMTK();
 
     std::cout << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n";
+
+    return 0;
 }
 
 void
@@ -2699,8 +2720,8 @@ VolumeMeshing::run()
 
     if ( fs::exists( this->outputPath() ) && !this->forceRebuild() )
     {
-        std::cout << "already file exist, ignore meshVolume\n"
-                  << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n";
+        std::cout << "The output file already exists in " << this->outputPath() << ", skipping meshVolume" << std::endl
+                  << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" << std::endl;
         return;
     }
 

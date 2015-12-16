@@ -23,10 +23,20 @@ int main( int argc, char** argv )
 	std::string nameWithoutExt = fs::path(inputSurfacePath).stem().string();
 	std::string outputDescPath = (fs::path(myMeshingVolume.outputPath()).parent_path()/fs::path(nameWithoutExt+".desc")).string();
 
+    if( !fs::exists(myMeshingVolume.inputSurfacePath()))
+    {
+        std::cout << "WARNING: The input surface path file does not exists." << std::endl
+                  << "Please set it with the \"input.surface.filename\" option." << std::endl;
+    }
+
 	if ( !fs::exists( outputDescPath ) || myMeshingVolume.forceRebuild() )
 	  {
 	    InletOutletDesc ioDesc;
-	    ioDesc.loadFromSTL( inputSurfacePath );
+        /* Handle non-zero returns (errors) */
+	    if(ioDesc.loadFromSTL( inputSurfacePath ))
+        {
+            return 1;
+        }
 	    ioDesc.save(outputDescPath);
 	  }
 	myMeshingVolume.setInputInletOutletDescPath(outputDescPath);

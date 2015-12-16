@@ -162,7 +162,7 @@ public :
 
     void add( InletOutletData const& data );
 
-    void loadFromSTL( std::string inputPath );
+    int loadFromSTL( std::string inputPath );
     void save( std::string outputPath );
     void saveJSON( std::string outputPath );
 
@@ -273,7 +273,7 @@ public :
 
     void updateOutputPathFromInputFileName();
 
-    void run();
+    int run();
 
     static po::options_description options( std::string const& prefix );
 
@@ -407,7 +407,7 @@ public :
 
     void updateOutputPathFromInputFileName();
 
-    void run();
+    int run();
     void runGMSH();
     void runGMSHwithExecutable();
     void runVMTK();
@@ -459,7 +459,7 @@ public :
 
     void updateOutputPathFromInputFileName();
 
-    void run();
+    int run();
     void runVMTK();
     void runGMSH();
     void runGMSHwithExecutable();

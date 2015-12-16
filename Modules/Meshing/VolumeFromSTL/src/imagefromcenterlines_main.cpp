@@ -16,8 +16,7 @@ int main( int argc, char** argv )
 					 _email="feelpp-devel@feelpp.org"));
 
     ImageFromCenterlines imageFromCenterline("");
-    imageFromCenterline.run();
 
-    return 0;
+    return imageFromCenterline.run();
 }
 
