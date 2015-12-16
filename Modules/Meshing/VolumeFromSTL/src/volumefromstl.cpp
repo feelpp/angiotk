@@ -1263,21 +1263,28 @@ SurfaceFromImage::updateOutputPathFromInputFileName()
     this->setOutputPath( outputPath.string() );
 }
 
-void
+int
 SurfaceFromImage::run()
 {
-    if ( this->inputImagesPath().empty() || !fs::exists( this->inputImagesPath(0) ) )
+    if ( this->inputImagesPath().empty() )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : surface segmentation not done because you specified an empty input path" << "\n";
+        return 1;
+    }
+
+    if( !fs::exists( this->inputImagesPath(0) ) )
     {
         if ( this->worldComm().isMasterRank() )
             std::cout << "WARNING : surface segmentation not done because this input path not exist :" << this->inputImagesPath() << "\n";
-        return;
+        return 1;
     }
 
     if ( !M_hasThresholdLower && !M_hasThresholdUpper )
     {
         if ( this->worldComm().isMasterRank() )
             std::cout << "WARNING : surface segmentation not done because no threshold has been given\n";
-        return;
+        return 1;
     }
 
     std::ostringstream coutStr;
@@ -1558,6 +1565,8 @@ SurfaceFromImage::run()
 
     //vmtkimageinitialization -ifile hh32.mha -method threshold -lowerthreshold -1 -interactive 0 -osurfacefile imginit.stl -olevelsetsfile levelsetinit.vti
     //vmtklevelsetsegmentation -ifile hh32.mha -initiallevelsetsfile levelsetinit2.vti -iterations 1  --pipe vmtkmarchingcubes -i @.o -ofile bid.stl
+    
+    return 0;
 }
 
 po::options_description

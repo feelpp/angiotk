@@ -37,7 +37,12 @@ int main( int argc, char** argv )
       {
 	surfaceFromImage.setOutputPath( (fs::path(finalOutputPath).parent_path()/ fs::path(finalOutputFileName+"_surfaceFromImage.stl")).string() );
       }
-    surfaceFromImage.run();
+    
+    /* If we get a return code different of 0 -> error */
+    if(surfaceFromImage.run())
+    {
+        return 1;
+    }
 
 
     SubdivideSurface mySubdivideSurface("subdivide-surface");

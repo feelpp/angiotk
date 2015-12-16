@@ -296,7 +296,7 @@ public :
 
     void updateOutputPathFromInputFileName();
 
-    void run();
+    int run();
 
     static po::options_description options( std::string const& prefix );
 
