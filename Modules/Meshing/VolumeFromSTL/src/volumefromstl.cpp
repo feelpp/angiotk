@@ -310,21 +310,22 @@ CenterlinesFromSurface::loadFromCenterlinesPointPairFile()
 }
 
 
-void
+int
 CenterlinesFromSurface::run()
 {
     if ( !fs::exists( this->inputSurfacePath() ) )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : centerlines computation not done because this input path not exist :" << this->inputSurfacePath() << "\n";
-        return;
+            std::cout << "WARNING : centerlines computation will not be done, because the input path does not exist :" << this->inputSurfacePath() << std::endl
+                      << "Please set it with the \"input.surface.filename\" option." << std::endl;
+        return 1;
     }
     if ( this->inputCenterlinesPointSetPath().empty() && this->inputCenterlinesPointPairPath().empty() &&
          this->sourceids().empty() && this->targetids().empty() && this->inputGeoCenterlinesPath().empty() )
     {
         if ( this->worldComm().isMasterRank() )
             std::cout << "WARNING : centerlines computation not done because this sourceids and targetids are empty\n";
-        return;
+        return 1;
     }
 
 
@@ -710,6 +711,8 @@ CenterlinesFromSurface::run()
         auto errView = ::system( ostrView.str().c_str() );
     }
     std::cout << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n";
+
+    return 0;
 }
 
 
@@ -1269,21 +1272,24 @@ SurfaceFromImage::run()
     if ( this->inputImagesPath().empty() )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : surface segmentation not done because you specified an empty input path" << "\n";
+            std::cout << "WARNING : surface segmentation will not be done, because you specified an empty input path." << std::endl
+                      << "Please set it with the \"input.image.filename\" option." << std::endl;
         return 1;
     }
 
     if( !fs::exists( this->inputImagesPath(0) ) )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : surface segmentation not done because this input path not exist :" << this->inputImagesPath() << "\n";
+            std::cout << "WARNING : surface segmentation will not be done because this input path not exist: " << this->inputImagesPath() << std::endl
+                      << "Please set it with the \"input.image.filename\" option." << std::endl;
         return 1;
     }
 
     if ( !M_hasThresholdLower && !M_hasThresholdUpper )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : surface segmentation not done because no threshold has been given\n";
+            std::cout << "WARNING : surface segmentation will not be done because no threshold has been given.\n" << std::endl
+                      << "Please set the threshold values with the \"threshold.lower\" and \"threshold.upper\" options." << std::endl;
         return 1;
     }
 

@@ -7,6 +7,13 @@ int main( int argc, char** argv )
 {
     using namespace AngioTk;
 
+    std::ostringstream oss;
+    for( int i = 1; i < argc; i++)
+    {
+        oss << argv[i] << " ";
+    }
+    std::cout << "SurfaceFromImage: Using the following commandline arguments: " << std::endl << oss.str() << std::endl;
+
     po::options_description myoptions = SurfaceFromImage::options("");
     myoptions.
       add( SubdivideSurface::options("subdivide-surface") ).

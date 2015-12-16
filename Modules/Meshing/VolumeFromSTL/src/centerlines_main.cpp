@@ -43,7 +43,11 @@ int main( int argc, char** argv )
       {
 	centerlines.setOutputPath( (fs::path(finalOutputPath).parent_path()/ fs::path(finalOutputFileName+"_temporary.vtk")).string() );
       }
-    centerlines.run();
+    /* Exit in case of error */
+    if(centerlines.run())
+    {
+        return 1;
+    }
 
     if ( postProcessConvertCenterlines )
       {
