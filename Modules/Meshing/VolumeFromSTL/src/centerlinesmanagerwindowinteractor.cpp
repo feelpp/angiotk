@@ -465,16 +465,17 @@ public:
         helpStr << "Mode : Points Insertion :                          \n";
         if ( showHelpCommands )
             helpStr << "c : change point type (source=red,target=blue)\n"
-                    << "y : valide point\n"
+                    << "y : validate point\n"
                     << "r : remove selection\n"
                     //<< "u : undo insertion\n"
-                    << "[Up] : move selection\n"
-                    << "[Down] : move selection\n"
-                    << "[Left] : move selection\n"
-                    << "[Right] : move selection\n"
-                    << "o : move selection\n"
-                    << "l : move selection\n"
-                    << "d : create/remove connection\n      from 2 selected points\n";
+                    << "[Up] : move selection (axis Y +)\n"
+                    << "[Down] : move selection (axis Y -)\n"
+                    << "[Left] : move selection (axis X -)\n"
+                    << "[Right] : move selection (axis X +)\n"
+                    << "o : move selection (axis Z +)\n"
+                    << "l : move selection (axis Z -)\n"
+                    << "p/m : increase/decrease sphere size\n"
+                    << "d : Connect/disconnect 2 selected points\n";
         return helpStr.str();
     }
 
@@ -541,6 +542,7 @@ public:
 
     void loadPointSetFromFile( std::string const& pathFile )
     {
+        std::cout << "LOADING" << std::endl;
         auto data = AngioTk::loadFromPointSetFile( pathFile );
         for ( auto const& point : data )
         {

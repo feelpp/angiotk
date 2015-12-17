@@ -533,16 +533,18 @@ CenterlinesFromSurface::run()
                 if ( nCenterlinesComputed == 1 )
                 {
                     if ( rebuildDelaunayTessellation )
-                        std::cout << "compute centerline with DelaunayTessellation (can be take a long time!)\n";
+                        std::cout << "Computing centerline with DelaunayTessellation ..." << std::endl
+                                  << "Be patient because this step can take a long time to complete." << std::endl;
                     else
-                        std::cout << "compute centerline\n";
+                        std::cout << "Computing centerline ..." << std::endl;
                 }
                 else
                 {
                     if ( rebuildDelaunayTessellation )
-                        std::cout << "compute centerline " << k+1 << "/" << nCenterlinesComputed << " with DelaunayTessellation (can be take a long time!)\n";
+                        std::cout << "Computing centerline " << k+1 << "/" << nCenterlinesComputed << " with DelaunayTessellation ..." << std::endl
+                                  << "Be patient because this step can take a long time to complete." << std::endl;
                     else
-                        std::cout << "compute centerline " << k+1 << "/" << nCenterlinesComputed << "\n";
+                        std::cout << "Computing centerline " << k+1 << "/" << nCenterlinesComputed << " ..." << std::endl;
                 }
 
                 auto const& sourceTargetIdList = vecSourceTargetIdList[k];
@@ -2022,6 +2024,7 @@ OpenSurface::OpenSurface( std::string const& prefix )
 void
 OpenSurface::updateOutputPathFromInputFileName()
 {
+    CHECK( !M_inputSurfacePath.empty() ) << "input path is empty";
     if(M_inputSurfacePath.empty())
     {
         std::cout << "WARNING : opening surface step will not be done, because this input surface path for centerlines does not exist: " << this->inputSurfacePath() << std::endl
