@@ -464,7 +464,7 @@ public:
         std::ostringstream helpStr;
         helpStr << "Mode : Points Insertion :                          \n";
         if ( showHelpCommands )
-            helpStr << "c : change point type (source,target)\n"
+            helpStr << "c : change point type (source=red,target=blue)\n"
                     << "y : valide point\n"
                     << "r : remove selection\n"
                     //<< "u : undo insertion\n"
