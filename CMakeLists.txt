@@ -99,8 +99,44 @@ if ( ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR} )
     if(BUILD_MODULE_Meshing AND (NOT FEELPP_HAS_ANN))
         message(FATAL_ERROR "ANN does not seem to be installed on this platform. Please install Feel++ with ANN support.")
     endif()
+
+    # Check that the COMPILER flags are compatible, in case we don't compile with the same compiler as Feel++ was built with
+    # Clang and GCC might have flag differences
+    include(CheckCXXCompilerFlag)
+    # store the previous value of CXX flags
+    string(REGEX REPLACE "[ ]+" " " _CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+    set(CMAKE_CXX_FLAGS "")
+    string(REPLACE " " ";" _CXX_FLAGS ${_CMAKE_CXX_FLAGS})
+    set(REMOVED_FLAGS "")
+
+    # Remove flags if needed
+    set(_counter 0)
+    foreach(flag ${_CXX_FLAGS})
+        CHECK_CXX_COMPILER_FLAG("${flag}" FLAG_${_counter})
+        if(${FLAG_${_counter}})
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${flag}")
+        else()
+            set(REMOVED_FLAGS "${REMOVED_FLAGS} ${flag}")
+        endif()
+        math(EXPR _counter "${_counter} + 1")
+    endforeach()
+
+    # Inform the user about potentially removed flags
+    if(REMOVED_FLAGS)
+        message(WARNING "Initial C++ flags: ${_CMAKE_CXX_FLAGS}")
+        message(WARNING "Removed flags: ${REMOVED_FLAGS}")
+    endif()
+    unset(_CMAKE_CXX_FLAGS)
+    unset(REMOVED_FLAGS)
 endif()
 endif()
+
+if(BUILD_MODULE_Filtering)
+    if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "AppleClang")
+        message(FATAL_ERROR "The filtering module has been activated, but cannot be used with the current compiler (${CMAKE_CXX_COMPILER_ID}). Please use an OpenMP compliant compiler or disable the option.")
+    endif()
+endif()
+
 #=========================================================
 # Find Python
 FIND_PACKAGE(PythonLibs)
@@ -228,3 +264,4 @@ ExternalData_Add_Target(angioTkData)
 add_subdirectory(Data)
 add_subdirectory(Examples/MeshFromMRI)
 
+include(CMake/AngioTkDirective.cmake)
