@@ -131,12 +131,6 @@ if ( ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR} )
 endif()
 endif()
 
-if(BUILD_MODULE_Filtering)
-    if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "AppleClang")
-        message(FATAL_ERROR "The filtering module has been activated, but cannot be used with the current compiler (${CMAKE_CXX_COMPILER_ID}). Please use an OpenMP compliant compiler or disable the option.")
-    endif()
-endif()
-
 #=========================================================
 # Find Python
 FIND_PACKAGE(PythonLibs)
