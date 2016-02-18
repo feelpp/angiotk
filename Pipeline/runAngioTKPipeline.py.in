@@ -1,0 +1,254 @@
+#!/usr/bin/env python
+
+import argparse
+import datetime
+import errno
+import glob
+import os
+import subprocess
+import sys
+import threading
+import time
+
+# execute a command line
+def executeCommand(text, cmd, logPrefix=""):
+    out = ""
+    returnCode = 0
+
+    # if we specify an absolute command path
+    # we check that the file exists
+    if(os.path.isabs(cmd[0])):
+        if(not os.path.exists(cmd[0])):
+            return 1, ""
+
+    # Ensure that we are not overwriting previous files by appending an index
+    logIndex = 0
+    while(os.path.exists(logPrefix + "." + str(logIndex) + ".log")):
+        logIndex = logIndex + 1
+
+    # Log execution time
+    tstart = time.time()
+    try:
+        # Launch the current command and also redirect its output to log files
+        out = subprocess.Popen(cmd.split(' '), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        tee = subprocess.Popen(['tee', logPrefix + "." + str(logIndex) + ".log"], stdin=out.stdout)
+        out.stdout.close()
+        tee.communicate()
+    except subprocess.CalledProcessError, e:
+        out = e.output
+        ret = e.returncode
+    # Log execution time
+    tend = time.time()
+    tFinal = (tend - tstart)
+
+    # Log command parameters if needed
+    if(logPrefix != 0):
+        execlog = open(logPrefix + "." + str(logIndex) + ".exec.log", "w")
+        execlog.write("cmd=\"" + cmd + "\"\n")
+        execlog.write("elapsedTime=" + str(tFinal) + "\n")
+        execlog.close()
+
+    return returnCode, tFinal
+
+# make a directory (don't fail if it exists)
+def makedir(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else: raise
+
+def sanityCheckFile(filepath, msg=""):
+    if( not os.path.exists(filepath) ):
+        if(msg != ""):
+            print msg + "\nAborting ..."
+        else:
+            print "The file " + filepath + " was not found\nAborting ..."
+        exit(1)
+
+def main():
+    # Check that the meshing and filtering modules are enabled
+    hasMeshingModule = "@BUILD_MODULE_Meshing@"
+    hasFilteringModule = "@BUILD_MODULE_Filtering@"
+
+    if((hasMeshingModule == "ON" or hasMeshingModule == "TRUE") \
+        and hasFilteringModule == "ON" or hasFilteringModule == "TRUE"):
+        print "Modules OK"
+    else:
+        print "The Filtering and/or Meshing modules were not enabled in AngioTK (-DBUILD_MODULE_*)"
+        print "Aborting ..."
+        exit(1)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--inputfile', required=True, help='Path to the original input file in .mha format')
+    parser.add_argument('--inputpath', required=True, help='Path where the configuration files for the current pipeline are stored')
+    parser.add_argument('--outputpath', default=os.path.expandvars("${HOME}/AngioTK/ProcessedData"), help='Path where intermediary data is written')
+    args = parser.parse_args()
+
+    #if len(sys.argv) != 3:
+        #print "usage: " + os.path.basename(sys.argv[0]) + " <path_to_config_files> <output_path;default=" + outpath + ">"
+        #exit(1)
+
+    # Stores useful paths
+    # cfgpath = "@CMAKE_INSTALL_PREFIX@/share/AngioTK/@RELATIVE_PATH_FROM_TOP_SOURCE_DIR@"
+    # outpath = os.path.expandvars("${HOME}/AngioTK/@RELATIVE_PATH_FROM_TOP_SOURCE_DIR@")
+
+    #cfgpath = os.path.abspath(sys.argv[1])
+    cfgpath = args.inputpath
+    sanityCheckFile(cfgpath)
+
+    #outpath = os.path.abspath(sys.argv[2])
+    outpath = args.outputpath
+    makedir(outpath)
+
+    print "Using configuration:"
+    print "- Location of configuration files: " + cfgpath
+    print "- Output path: " + outpath
+
+    # Setup environment to find the correct paths and set output paths
+    my_env = os.environ
+    my_env["PATH"] = "@CMAKE_INSTALL_PREFIX@/Modules/Meshing/bin:" + my_env["PATH"]
+    my_env["PATH"] = "@CMAKE_INSTALL_PREFIX@/Modules/Filtering/RORPO/bin:" + my_env["PATH"]
+    my_env["PATH"] = "@CMAKE_INSTALL_PREFIX@/bin/AngioTK/Data:" + my_env["PATH"]
+    my_env["LD_LIBRARY_PATH"] = "@FEELPP_INSTALL_DIR@/lib:" + my_env["LD_LIBRARY_PATH"]
+    my_env["LD_LIBRARY_PATH"] = "@CMAKE_INSTALL_PREFIX@/Modules/Filtering/RORPO/lib:" + my_env["LD_LIBRARY_PATH"]
+    my_env["LD_LIBRARY_PATH"] = "@CMAKE_INSTALL_PREFIX@/Modules/Meshing/lib:" + my_env["LD_LIBRARY_PATH"]
+    my_env["OUTPUT_PATH"] = outpath
+    my_env["FEELPP_WORKDIR"] = my_env["OUTPUT_PATH"] + "/feel"
+
+    print "- PATH=" + my_env["PATH"]
+
+    makedir(outpath + "/data")
+
+    # Create a log directory for the current execution
+    dt = datetime.datetime.now()
+    logPath = outpath + "/log/" + dt.strftime("%Y%m%d-%H%M%S")
+    makedir(logPath)
+
+    # Check that configuration files exists
+    cfgfiles = [ cfgpath + "/surfacefromimage.cfg", cfgpath + "/centerlines.cfg", 
+                 cfgpath + "/centerlinesmanager.cfg", cfgpath + "/imagefromcenterlines.cfg", 
+                 cfgpath + "/surfacefromimage2.cfg", cfgpath + "/remeshstlgmsh.cfg", 
+                 cfgpath + "/volumefromstlandcenterlines.cfg" ]
+    for cf in cfgfiles:
+        sanityCheckFile(cf, "Missing configuration file: " + cf)
+
+    # Start timing
+    tinit = time.time()
+
+    # Get element spacing from input dataset
+    # We need isotropic data for RORPO
+    ps = subprocess.Popen(('head', '-n', '12', args.inputfile), stdout=subprocess.PIPE)
+    spacing = subprocess.check_output(('grep', 'ElementSpacing'), stdin=ps.stdout)
+    ps.wait()
+
+    # clean up spacing line
+    spacing = spacing.translate(None, "\n")
+    lst = spacing.split()
+    # Check that spacing has been correctly read
+    if(len(lst) == 5):
+        # Ensure spacing for isotropic data
+        if(float(lst[2]) == float(lst[3]) or float(lst[3]) == float(lst[4])):
+            print "Current spacing OK (" + spacing + ")"
+        else:
+            print "Incorrect spacing (" + spacing + ")"
+            print "Aborting ..."
+            exit(1)
+    else:
+        print "Unable to get spacing"
+        exit(1)
+
+    # Convert mha data to nii for RORPO
+    sanityCheckFile(args.inputfile)
+    cmd = "vmtkimagereader -ifile " + args.inputfile + " " \
+        "--pipe vmtkimagewriter -ofile " + outpath + "/data/TOF_art_convert.nii"
+    print cmd
+    if(not os.path.exists(outpath + "/data/TOF_art_convert.nii")):
+        retcode, _ = executeCommand("", cmd, logPath + "/Convert_mha_nii")
+    sanityCheckFile(outpath + "/data/TOF_art_convert.nii")
+
+    # Filter data with RORPO
+    cmd = "RORPO_multiscale_usage " + outpath + "/data/TOF_art_convert.nii " + \
+        outpath + "/data/TOF_art_filtered.nii " + \
+        "25 1.34 7 --core 4 --verbose"
+    print cmd
+    if(not os.path.exists(outpath + "/data/TOF_art_filtered.nii")):
+        retcode, _ = executeCommand("", cmd, logPath + "/RORPO")
+    sanityCheckFile(outpath + "/data/TOF_art_filtered.nii")
+
+    # Convert filtered data back to mha
+    cmd = "vmtkimagereader -ifile " + outpath + "/data/TOF_art_filtered.nii " + \
+        "--pipe vmtkimagewriter -ofile " + outpath + "/data/TOF_art_filtered.mha"
+    print cmd
+    if(not os.path.exists(outpath + "/data/TOF_art_filtered.mha")):
+        retcode, _ = executeCommand("", cmd, logPath + "/Convert_nii_mha")
+
+    # Extract mesh from images
+    cmd = "meshing_surfacefromimage --config-file " + cfgpath + "/surfacefromimage.cfg " + \
+        "--input.image.filename=" + outpath + "/data/TOF_art_filtered.mha " + \
+        "--pre-process.resize-from-reference-image.path " + args.inputfile
+    #cmd = "meshing_surfacefromimage --config-file " + cfgpath + "/surfacefromimage.cfg " + \
+    #"--input.image.filename=" + outpath + "/data/TOF_art_FOA42_RORPO_30_1.34_7.mha " + \
+    #"--pre-process.resize-from-reference-image.path " + outpath + "/data/TOF_art.mha"
+    retcode, _ = executeCommand("", cmd, logPath + "/meshing_surfacefromimage")
+
+    # Compute centerlines
+    # Iterate over pointpair data
+    clid = 0
+    cltpool = []
+    cldata = glob.glob(cfgpath + "/data/pointpair*.data")
+    for cl in cldata:
+        cmd = "meshing_centerlines --config-file " + cfgpath + "/centerlines.cfg " \
+            "--input.pointpair.filename " + cl + " " \
+            "--output.directory=angiotk/Base2/FOA42/artery/centerlines/part" + str(clid)
+        # Create a new thread
+        t = threading.Thread(target=executeCommand, args=("", cmd, logPath + "/meshing_centerlines" + str(clid)))
+        t.start()
+        cltpool.append(t)
+
+        clid = clid + 1
+
+    # Iterate over geocenterline data
+    cldata = glob.glob(cfgpath + "/data/geocenterlines*.data")
+    for i in cldata:
+        cmd = "meshing_centerlines --config-file " + cfgpath + "/centerlines.cfg " \
+            "--input.geo-centerlines.filename " + cl + " " \
+            "--output.directory=angiotk/Base2/FOA42/artery/centerlines/part" + str(clid)
+        # Create a new thread
+        t = threading.Thread(target=executeCommand, args=("", cmd, logPath + "/meshing_centerlines" + str(clid)))
+        t.start()
+        cltpool.append(t)
+
+        clid = clid + 1
+
+    # wait for threads to finish
+    for t in cltpool:
+        t.join()    
+
+    # Merge centerlines
+    cmd = "meshing_centerlinesmanager --config-file " + cfgpath + "/centerlinesmanager.cfg"
+    executeCommand("", cmd, logPath + "/meshing_centerlinesmanager")
+
+    # Regenerate image from centerlines
+    cmd = "meshing_imagefromcenterlines --config-file " + cfgpath + "/imagefromcenterlines.cfg"
+    executeCommand("", cmd, logPath + "/meshing_imagefromcenterlines")
+
+    # Extract the mesh
+    cmd = "meshing_surfacefromimage --config-file " + cfgpath + "/surfacefromimage2.cfg"
+    executeCommand("", cmd, logPath + "/meshing_surfacefromimage2")
+
+    # Process surface
+    cmd = "meshing_remeshstl --config-file " + cfgpath + "/remeshstlgmsh.cfg"
+    executeCommand("", cmd, logPath + "/meshing_remeshstlgmsh")
+
+    # Prepare volume data for simulation
+    cmd = "meshing_volumefromstlandcenterlines --config-file " + cfgpath + "/volumefromstlandcenterlines.cfg"
+    executeCommand("", cmd, logPath + "/meshing_volumefromstlandcenterlines")
+
+    # Print timing
+    print "Total time eslapsed in script: " + str(time.time() - tinit)
+
+# Only do this, if we do not import as a module
+if __name__ == "__main__":
+    main()
