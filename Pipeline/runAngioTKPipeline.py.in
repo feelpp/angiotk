@@ -201,7 +201,7 @@ def main():
     for cl in cldata:
         cmd = "meshing_centerlines --config-file " + cfgpath + "/centerlines.cfg " \
             "--input.pointpair.filename " + cl + " " \
-            "--output.directory=angiotk/Base2/FOA42/artery/centerlines/part" + str(clid)
+            "--output.directory=angiotk/centerlines/part" + str(clid)
         # Create a new thread
         t = threading.Thread(target=executeCommand, args=("", cmd, logPath + "/meshing_centerlines" + str(clid)))
         t.start()
@@ -214,7 +214,7 @@ def main():
     for i in cldata:
         cmd = "meshing_centerlines --config-file " + cfgpath + "/centerlines.cfg " \
             "--input.geo-centerlines.filename " + cl + " " \
-            "--output.directory=angiotk/Base2/FOA42/artery/centerlines/part" + str(clid)
+            "--output.directory=angiotk/centerlines/part" + str(clid)
         # Create a new thread
         t = threading.Thread(target=executeCommand, args=("", cmd, logPath + "/meshing_centerlines" + str(clid)))
         t.start()
@@ -228,6 +228,8 @@ def main():
 
     # Merge centerlines
     cmd = "meshing_centerlinesmanager --config-file " + cfgpath + "/centerlinesmanager.cfg"
+    for i in range(len(cltpool)):
+        cmd = cmd + " --input.centerlines.filename=$repository/angiotk/centerlines/part" + str(i) + "/model_centerlines.vtk"
     executeCommand("", cmd, logPath + "/meshing_centerlinesmanager")
 
     # Regenerate image from centerlines
