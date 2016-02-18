@@ -11,8 +11,8 @@ add_library( angiotk_meshing_volumefromstl
 target_link_libraries( angiotk_meshing_volumefromstl ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} ${VMTK_LIBRARIES} )
 
 install(TARGETS angiotk_meshing_volumefromstl
-    LIBRARY DESTINATION lib/AngioTK/Modules/Meshing
-    )
+    LIBRARY DESTINATION Modules/Meshing/lib
+)
 
 angiotk_add_component( meshing_centerlinesmanagergui centerlinesmanagergui_main.cpp )
 target_link_libraries( meshing_centerlinesmanagergui ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
