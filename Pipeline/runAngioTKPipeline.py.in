@@ -161,33 +161,39 @@ def main():
 
     # Convert mha data to nii for RORPO
     sanityCheckFile(args.inputfile)
+    inputFileNoPrefix, _ = os.path.splitext(os.path.basename(args.inputfile))
+
     cmd = "vmtkimagereader -ifile " + args.inputfile + " " \
-        "--pipe vmtkimagewriter -ofile " + outpath + "/data/TOF_art_convert.nii"
+        "--pipe vmtkimagewriter -ofile " + outpath + "/data/" + inputFileNoPrefix + ".nii"
     print cmd
-    if(not os.path.exists(outpath + "/data/TOF_art_convert.nii")):
+    if(not os.path.exists(outpath + "/data/" + inputFileNoPrefix + ".nii")):
         retcode, _ = executeCommand("", cmd, logPath + "/Convert_mha_nii")
-    sanityCheckFile(outpath + "/data/TOF_art_convert.nii")
+    sanityCheckFile(outpath + "/data/" + inputFileNoPrefix + ".nii")
 
     # Filter data with RORPO
-    cmd = "RORPO_multiscale_usage " + outpath + "/data/TOF_art_convert.nii " + \
-        outpath + "/data/TOF_art_filtered.nii " + \
-        "25 1.34 7 --core 4 --verbose"
+    scaleMin = 25
+    factor = 1.34
+    nbScales = 7
+    cmd = "RORPO_multiscale_usage " + outpath + "/data/" + inputFileNoPrefix + ".nii " + \
+        outpath + "/data/" + inputFileNoPrefix + "_RORPO.nii " + \
+        str(scaleMin) + " " + str(factor) + " " + str(nbScales) + " --core 4 --verbose"
     print cmd
-    if(not os.path.exists(outpath + "/data/TOF_art_filtered.nii")):
+    if(not os.path.exists(outpath + "/data/" + inputFileNoPrefix + "_RORPO.nii")):
         retcode, _ = executeCommand("", cmd, logPath + "/RORPO")
-    sanityCheckFile(outpath + "/data/TOF_art_filtered.nii")
+    sanityCheckFile(outpath + "/data/" + inputFileNoPrefix + "_RORPO.nii")
 
     # Convert filtered data back to mha
-    cmd = "vmtkimagereader -ifile " + outpath + "/data/TOF_art_filtered.nii " + \
-        "--pipe vmtkimagewriter -ofile " + outpath + "/data/TOF_art_filtered.mha"
+    cmd = "vmtkimagereader -ifile " + outpath + "/data/" + inputFileNoPrefix + "_RORPO.nii " + \
+        "--pipe vmtkimagewriter -ofile " + outpath + "/data/" + inputFileNoPrefix + "_RORPO.mha"
     print cmd
-    if(not os.path.exists(outpath + "/data/TOF_art_filtered.mha")):
+    if(not os.path.exists(outpath + "/data/" + inputFileNoPrefix + "_RORPO.mha")):
         retcode, _ = executeCommand("", cmd, logPath + "/Convert_nii_mha")
 
     # Extract mesh from images
     cmd = "meshing_surfacefromimage --config-file " + cfgpath + "/surfacefromimage.cfg " + \
-        "--input.image.filename=" + outpath + "/data/TOF_art_filtered.mha " + \
-        "--pre-process.resize-from-reference-image.path " + args.inputfile
+        "--input.image.filename=" + outpath + "/data/" + inputFileNoPrefix + "_RORPO.mha " + \
+        "--pre-process.resize-from-reference-image.path " + args.inputfile + \
+        "--output.path=angiotk/surfacefromimage/model.stl"
     #cmd = "meshing_surfacefromimage --config-file " + cfgpath + "/surfacefromimage.cfg " + \
     #"--input.image.filename=" + outpath + "/data/TOF_art_FOA42_RORPO_30_1.34_7.mha " + \
     #"--pre-process.resize-from-reference-image.path " + outpath + "/data/TOF_art.mha"
@@ -200,6 +206,7 @@ def main():
     cldata = glob.glob(cfgpath + "/data/pointpair*.data")
     for cl in cldata:
         cmd = "meshing_centerlines --config-file " + cfgpath + "/centerlines.cfg " \
+            "input.surface.filename=$repository/angiotk/surfacefromimage/model.stl" \
             "--input.pointpair.filename " + cl + " " \
             "--output.directory=angiotk/centerlines/part" + str(clid)
         # Create a new thread
