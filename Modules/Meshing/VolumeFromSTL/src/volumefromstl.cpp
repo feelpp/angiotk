@@ -2718,9 +2718,36 @@ VolumeMeshing::run()
               << "---------------------------------------\n"
               << "---------------------------------------\n";
 
-    CHECK( !this->inputSurfacePath().empty() ) << "inputSurfacePath is empty";
-    CHECK( !this->inputCenterlinesPath().empty() ) << "centerlinesFileName is empty";
-    CHECK( !this->inputInletOutletDescPath().empty() ) << "inletOutletDescFileName is empty";
+    if ( !fs::exists( this->inputSurfacePath() ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+        {
+            std::cout << "WARNING : Volume meshing will not be done because this input surface path does not not exist: " << this->inputSurfacePath() << std::endl
+                      << "Please set it with the \"input.surface.filename\" option." << std::endl;
+        }
+        return;
+    }
+    //CHECK( !this->inputSurfacePath().empty() ) << "inputSurfacePath is empty";
+    if ( !fs::exists( this->inputCenterlinesPath() ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+        {
+            std::cout << "WARNING : Volume meshing will not be done because the centerline file does not exist: " << this->inputCenterlinesPath() << std::endl
+                      << "Please set it with the \"input.centerlines.filename\" option." << std::endl;
+        }
+        return;
+    }
+    //CHECK( !this->inputCenterlinesPath().empty() ) << "centerlinesFileName is empty";
+    if ( !fs::exists( this->inputInletOutletDescPath() ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+        {
+            std::cout << "WARNING : Volume meshing will not be done because this input description file does not exist: " << this->inputInletOutletDescPath() << std::endl
+                      << "Please set it with the \"input.desc.filename\" option." << std::endl;
+        }
+        return;
+    }
+    //CHECK( !this->inputInletOutletDescPath().empty() ) << "inletOutletDescFileName is empty";
 
     if ( fs::exists( this->outputPath() ) && !this->forceRebuild() )
     {
