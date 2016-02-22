@@ -249,8 +249,9 @@ def main():
 
     # Merge centerlines
     cmd = "meshing_centerlinesmanager --config-file " + cfgpath + "/centerlinesmanager.cfg "
+    cmd = cmd + "--input.surface.filename $repository/angiotk/surfacefromimage/model.stl "
     for i in range(len(cltpool)):
-        cmd = cmd + "--input.centerlines.filename=" + my_env["FEELPP_WORKDIR"] + "/angiotk/centerlines/part" + str(i) + "/model_centerlines.vtk "
+        cmd = cmd + "--input.centerlines.filename " + my_env["FEELPP_WORKDIR"] + "/angiotk/centerlines/part" + str(i) + "/model_centerlines.vtk "
     print cmd
     executeCommand("", cmd, logPath + "/meshing_centerlinesmanager")
 

@@ -143,7 +143,7 @@ static void orderMLines(std::vector<MLine*> &lines, MVertex *vB, MVertex *vE)
 	segments.erase(it);
       }
     else
-      Msg::Error("segment not find");
+      Msg::Error("segment not found");
   }
   else{
     Msg::Error("line is wrong (it has %d end points)",  boundv.size());
@@ -629,7 +629,7 @@ AngioTkCenterline::updateMergeFromExtremities( AngioTkCenterline const& centerli
 	{
 	  auto itFindRadius = centerlinesMerged.centerlinesRadiusl().find(myline);
  	  if ( itFindRadius == centerlinesMerged.centerlinesRadiusl().end() )
-	    Msg::Error("radius not find for this line \n");
+	    Msg::Error("radius not found for the current line \n");
 	  else
 	    radius = itFindRadius->second;
 	}
@@ -638,7 +638,7 @@ AngioTkCenterline::updateMergeFromExtremities( AngioTkCenterline const& centerli
 	  int vId = extremityPair.first->getIndex();
 	  auto itFindVertex = this->mapVertexGmshIdToVtkId().find(vId);
 	  if ( itFindVertex == this->mapVertexGmshIdToVtkId().end() )
-	      Msg::Error("vertex not find in mapVertexGmshIdToVtkId");
+	      Msg::Error("vertex not found in mapVertexGmshIdToVtkId");
 	  else
 	    {
 	      int vVtkId = itFindVertex->second;
@@ -1161,7 +1161,7 @@ void AngioTkCenterline::createFromCenterlines( AngioTkCenterline const& inputCen
 	  MVertex* vStart = outputBranch.lines.front()->getVertex(0);
 	  MVertex *vertexFindStart = pos.find(vStart->x(), vStart->y(), vStart->z(), eps,true);
 	  if ( !vertexFindStart )
-	    Msg::Error("not find begin vertex");
+	    Msg::Error("not found begin vertex");
 	  std::set<MVertex*> vertexDone;
 	  vertexDone.insert( vStart );
 	  std::vector<std::tuple<MVertex*,double> > vertexOrdered;
@@ -4102,7 +4102,7 @@ void AngioTkCenterline::updateCenterlinesFieldsFromFile(std::string fileName)
       if ( !vertexFind )
 	continue;
       if ( !vertexFind )
-	Msg::Error("vertexFind not find ");
+	Msg::Error("vertexFind not found ");
 
       initialVertexIdToCleanVertexId[myvertex->getIndex()] = vertexFind->getNum();
       //initialVertexIdToCleanVertexId[myvertex->getIndex()] = vertexFind->getIndex();
@@ -4262,7 +4262,7 @@ AngioTkCenterline::minRadiusAtVertex( MVertex* myvertex, std::string const& fiel
       auto itFindVertex = M_vertexToLinesId.find( myvertex );
       if ( itFindVertex == M_vertexToLinesId.end() )
 	{
-	  Msg::Error("vertex not find in M_vertexToLinesId");
+	  Msg::Error("vertex not found in M_vertexToLinesId");
 	  return 0;
 	}
       double radius = 0;int cptRadius = 0;
@@ -4272,7 +4272,7 @@ AngioTkCenterline::minRadiusAtVertex( MVertex* myvertex, std::string const& fiel
 	  auto itFindRadius = this->centerlinesRadiusl().find(myline);
 	  if ( itFindRadius == this->centerlinesRadiusl().end() )
 	    {
-	      Msg::Warning("radius not find for this line \n");
+	      Msg::Warning("radius not found for the current line \n");
 	      continue;
 	    }
 	  radius += itFindRadius->second;
@@ -4290,7 +4290,7 @@ AngioTkCenterline::minRadiusAtVertex( MVertex* myvertex, std::string const& fiel
       auto itFindVertex = this->mapVertexGmshIdToVtkId().find(vId);
       if ( itFindVertex == this->mapVertexGmshIdToVtkId().end() )
 	{
-	  Msg::Error("vertex not find in mapVertexGmshIdToVtkId");
+	  Msg::Error("vertex not found in mapVertexGmshIdToVtkId");
 	  return 0;
 	}
       int vVtkId = itFindVertex->second;

@@ -854,7 +854,8 @@ CenterlinesManager::run()
     if ( this->inputCenterlinesPath().size() > 1 && ( this->inputSurfacePath().empty() || !fs::exists( this->inputSurfacePath() ) ) )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : Centerlines Manager (fusion case) not run because this input centerlines path not exist :" << this->inputCenterlinesPath(0) << "\n";
+            std::cout << "WARNING : The centerlines Manager (fusion case) was not run because the input path for the surface does not exist :" << this->inputSurfacePath() << "\n"
+                      << "Please set it with the \"input.surface.filename\" option." << std::endl;
         return;
     }
 
