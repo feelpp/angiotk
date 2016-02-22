@@ -23,31 +23,37 @@ int main( int argc, char** argv )
 
     RemeshSurface myRemeshSurface("");
     if ( preProcessOpenSurface )
-      {
-	if ( myRemeshSurface.inputCenterlinesPath().empty() )
-	  {
-	    std::cout << "inputCenterlinesPath is not specified. The program cannot continue." << std::endl
-	              << "Please set it with the \"gmsh.centerlines.filename\" option.";
-	    return 1;
-	  }
-
-	OpenSurface myOpenSurface("open-surface");
-	myOpenSurface.setInputSurfacePath(myRemeshSurface.inputSurfacePath());
-	myOpenSurface.setInputCenterlinesPath(myRemeshSurface.inputCenterlinesPath());
-
-	myOpenSurface.setOutputDirectory( fs::path(myRemeshSurface.outputPath()).parent_path().string() );
-	myOpenSurface.updateOutputPathFromInputFileName();
-    /* Checking for errors, exiting if on is returned */
-	if(myOpenSurface.run())
     {
-        return 1;
-    }
+        if ( myRemeshSurface.inputSurfacePath().empty() )
+        {
+            std::cout << "inputSurfacePath is not specified. The program cannot continue." << std::endl
+                << "Please set it with the \"input.surface.filename\" option.";
+            return 1;
+        }
+        if ( myRemeshSurface.inputCenterlinesPath().empty() )
+        {
+            std::cout << "inputCenterlinesPath is not specified. The program cannot continue." << std::endl
+                << "Please set it with the \"gmsh.centerlines.filename\" option.";
+            return 1;
+        }
 
-	// update RemeshSurface
-	myRemeshSurface.setInputSurfacePath( myOpenSurface.outputPath() );
-	if ( myOpenSurface.forceRebuild() )
-	  myRemeshSurface.setForceRebuild( true );
-      }
+        OpenSurface myOpenSurface("open-surface");
+        myOpenSurface.setInputSurfacePath(myRemeshSurface.inputSurfacePath());
+        myOpenSurface.setInputCenterlinesPath(myRemeshSurface.inputCenterlinesPath());
+
+        myOpenSurface.setOutputDirectory( fs::path(myRemeshSurface.outputPath()).parent_path().string() );
+        myOpenSurface.updateOutputPathFromInputFileName();
+        /* Checking for errors, exiting if on is returned */
+        if(myOpenSurface.run())
+        {
+            return 1;
+        }
+
+        // update RemeshSurface
+        myRemeshSurface.setInputSurfacePath( myOpenSurface.outputPath() );
+        if ( myOpenSurface.forceRebuild() )
+            myRemeshSurface.setForceRebuild( true );
+    }
 
     /* Checking for errors, exiting if on is returned */
     if(myRemeshSurface.run())
