@@ -27,13 +27,13 @@ int main( int argc, char** argv )
         if ( myRemeshSurface.inputSurfacePath().empty() )
         {
             std::cout << "inputSurfacePath is not specified. The program cannot continue." << std::endl
-                << "Please set it with the \"input.surface.filename\" option.";
+                << "Please set it with the \"input.surface.filename\" option." << std::endl;
             return 1;
         }
         if ( myRemeshSurface.inputCenterlinesPath().empty() )
         {
             std::cout << "inputCenterlinesPath is not specified. The program cannot continue." << std::endl
-                << "Please set it with the \"gmsh.centerlines.filename\" option.";
+                << "Please set it with the \"gmsh.centerlines.filename\" option." << std::endl;
             return 1;
         }
 

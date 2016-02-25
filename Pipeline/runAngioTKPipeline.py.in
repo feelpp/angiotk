@@ -6,6 +6,7 @@ import datetime
 import errno
 import glob
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -111,6 +112,7 @@ def main():
     my_env = os.environ
     my_env["PATH"] = "@CMAKE_INSTALL_PREFIX@/Modules/Meshing/bin:" + my_env["PATH"]
     my_env["PATH"] = "@CMAKE_INSTALL_PREFIX@/Modules/Filtering/RORPO/bin:" + my_env["PATH"]
+    my_env["PATH"] = "@CMAKE_INSTALL_PREFIX@/Modules/Filtering/ITK/bin:" + my_env["PATH"]
     my_env["PATH"] = "@CMAKE_INSTALL_PREFIX@/bin/AngioTK/Data:" + my_env["PATH"]
     my_env["LD_LIBRARY_PATH"] = "@FEELPP_INSTALL_DIR@/lib:" + my_env["LD_LIBRARY_PATH"]
     my_env["LD_LIBRARY_PATH"] = "@CMAKE_INSTALL_PREFIX@/Modules/Filtering/RORPO/lib:" + my_env["LD_LIBRARY_PATH"]
@@ -119,6 +121,7 @@ def main():
     my_env["FEELPP_WORKDIR"] = my_env["OUTPUT_PATH"] + "/feel"
 
     print "- PATH=" + my_env["PATH"]
+    print ""
 
     makedir(outpath + "/data")
 
@@ -127,20 +130,30 @@ def main():
     logPath = outpath + "/log/" + dt.strftime("%Y%m%d-%H%M%S")
     makedir(logPath)
 
-    # Check that configuration files exists
-    cfgfiles = [ cfgpath + "/surfacefromimage.cfg", cfgpath + "/centerlines.cfg", 
-                 cfgpath + "/centerlinesmanager.cfg", cfgpath + "/imagefromcenterlines.cfg", 
-                 cfgpath + "/surfacefromimage2.cfg", cfgpath + "/remeshstlgmsh.cfg", 
-                 cfgpath + "/volumefromstlandcenterlines.cfg" ]
-    for cf in cfgfiles:
-        sanityCheckFile(cf, "Missing configuration file: " + cf)
-
     # Start timing
     tinit = time.time()
 
+    inputFileNoExt, inputFileExt = os.path.splitext(os.path.basename(args.inputfile))
+
+    # Check that input file exists
+    sanityCheckFile(args.inputfile)
+
+    # Ensure that the input data file has the correct format and copy it to the data directory
+    # otherwise convert it
+    print "Checking input file " + args.inputfile + " ... "
+    if(inputFileExt != ".mha"):
+        cmd = "vmtkimagereader -ifile " + args.inputfile + " " \
+            "--pipe vmtkimagewriter -ofile " + outpath + "/data/" + inputFileNoExt + ".mha"
+        retcode, _ = executeCommand("", cmd, logPath + "/Convert_format_mha")
+    else:
+        shutil.copy(args.inputfile, outpath + "/data/")
+    sanityCheckFile(outpath + "/data/" + inputFileNoExt + ".mha")
+    print ""
+
     # Get element spacing from input dataset
     # We need isotropic data for RORPO
-    ps = subprocess.Popen(('head', '-n', '12', args.inputfile), stdout=subprocess.PIPE)
+    print "Checking if input data is isotropic ... "
+    ps = subprocess.Popen(('head', '-n', '12', outpath + "/data/" + inputFileNoExt + ".mha"), stdout=subprocess.PIPE)
     spacing = subprocess.check_output(('grep', 'ElementSpacing'), stdin=ps.stdout)
     ps.wait()
 
@@ -150,25 +163,34 @@ def main():
     # Check that spacing has been correctly read
     if(len(lst) == 5):
         # Ensure spacing for isotropic data
-        if(float(lst[2]) == float(lst[3]) or float(lst[3]) == float(lst[4])):
+        if(float(lst[2]) == float(lst[3]) and float(lst[3]) == float(lst[4])):
             print "Current spacing OK (" + spacing + ")"
+            if(not os.path.exists(outpath + "/data/" + inputFileNoExt + "_iso.mha")):
+                os.symlink(outpath + "/data/" + inputFileNoExt + ".mha", outpath + "/data/" + inputFileNoExt + "_iso.mha")
         else:
             print "Incorrect spacing (" + spacing + ")"
-            print "Aborting ..."
-            exit(1)
+            print "Attempting to correct spacing"
+            cmd = "ResampleVolumesToBeIsotropic " + outpath + "/data/" + inputFileNoExt + ".mha " + \
+                  outpath + "/data/" + inputFileNoExt + "_iso.mha 0 255"
+            print cmd
+            if(not os.path.exists(outpath + "/data/" + inputFileNoExt + "_iso.mha")):
+                retcode, _ = executeCommand("", cmd, logPath + "/Convert_iso")
+            sanityCheckFile(outpath + "/data/" + inputFileNoExt + "_iso.mha")
+            #print "Aborting ..."
+            #exit(1)
     else:
         print "Unable to get spacing"
         exit(1)
+    print ""
 
     # Convert mha data to nii for RORPO
-    sanityCheckFile(args.inputfile)
-    inputFileNoPrefix, _ = os.path.splitext(os.path.basename(args.inputfile))
-
-    cmd = "vmtkimagereader -ifile " + args.inputfile + " " \
-        "--pipe vmtkimagewriter -ofile " + outpath + "/data/" + inputFileNoPrefix + ".nii"
-    if(not os.path.exists(outpath + "/data/" + inputFileNoPrefix + ".nii")):
+    print "Converting input file to .nii ... "
+    cmd = "vmtkimagereader -ifile " + outpath + "/data/" + inputFileNoExt + "_iso.mha" + " " \
+        "--pipe vmtkimagewriter -ofile " + outpath + "/data/" + inputFileNoExt + ".nii"
+    if(not os.path.exists(outpath + "/data/" + inputFileNoExt + ".nii")):
         retcode, _ = executeCommand("", cmd, logPath + "/Convert_mha_nii")
-    sanityCheckFile(outpath + "/data/" + inputFileNoPrefix + ".nii")
+    sanityCheckFile(outpath + "/data/" + inputFileNoExt + ".nii")
+    print ""
 
     # Filter data with RORPO
     scaleMin = 25
@@ -176,6 +198,7 @@ def main():
     nbScales = 7
 
     # Parses the rorpo.cfg file if it exists
+    print "Process data with RORPO ... "
     if(os.path.exists(cfgpath + "/rorpo.cfg")):
         Config = ConfigParser.ConfigParser()
         Config.read(cfgpath + "/rorpo.cfg")
@@ -186,14 +209,15 @@ def main():
         try: nbScales = int(Config.get("rorpo", "nbScales"))
         except: print("Option nbScales not found in " + cfgpath + "/rorpo.cfg")
 
-    RORPOOutputPrefix = inputFileNoPrefix + "_RORPO_" + str(scaleMin) + "_" + str(factor) + "_" + str(nbScales)
-    cmd = "RORPO_multiscale_usage " + outpath + "/data/" + inputFileNoPrefix + ".nii " + \
+    RORPOOutputPrefix = inputFileNoExt + "_RORPO_" + str(scaleMin) + "_" + str(factor) + "_" + str(nbScales)
+    cmd = "RORPO_multiscale_usage " + outpath + "/data/" + inputFileNoExt + ".nii " + \
         outpath + "/data/" + RORPOOutputPrefix + ".nii " + \
         str(scaleMin) + " " + str(factor) + " " + str(nbScales) + " --core 4 --verbose"
     print cmd
     if(not os.path.exists(outpath + "/data/" + RORPOOutputPrefix + ".nii")):
         retcode, _ = executeCommand("", cmd, logPath + "/RORPO")
     sanityCheckFile(outpath + "/data/" + RORPOOutputPrefix + ".nii")
+    print ""
 
     # Convert filtered data back to mha
     cmd = "vmtkimagereader -ifile " + outpath + "/data/" + RORPOOutputPrefix + ".nii " + \
@@ -203,9 +227,11 @@ def main():
     sanityCheckFile(outpath + "/data/" + RORPOOutputPrefix + ".mha")
 
     # Extract mesh from images
+    print "Extracting surface from image ... "
+    sanityCheckFile(cfgpath + "/surfacefromimage.cfg")
     cmd = "meshing_surfacefromimage --config-file " + cfgpath + "/surfacefromimage.cfg " + \
         "--input.image.filename=" + outpath + "/data/" + RORPOOutputPrefix + ".mha " + \
-        "--pre-process.resize-from-reference-image.path " + args.inputfile + " " \
+        "--pre-process.resize-from-reference-image.path " + outpath + "/data/" + inputFileNoExt + "_iso.mha" + " " \
         "--output.path=angiotk/surfacefromimage/model.stl"
     #cmd = "meshing_surfacefromimage --config-file " + cfgpath + "/surfacefromimage.cfg " + \
     #"--input.image.filename=" + outpath + "/data/TOF_art_FOA42_RORPO_30_1.34_7.mha " + \
@@ -214,8 +240,33 @@ def main():
 
     # Compute centerlines
     # Iterate over pointpair data
+    print "Computing centerlines ... "
+
+    sanityCheckFile(cfgpath + "/centerlines.cfg")
     clid = 0
     cltpool = []
+
+    #cmd = "meshing_centerlines --config-file " + cfgpath + "/centerlines1.cfg " \
+        #"--input.surface.filename=$repository/angiotk/surfacefromimage/model.stl " \
+        #"--output.directory=angiotk/centerlines/part" + str(clid)
+    #t = threading.Thread(target=executeCommand, args=("", cmd, logPath + "/meshing_centerlines9999"))
+    #clid = clid + 1
+    #t.start()
+    #cltpool.append(t)
+
+    cldata = glob.glob(cfgpath + "/data/pointset*.data")
+    for cl in cldata:
+        cmd = "meshing_centerlines --config-file " + cfgpath + "/centerlines.cfg " \
+            "--input.surface.filename=$repository/angiotk/surfacefromimage/model.stl " \
+            "--input.pointset.filename " + cl + " " \
+            "--output.directory=angiotk/centerlines/part" + str(clid)
+        # Create a new thread
+        t = threading.Thread(target=executeCommand, args=("", cmd, logPath + "/meshing_centerlines" + str(clid)))
+        t.start()
+        cltpool.append(t)
+
+        clid = clid + 1
+
     cldata = glob.glob(cfgpath + "/data/pointpair*.data")
     for cl in cldata:
         cmd = "meshing_centerlines --config-file " + cfgpath + "/centerlines.cfg " \
@@ -248,6 +299,8 @@ def main():
         t.join()    
 
     # Merge centerlines
+    print "Merging centerlines ... "
+    sanityCheckFile(cfgpath + "/centerlinesmanager.cfg")
     cmd = "meshing_centerlinesmanager --config-file " + cfgpath + "/centerlinesmanager.cfg "
     cmd = cmd + "--input.surface.filename $repository/angiotk/surfacefromimage/model.stl "
     for i in range(len(cltpool)):
@@ -256,19 +309,28 @@ def main():
     executeCommand("", cmd, logPath + "/meshing_centerlinesmanager")
 
     # Regenerate image from centerlines
+    print "Generating image from centerlines ... "
+    sanityCheckFile(cfgpath + "/imagefromcenterlines.cfg")
     cmd = "meshing_imagefromcenterlines --config-file " + cfgpath + "/imagefromcenterlines.cfg"
     executeCommand("", cmd, logPath + "/meshing_imagefromcenterlines")
 
     # Extract the mesh
+    print "Extracting surface from image ... "
+    sanityCheckFile(cfgpath + "/surfacefromimage2.cfg")
     cmd = "meshing_surfacefromimage --config-file " + cfgpath + "/surfacefromimage2.cfg"
     executeCommand("", cmd, logPath + "/meshing_surfacefromimage2")
 
     # Process surface
+    print "Processing mesh ... "
+    sanityCheckFile(cfgpath + "/remeshstlgmsh.cfg")
     cmd = "meshing_remeshstl --config-file " + cfgpath + "/remeshstlgmsh.cfg"
     executeCommand("", cmd, logPath + "/meshing_remeshstlgmsh")
 
     # Prepare volume data for simulation
+    print "Generating volume mesh ... "
+    sanityCheckFile(cfgpath + "/volumefromstlandcenterlines.cfg")
     cmd = "meshing_volumefromstlandcenterlines --config-file " + cfgpath + "/volumefromstlandcenterlines.cfg"
+    print cmd
     executeCommand("", cmd, logPath + "/meshing_volumefromstlandcenterlines")
 
     # Print timing

@@ -1707,8 +1707,8 @@ ImagesManager::updateResizeFromRefImage()
 {
     std::string extInitialImage = fs::path(this->inputPath(0)).extension().string();
     std::string extRefImage = fs::path(this->resizeFromRefImagePath()).extension().string();
-    CHECK( extInitialImage == ".mha" /*|| extInitialImage == ".nii"*/ ) << "image formart not support " << extInitialImage;
-    CHECK( extRefImage == ".mha" /*|| extInitialImage == ".nii"*/ ) << "image formart not support " << extRefImage;
+    CHECK( extInitialImage == ".mha" /*|| extInitialImage == ".nii"*/ ) << " image format not supported " << extInitialImage;
+    CHECK( extRefImage == ".mha" /*|| extInitialImage == ".nii"*/ ) << " image format not supported " << extRefImage;
 
     vtkSmartPointer<vtkMetaImageReader> readerRefImage = vtkSmartPointer<vtkMetaImageReader>::New();
     readerRefImage->SetFileName(this->resizeFromRefImagePath().c_str());
