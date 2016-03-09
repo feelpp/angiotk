@@ -7,6 +7,7 @@ import errno
 import glob
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import threading
@@ -104,12 +105,21 @@ def main():
     baseOutputPath = args.outputpath
     makedir(baseOutputPath)
 
+    script = open(baseOutputPath + "/relaunch-script.sh", "w")
+    script.write("#!/bin/bash\n\n")
+    script.write(' '.join(sys.argv) + "\n\n")
+    script.close()
+
+    # make script executable
+    st = os.stat(baseOutputPath + "/relaunch-script.sh")
+    os.chmod(baseOutputPath + "/relaunch-script.sh", st.st_mode | stat.S_IEXEC)
+
     AngiotTKOutputPath = baseOutputPath + "/angiotk"
     makedir(AngiotTKOutputPath + "/data")
 
     print "Using configuration:"
     print "- Location of configuration files: " + cfgpath
-    print "- Output path: " + baseOutputPath
+    print "- Output path: " + AngiotTKOutputPath
 
     # Setup environment to find the correct paths and set output paths
     my_env = os.environ
@@ -125,8 +135,6 @@ def main():
 
     print "- PATH=" + my_env["PATH"]
     print ""
-
-    makedir(baseOutputPath + "/data")
 
     # Create a log directory for the current execution
     dt = datetime.datetime.now()
@@ -199,6 +207,7 @@ def main():
     scaleMin = 25
     factor = 1.34
     nbScales = 7
+    nbCores = 7
 
     # Parses the rorpo.cfg file if it exists
     print "Process data with RORPO ... "
@@ -216,7 +225,7 @@ def main():
     RORPOOutputPrefix = inputFileNoExt + "_RORPO_" + str(scaleMin) + "_" + str(factor) + "_" + str(nbScales)
     cmd = "RORPO_multiscale_usage " + AngiotTKOutputPath + "/data/" + inputFileNoExt + ".nii " + \
         AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii " + \
-        str(scaleMin) + " " + str(factor) + " " + str(nbScales) + " --core 4 --verbose"
+        str(scaleMin) + " " + str(factor) + " " + str(nbScales) + " --core " + str(nbCores) + " --verbose"
     print cmd
     if(not os.path.exists(AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii")):
         retcode, _ = executeCommand("", cmd, logPath + "/RORPO")
@@ -265,7 +274,8 @@ def main():
             "--input.surface.filename " + AngiotTKOutputPath + "/surfacefromimage/model.stl " \
             "--input.pointset.filename " + cl + " " \
             "--output.directory " + AngiotTKOutputPath + "/centerlines/part" + str(clid) + " " \
-            "--delaunay-tessellation.output.directory " + AngiotTKOutputPath + "/centerlines/part" + str(clid)
+            "--delaunay-tessellation.output.directory " + AngiotTKOutputPath + "/centerlines/part" + str(clid) + " " \
+            "--source-ids 0 --target-ids 1"
 
         # Create a new thread
         t = threading.Thread(target=executeCommand, args=("", cmd, logPath + "/meshing_centerlines" + str(clid)))
@@ -280,7 +290,8 @@ def main():
             "--input.surface.filename " + AngiotTKOutputPath + "/surfacefromimage/model.stl " \
             "--input.pointpair.filename " + cl + " " \
             "--output.directory " + AngiotTKOutputPath + "/centerlines/part" + str(clid) + " " \
-            "--delaunay-tessellation.output.directory " + AngiotTKOutputPath + "/centerlines/part" + str(clid)
+            "--delaunay-tessellation.force-rebuild 0 " \
+            "--delaunay-tessellation.output.directory " + AngiotTKOutputPath + "/centerlines/part" + str(clid) + "/delaunay-tessellation" 
         # Create a new thread
         t = threading.Thread(target=executeCommand, args=("", cmd, logPath + "/meshing_centerlines" + str(clid)))
         t.start()

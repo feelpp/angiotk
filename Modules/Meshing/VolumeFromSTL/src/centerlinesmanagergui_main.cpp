@@ -34,7 +34,15 @@ int main( int argc, char** argv )
     windowInteractor.setWindowHeight( ioption(_name="window-height" ) );
 
     if ( !inputSurfacePath.empty() && fs::exists( inputSurfacePath ) )
+    {
       windowInteractor.setInputSurfacePath( inputSurfacePath );
+    }
+    else
+    {
+        std::cout << "WARNING: The surface data you specified is either empty (" << inputSurfacePath.empty() 
+                  << ") or the path doesn't exist (" << (!fs::exists( inputSurfacePath )) << ")." << std::endl
+                  << "Please specify it with the --input.surface.path option." << std::endl;
+    }
     if ( !inputPointSetPath.empty() && fs::exists( inputPointSetPath ) )
       windowInteractor.setInputPointSetPath( inputPointSetPath );
     if ( !inputPointPairPath.empty() && fs::exists( inputPointPairPath ) )

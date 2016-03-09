@@ -1329,6 +1329,12 @@ CenterlinesManagerWindowInteractor::run()//bool fullscreen, int windowWidth, int
         vtkSmartPointer<vtkSTLReader> readerSTL = vtkSmartPointer<vtkSTLReader>::New();
         readerSTL->SetFileName(inputFilename.c_str());
         readerSTL->Update();
+
+        vtkSmartPointer<vtkPolyData> polyData = readerSTL->GetOutput();
+        std::cout << "Read STL file " << this->inputSurfacePath() << std::endl;
+        std::cout << "- Number of Points: " << polyData->GetNumberOfPoints() << std::endl;
+        std::cout << "- Number of Cells: " << polyData->GetNumberOfCells() << std::endl;
+
         // Create a mapper and actor
         vtkSmartPointer<vtkPolyDataMapper> mapperSTL = vtkSmartPointer<vtkPolyDataMapper>::New();
         mapperSTL->SetInputConnection(readerSTL->GetOutputPort());
@@ -1349,6 +1355,10 @@ CenterlinesManagerWindowInteractor::run()//bool fullscreen, int windowWidth, int
         std::string namePointPairFile = Feel::fs::path(this->inputSurfacePath()).stem().string()+"_pointpair.data";
         style->setOutputPathPointSetFile(namePointSetFile);
         style->setOutputPathPointPairFile(namePointPairFile);
+    }
+    else
+    {
+        std::cout << "The program won't load surface data as it is empty. Specify it with --input.surface.path" << std::endl;
     }
 
     boost::shared_ptr<AngioTkCenterline> centerlinesTool;
