@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Export environment variables for AngioTK
+
+export PATH=@CMAKE_INSTALL_PREFIX@/Modules/Meshing/bin:$PATH
+export PATH=@CMAKE_INSTALL_PREFIX@/Modules/Filtering/RORPO/bin:$PATH
+export PATH=@CMAKE_INSTALL_PREFIX@/Modules/Filtering/ITK/bin:$PATH
+export PATH=@CMAKE_INSTALL_PREFIX@/bin/AngioTK/Data:$PATH
+
+export LD_LIBRARY_PATH=@FEELPP_INSTALL_DIR@/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=@CMAKE_INSTALL_PREFIX@/Modules/Filtering/RORPO/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=@CMAKE_INSTALL_PREFIX@/Modules/Meshing/lib:$LD_LIBRARY_PATH

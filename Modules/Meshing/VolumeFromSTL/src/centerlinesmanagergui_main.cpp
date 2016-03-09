@@ -8,9 +8,9 @@ int main( int argc, char** argv )
     po::options_description myoptions;
     myoptions.add_options()
       ("input.centerlines.path", po::value<std::vector<std::string>>()->multitoken(), "(vector<string>) input centerline filename" )
-      ("input.surface.path", po::value<std::string>()->default_value( "" ), "(string) input surface filename" )
-      ("input.point-set.path", po::value<std::string>()->default_value( "" ), "(string) input point-set filename" )
-      ("input.point-pair.path", po::value<std::string>()->default_value( "" ), "input.pointpair.filename" )
+      ("input.surface.path", po::value<std::string>()->default_value( "" ), "(string) input surface filename (.stl file)" )
+      ("input.point-set.path", po::value<std::string>()->default_value( "" ), "(string) input point-set filename (.data file)" )
+      ("input.point-pair.path", po::value<std::string>()->default_value( "" ), "(string) input point-pair filename (.data file)" )
       ("window-width", Feel::po::value<int>()->default_value(1024), "(int) window width")
       ("window-height", Feel::po::value<int>()->default_value(768), "(int) window height")
       ;
@@ -44,9 +44,23 @@ int main( int argc, char** argv )
                   << "Please specify it with the --input.surface.path option." << std::endl;
     }
     if ( !inputPointSetPath.empty() && fs::exists( inputPointSetPath ) )
+    {
       windowInteractor.setInputPointSetPath( inputPointSetPath );
+    }
+    else
+    {
+        std::cout << "No pointset path has been specified"
+                  << "You can specify one with the --input.point-set.path option." << std::endl;
+    }
     if ( !inputPointPairPath.empty() && fs::exists( inputPointPairPath ) )
+    {
       windowInteractor.setInputPointPairPath( inputPointPairPath );
+    }
+    else
+    {
+        std::cout << "No pointpair path has been specified"
+                  << "You can specify one with the --input.point-pair.path option." << std::endl;
+    }
 
     std::vector<std::string> centerlinesPath;
     for (int k = 0;k<inputCenterlinesPath.size();++k)
