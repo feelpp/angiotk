@@ -1,70 +1,6 @@
 /* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim:fenc=utf-8:ft=tcl:et:sw=4:ts=4:sts=4*/
 
-#include <centerlinesmanagerwindowinteractor.hpp>
-
-#include <vtkSmartPointer.h>
-#include <vtkRendererCollection.h>
-
-#include <vtkWorldPointPicker.h>
-#include <vtkPointPicker.h>
-#include <vtkCellPicker.h>
-#include <vtkPropPicker.h>
-
-#include <vtkSphereSource.h>
-#include <vtkLineSource.h>
-#include <vtkPolyDataMapper.h>
-#include <vtkRenderer.h>
-#include <vtkRenderWindow.h>
-#include <vtkRenderWindowInteractor.h>
-#include <vtkActor.h>
-#include <vtkInteractorStyleTrackballCamera.h>
-
-#include <vtkObjectFactory.h>
-
-
-
-
-
-
-#include <vtkPolyData.h>
-#include <vtkSTLReader.h>
-#include <vtkPolyDataReader.h>
-#include <vtkSmartPointer.h>
-#include <vtkPolyDataMapper.h>
-#include <vtkActor.h>
-#include <vtkRenderWindow.h>
-#include <vtkRenderer.h>
-#include <vtkRenderWindowInteractor.h>
-
-#include <vtkProperty.h>
-
-#include <vtkTextActor.h>
-#include <vtkTextProperty.h>
-#include <vtkTextWidget.h>
-#include <vtkTextRepresentation.h>
-
-#include <vtkAxesActor.h>
-#include <vtkOrientationMarkerWidget.h>
-
-#include <vtkCoordinate.h>
-
-#include <cmath>
-#include <tuple>
-
-#include <vtkBoxWidget.h>
-#include <vtkBoxWidget2.h>
-#include <vtkCommand.h>
-#include <vtkTransform.h>
-#include <vtkBoxRepresentation.h>
-
-
-#include <feel/feelcore/feel.hpp>
-
-#include <AngioTkCenterlineField.h>
-#include <Gmsh.h>
-#include <Context.h>
-
-#include <centerlinesmanageriodata.hpp>
+#include "centerlinesmanagerwindowinteractor.hpp"
 
 class vtkMyCallback : public vtkCommand
 {
@@ -240,10 +176,11 @@ class PointPairConnection
 public :
     typedef std::shared_ptr<SphereSourceObject> point_object_ptrtype;
     PointPairConnection() {}
-    PointPairConnection( point_object_ptrtype pt1, point_object_ptrtype pt2 )
+    PointPairConnection( point_object_ptrtype pt1, point_object_ptrtype pt2, int connectionId = -1 )
         :
         M_pointObjet1( pt1 ),
-        M_pointObjet2( pt2 )
+        M_pointObjet2( pt2 ),
+        M_connectionId( connectionId )
     {}
     PointPairConnection( PointPairConnection const& o ) = default;
 
@@ -299,14 +236,47 @@ public :
             M_lineActor->GetProperty()->SetColor(1.0, 0.5, 0.0); //(R,G,B)
             M_lineActor->GetProperty()->SetLineWidth(2.0);//defautl is 1.0
 
+            /* Create an on-screen text indicating the id of the current connection line */
+            std::ostringstream oss;
+            oss << M_connectionId;
+            vtkSmartPointer<vtkVectorText> textSource = vtkSmartPointer<vtkVectorText>::New();
+            textSource->SetText( oss.str().c_str() );
+
+            // Create a mapper
+            vtkSmartPointer<vtkPolyDataMapper> mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+            mapper->SetInputConnection( textSource->GetOutputPort() );
+
+            /* Compute the center of the line */
+            double * pos1 = M_lineSource->GetPoint1();
+            double * pos2 = M_lineSource->GetPoint2();
+
+            double fpos[3];
+            for(int i = 0; i < 3; i++)
+            {
+                fpos[i] = (pos2[i] + pos1[i]) / 2.0;
+            }
+
+            /* Add a follower object for the text: The text will always be facing the camera */
+            M_follower = vtkSmartPointer<vtkFollower>::New();
+            M_follower->SetMapper( mapper );
+            M_follower->GetProperty()->SetColor( 1, 0, 0 );
+            M_follower->SetPosition( fpos );
+            M_follower->SetScale(8.0);
+            M_follower->SetCamera(interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->GetActiveCamera());
+
+            // add the follower to the scene
+            interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(M_follower);
+
             M_callbackPointPairConnection1 = vtkSmartPointer<vtkCallbackPointPairConnection>::New();
             M_callbackPointPairConnection1->initialize(this,1);
             M_callbackPointPairConnection2 = vtkSmartPointer<vtkCallbackPointPairConnection>::New();
             M_callbackPointPairConnection2->initialize(this,2);
             M_pointObjet1->widgetBoxAroundSphere()->AddObserver(vtkCommand::InteractionEvent, M_callbackPointPairConnection1);
             M_pointObjet2->widgetBoxAroundSphere()->AddObserver(vtkCommand::InteractionEvent, M_callbackPointPairConnection2);
+
         }
         interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(M_lineActor);
+        
     }
 
     void
@@ -317,6 +287,8 @@ public :
             interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->RemoveActor(M_lineActor);
             M_pointObjet1->widgetBoxAroundSphere()->RemoveObserver(M_callbackPointPairConnection1);
             M_pointObjet2->widgetBoxAroundSphere()->RemoveObserver(M_callbackPointPairConnection2);
+
+            interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->RemoveActor(M_follower);
         }
     }
 
@@ -349,8 +321,11 @@ private :
     point_object_ptrtype M_pointObjet1, M_pointObjet2;
     vtkSmartPointer<vtkLineSource> M_lineSource;
     vtkSmartPointer<vtkActor> M_lineActor;
+    vtkSmartPointer<vtkFollower> M_follower;
 
     vtkSmartPointer<vtkCallbackPointPairConnection> M_callbackPointPairConnection1,M_callbackPointPairConnection2;
+
+    int M_connectionId;
 
 };
 
@@ -584,7 +559,8 @@ public:
             if ( connectionId < 0 )
             {
                 std::shared_ptr<PointPairConnection> ptPairConnection = std::make_shared<PointPairConnection>( M_vectorSphereSourceObject[ptId1],
-                                                                                                               M_vectorSphereSourceObject[ptId2] );
+                                                                                                               M_vectorSphereSourceObject[ptId2], 
+                                                                                                               M_vectorPointPairConnection.size());
                 M_vectorPointPairConnection.push_back( ptPairConnection );
                 ptPairConnection->addPlot( this->Interactor );
             }
@@ -1145,7 +1121,8 @@ public:
                   if ( connectionId < 0 )
                   {
                       std::shared_ptr<PointPairConnection> ptPairConnection = std::make_shared<PointPairConnection>( M_vectorSphereSourceObject[ptId1],
-                                                                                                                     M_vectorSphereSourceObject[ptId2] );
+                                                                                                                     M_vectorSphereSourceObject[ptId2],
+                                                                                                                     M_vectorPointPairConnection.size() );
                       M_vectorPointPairConnection.push_back( ptPairConnection );
                       ptPairConnection->addPlot( this->Interactor );
                   }

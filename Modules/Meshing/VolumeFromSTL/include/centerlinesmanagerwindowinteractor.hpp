@@ -4,6 +4,69 @@
 #include <string>
 #include <vector>
 
+#include <vtkSmartPointer.h>
+#include <vtkRendererCollection.h>
+
+#include <vtkWorldPointPicker.h>
+#include <vtkPointPicker.h>
+#include <vtkCellPicker.h>
+#include <vtkPropPicker.h>
+
+#include <vtkSphereSource.h>
+#include <vtkLineSource.h>
+#include <vtkPolyDataMapper.h>
+#include <vtkRenderer.h>
+#include <vtkRenderWindow.h>
+#include <vtkRenderWindowInteractor.h>
+#include <vtkActor.h>
+#include <vtkInteractorStyleTrackballCamera.h>
+
+#include <vtkFollower.h>
+#include <vtkVectorText.h>
+
+#include <vtkObjectFactory.h>
+
+
+#include <vtkPolyData.h>
+#include <vtkSTLReader.h>
+#include <vtkPolyDataReader.h>
+#include <vtkSmartPointer.h>
+#include <vtkPolyDataMapper.h>
+#include <vtkActor.h>
+#include <vtkRenderWindow.h>
+#include <vtkRenderer.h>
+#include <vtkRenderWindowInteractor.h>
+
+#include <vtkProperty.h>
+
+#include <vtkTextActor.h>
+#include <vtkTextProperty.h>
+#include <vtkTextWidget.h>
+#include <vtkTextRepresentation.h>
+
+#include <vtkAxesActor.h>
+#include <vtkOrientationMarkerWidget.h>
+
+#include <vtkCoordinate.h>
+
+#include <cmath>
+#include <tuple>
+
+#include <vtkBoxWidget.h>
+#include <vtkBoxWidget2.h>
+#include <vtkCommand.h>
+#include <vtkTransform.h>
+#include <vtkBoxRepresentation.h>
+
+
+#include <feel/feelcore/feel.hpp>
+
+#include <AngioTkCenterlineField.h>
+#include <Gmsh.h>
+#include <Context.h>
+
+#include <centerlinesmanageriodata.hpp>
+
 
 class CenterlinesManagerWindowInteractor
 {
