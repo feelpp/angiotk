@@ -19,6 +19,9 @@
 #include <gmshHeadersMissing/Field.h>
 #include <MEdge.h>
 
+/* undefine the sign macro, defined by Gmsh, otherwise we end up having conflict with the inlined sign function of Eigen */
+#undef sign
+
 #include <meshGFaceDelaunayInsertion.h>
 
 #include <centerlinesmanageriodata.hpp>
