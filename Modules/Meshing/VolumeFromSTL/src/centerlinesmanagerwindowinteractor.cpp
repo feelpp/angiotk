@@ -379,12 +379,13 @@ public:
                        << "3 : mode centerlines manager\n";
         textActorCommandHelpCommon->SetInput ( helpCommandStr.str().c_str() );
         vtkSmartPointer<vtkTextRepresentation> textRepresentation = vtkSmartPointer<vtkTextRepresentation>::New();
-        //textRepresentation->GetPositionCoordinate()->SetValue( .15, .15 );
-        //textRepresentation->GetPosition2Coordinate()->SetValue( .7, .2 );
+        textRepresentation->GetPositionCoordinate()->SetValue( 0.7, 0.75 );
+        textRepresentation->GetPosition2Coordinate()->SetValue( 0.3, 0.25 );
         M_widgetTextCommandHelp->SetRepresentation( textRepresentation );
         textRepresentation->SetTextActor( textActorCommandHelpCommon );
-        textRepresentation->SetPosition(0.7,0.2);
-        textRepresentation->SetPosition2(0.3,0.8);
+        //textRepresentation->SetPosition(0.7,0.5);
+        //textRepresentation->SetPosition2(0.3,0.8);
+        //textRepresentation->SetProportionalResize(1);
         textActorCommandHelpCommon->GetTextProperty()->SetColor ( 0.0,0.0,0.0 );
         textActorCommandHelpCommon->GetTextProperty()->SetJustificationToLeft();
         textActorCommandHelpCommon->GetTextProperty()->SetVerticalJustificationToTop();
@@ -393,13 +394,15 @@ public:
         M_widgetTextActivatedMode = vtkSmartPointer<vtkTextWidget>::New();
         M_widgetTextActivatedMode->SelectableOff();
         vtkSmartPointer<vtkTextRepresentation> textRepresentation2 = vtkSmartPointer<vtkTextRepresentation>::New();
+        textRepresentation2->GetPositionCoordinate()->SetValue( 0.01, 0.7 );
+        textRepresentation2->GetPosition2Coordinate()->SetValue( 0.4, 0.3 );
         M_widgetTextActivatedMode->SetRepresentation( textRepresentation2 );
         vtkSmartPointer<vtkTextActor> textActor2 = vtkSmartPointer<vtkTextActor>::New();
         textRepresentation2->SetTextActor( textActor2 );
         //textRepresentation2->SetPosition(0.01,0.2);
         //textRepresentation2->SetPosition2(0.3,0.8);
-        textRepresentation2->SetPosition(0.01,0.95);
-        textRepresentation2->SetPosition2(0.3,0.05);
+        //textRepresentation2->SetPosition(0.01,0.95);
+        //textRepresentation2->SetPosition2(0.3,0.05);
         textActor2->GetTextProperty()->SetColor ( 0.0,0.0,0.0 );
         textActor2->GetTextProperty()->SetJustificationToLeft();
         textActor2->GetTextProperty()->SetVerticalJustificationToTop();
@@ -929,13 +932,19 @@ public:
 
             if ( M_widgetTextCommandHelp->GetEnabled() )
             {
-                vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->SetPosition(0.01,0.2);
-                vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->SetPosition2(0.3,0.8);
+                //vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->SetPosition(0.01,0.2);
+                //vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->SetPosition2(0.3,0.8);
+
+                vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->GetPositionCoordinate()->SetValue( 0.01, 0.7 );
+                vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->GetPosition2Coordinate()->SetValue( 0.4, 0.3 );
             }
             else
             {
-                vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->SetPosition(0.01,0.95);
-                vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->SetPosition2(0.3,0.05);
+                //vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->SetPosition(0.01,0.95);
+                //vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->SetPosition2(0.3,0.05);
+
+                vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->GetPositionCoordinate()->SetValue( 0.01, 0.7 );
+                vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->GetPosition2Coordinate()->SetValue( 0.4, 0.3 );
             }
 
             this->Interactor->GetRenderWindow()->Render();
