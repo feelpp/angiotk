@@ -1,0 +1,51 @@
+Angiotk
+======
+
+This is the ANGIOTK project
+
+https://gitter.im/vivabrain/angiotk?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge[https://badges.gitter.im/vivabrain/angiotk.svg[Gitter]]
+
+## Build Status
+
+Here is the Travis build status of angiotk:
+https://magnum.travis-ci.com/feelpp/angiotk[image://magnum.travis-ci.com/feelpp/angiotk.svg?token=Bxps8gX6edMDEv345qns[Build Status]]
+
+## Branches
+
+Angiotk follows the git flow framework. The default branch is now develop on github and
+the master branch is used for stable releases.
+
+## Mailing lists
+
+ - angiotk@cemosis.fr  (discussions)
+
+ - angiotk-commits@cemosis.fr (git commits)
+
+## Programming environment
+
+It is assumed that you have cloned Feel++ ( ``` git clone http://github.com/feelpp/feelpp.git```).
+
+### Cloning Angiotk
+
+Then issue the following commands in order to clone the angiotk repository in feelpp/ research
+
+----
+cd research
+
+git clone http://github.com/feelpp/angiotk.git
+----
+
+### Compiling Angiotk
+
+type the following
+
+----
+export CXX=clang++
+./configure -r 
+make 
+----
+
+it should compile the angiotk applications
+
+
+
