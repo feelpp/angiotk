@@ -1,0 +1,6 @@
+= MRI
+
+== Intro
+
+This directory will store the code that handles the MRI simulation using Jemris and 
+based on numerical simulations done with Feel++

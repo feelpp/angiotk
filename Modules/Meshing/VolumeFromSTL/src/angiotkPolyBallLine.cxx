@@ -24,6 +24,7 @@ Version:   $Revision: 1.5 $
 #include <vtkPolyLine.h>
 #include <vtkObjectFactory.h>
 
+#include <cmath>
 
 
 vtkStandardNewMacro(angiotkPolyBallLine);
@@ -143,12 +144,15 @@ void angiotkPolyBallLine::Update()
 	  double minX = VTK_VMTK_LARGE_DOUBLE, maxX = -VTK_VMTK_LARGE_DOUBLE;
 	  double minY = VTK_VMTK_LARGE_DOUBLE, maxY = -VTK_VMTK_LARGE_DOUBLE;
 	  double minZ = VTK_VMTK_LARGE_DOUBLE, maxZ = -VTK_VMTK_LARGE_DOUBLE;
+	  double radiusMax = -VTK_VMTK_LARGE_DOUBLE;
 	  for (vtkIdType i=0; i<npts-1; i++)
 	    {
 	      this->Input->GetPoint(pts[i],point0);
 	      this->Input->GetPoint(pts[i+1],point1);
 	      radius0 = scalingRadiusDist*polyballRadiusArray->GetComponent(pts[i],0);
+	      radiusMax = std::max( radiusMax, radius0 );
 	      radius1 = scalingRadiusDist*polyballRadiusArray->GetComponent(pts[i+1],0);
+	      radiusMax = std::max( radiusMax, radius1 );
 	      minX = std::min( minX,point0[0]-radius0 ); maxX = std::max( maxX,point0[0]+radius0 );
 	      minY = std::min( minY,point0[1]-radius0 ); maxY = std::max( maxY,point0[1]+radius0 );
 	      minZ = std::min( minZ,point0[2]-radius0 ); maxZ = std::max( maxZ,point0[2]+radius0 );
@@ -159,6 +163,7 @@ void angiotkPolyBallLine::Update()
 	  if ( npts > 1 )
 	    {
 	      branchBounds[k] = { minX, maxX, minY, maxY, minZ, maxZ };
+	      branchRadiusMax[k] = radiusMax;
 	    }
 
 	}
@@ -168,7 +173,7 @@ void angiotkPolyBallLine::Update()
 std::set<vtkIdType> angiotkPolyBallLine::pointIsOnBranchBounds(double x[3]) const
 {
   std::set<vtkIdType> res;
-  for ( auto const boundsPair : this->branchBounds )
+  for ( auto const& boundsPair : this->branchBounds )
     {
       vtkIdType branchId = boundsPair.first;
       auto const& bounds = boundsPair.second;
@@ -284,21 +289,29 @@ double angiotkPolyBallLine::EvaluateFunction(double x[3])
       }
 
     this->Input->GetCellPoints(cellId,npts,pts);
-    
+
+    double radiusMax = branchRadiusMax[k];
     for (i=0; i<npts-1; i++)
       {
       this->Input->GetPoint(pts[i],point0);
+
+      double distPt0 = std::pow(x[0] - point0[0],2)+std::pow(x[1] - point0[1],2)+std::pow(x[2] - point0[2],2);
+      if ( distPt0 > 2*radiusMax )
+	continue;
+
+
       this->Input->GetPoint(pts[i+1],point1);
       if (this->UseRadiusInformation)
         {
-        radius0 = polyballRadiusArray->GetComponent(pts[i],0);
-        radius1 = polyballRadiusArray->GetComponent(pts[i+1],0);
+	  radius0 = polyballRadiusArray->GetComponent(pts[i],0);
+	  radius1 = polyballRadiusArray->GetComponent(pts[i+1],0);
         }
       else
         {
         radius0 = 0.0;
         radius1 = 0.0;
         }
+
       vector0[0] = point1[0] - point0[0];
       vector0[1] = point1[1] - point0[1];
       vector0[2] = point1[2] - point0[2];
@@ -308,8 +321,7 @@ double angiotkPolyBallLine::EvaluateFunction(double x[3])
       vector1[2] = x[2] - point0[2];
       vector1[3] = 0.0 - radius0;
 
-//       cout<<x[0]<<" "<<x[1]<<" "<<x[2]<<" "<<point0[0]<<" "<<point0[1]<<" "<<point0[2]<<" "<<point1[0]<<" "<<point1[1]<<" "<<point1[2]<<" "<<endl;
-
+      //       cout<<x[0]<<" "<<x[1]<<" "<<x[2]<<" "<<point0[0]<<" "<<point0[1]<<" "<<point0[2]<<" "<<point1[0]<<" "<<point1[1]<<" "<<point1[2]<<" "<<endl;
       num = this->ComplexDot(vector0,vector1);
       den = this->ComplexDot(vector0,vector0);
       
@@ -344,7 +356,8 @@ double angiotkPolyBallLine::EvaluateFunction(double x[3])
         closestPoint[3] = radius0 + t * vector0[3];
         }
 
-      polyballFunctionValue = (x[0]-closestPoint[0])*(x[0]-closestPoint[0]) + (x[1]-closestPoint[1])*(x[1]-closestPoint[1]) + (x[2]-closestPoint[2])*(x[2]-closestPoint[2]) - closestPoint[3]*closestPoint[3];
+      //polyballFunctionValue = (x[0]-closestPoint[0])*(x[0]-closestPoint[0]) + (x[1]-closestPoint[1])*(x[1]-closestPoint[1]) + (x[2]-closestPoint[2])*(x[2]-closestPoint[2]) - closestPoint[3]*closestPoint[3];
+      polyballFunctionValue = std::pow(x[0]-closestPoint[0],2) + std::pow(x[1]-closestPoint[1],2) + std::pow(x[2]-closestPoint[2],2) - std::pow(closestPoint[3],2);
 
       if (polyballFunctionValue<minPolyBallFunctionValue)
         {

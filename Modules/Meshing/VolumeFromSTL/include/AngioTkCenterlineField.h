@@ -19,9 +19,16 @@
 #include <gmshHeadersMissing/Field.h>
 #include <MEdge.h>
 
+/* undefine the sign macro, defined by Gmsh, otherwise we end up having conflict with the inlined sign function of Eigen */
+#undef sign
+
 #include <meshGFaceDelaunayInsertion.h>
+
+#include <centerlinesmanageriodata.hpp>
+
 class GModel;
 class GFace;
+class GPoint;
 class MLine;
 class MVertex;
 class GEntity;
@@ -31,16 +38,53 @@ class discreteFace;
 class MElement;
 class SPoint3;
 
+
 // A branch of a 1D tree
-struct Branch{
+struct BranchDesc {
   int tag;
   std::vector<MLine*> lines;
   double length;
   MVertex *vB;
   MVertex *vE;
-  std::vector<Branch> children;
+  //std::vector<Branch> children;
   double minRad;
   double maxRad;
+  double boundMinX,boundMaxX,boundMinY,boundMaxY,boundMinZ,boundMaxZ;
+
+  BranchDesc( std::vector<MLine*> _lines, int _tag, double _length,  MVertex *_vB, MVertex *_vE,double _minRad,double _maxRad )
+  :
+  lines(  _lines ), tag(_tag), length( _length ), vB(_vB),vE(_vE),minRad(_minRad), maxRad(_maxRad),
+    boundMinX(0.),boundMaxX(0.),boundMinY(0.),boundMaxY(0.),boundMinZ(0.),boundMaxZ(0.)
+  {}
+  BranchDesc( BranchDesc const& _branch ) = default;
+  //~BranchDesc(){}
+  bool
+  isInsideBox( MVertex * vertex, double dist ) const
+  {
+    double lengthAdded = maxRad+dist;
+    return ( ( vertex->x() > ( boundMinX - lengthAdded ) ) && ( vertex->x() < ( boundMaxX + lengthAdded ) ) &&
+	     ( vertex->y() > ( boundMinY - lengthAdded ) ) && ( vertex->y() < ( boundMaxY + lengthAdded ) ) &&
+	     ( vertex->z() > ( boundMinZ - lengthAdded ) ) && ( vertex->z() < ( boundMaxZ + lengthAdded ) ) );
+  }
+
+  void setBounds( double minX,double maxX,double minY,double maxY,double minZ,double maxZ )
+  {
+    boundMinX = minX; boundMaxX = maxX;
+    boundMinY = minY; boundMaxY = maxY;
+    boundMinZ = minZ; boundMaxZ = maxZ;
+  }
+
+  void addConnection( MVertex* vertex, int id )
+  {
+    if ( vertex == vB || vertex == vE )
+      M_connectedTobranchIds[vertex].insert( id );
+    else
+      Msg::Error("connection not add because vertex given doesnt vB or vE");
+  }
+  std::map<MVertex*,std::set<int>> const& connectedTobranchIds() const { return M_connectedTobranchIds; }
+private :
+  std::map<MVertex*,std::set<int>> M_connectedTobranchIds;
+
 };
 
 #if defined(FEELPP_HAS_ANN_H)
@@ -84,7 +128,7 @@ class AngioTkCenterline : public Field{
   //all (unique) lines of centerlines
   std::vector<MLine*> lines;
   //the stuctured tree of the centerlines
-  std::vector<Branch> edges;
+  std::vector<BranchDesc> edges;
   //the radius of the surface mesh at a given line
   std::map<MLine*,double> radiusl;
   //the junctions of the tree
@@ -95,10 +139,11 @@ class AngioTkCenterline : public Field{
 
   std::vector<GEdge*> modEdges;
 
-  // save junction points and extremity points 
-  std::set<MVertex*> M_junctionsVertex;
-  //std::set<MVertex*> M_extremityVertex;
-  // vertex -> ( branchId, lineIdInBranch )
+  // store points map : vertex -> setOf( branchId,lineId )
+  std::map<MVertex*,std::set<std::pair<int,int> > > M_vertexToLinesId;
+  // store junction points : vertex -> setOf(BranchIds)
+  std::map<MVertex*,std::set<int> > M_junctionsVertex;
+  // store extremity points : vertex -> ( branchId, lineIdInBranch )
   std::map<MVertex*, std::pair<int,int> > M_extremityVertex;
 
 
@@ -116,7 +161,25 @@ class AngioTkCenterline : public Field{
   std::vector<discreteFace*> discFaces;
 
  public:
-  std::map<std::string,std::vector<std::vector<double> > >  centerlinesFieldsPointData;
+  std::map<std::string,std::vector<std::vector<double> > >  M_centerlinesFieldsPointData;
+
+  std::vector<std::vector<double> > const& centerlinesFieldsPointData( std::string const& key ) const
+    {
+      auto itFindFieldName = M_centerlinesFieldsPointData.find(key);
+      CHECK( itFindFieldName != M_centerlinesFieldsPointData.end() ) << "fieldname " << key << " not found";
+      return itFindFieldName->second;
+    }
+  std::vector<double> const& centerlinesFieldsPointData(std::string const& key, MVertex* vertex ) const
+    {
+      return this->centerlinesFieldsPointData(key, this->mapVertexGmshIdToVtkId(vertex->getIndex()));
+    }
+  std::vector<double> const& centerlinesFieldsPointData( std::string const& key,int vtkId ) const
+    {
+      //return M_centerlinesFieldsPointData.find(key)->second[vtkId];
+      auto const& data = this->centerlinesFieldsPointData( key );
+      CHECK( vtkId < data.size() ) << "wrong vtkId " << vtkId;
+      return data[vtkId];
+    }
 
  public:
   AngioTkCenterline(std::string fileName);
@@ -146,21 +209,28 @@ class AngioTkCenterline : public Field{
 			 SVector3 &d1, SVector3 &d2,  SVector3 &d3);
 
 
-  void updateCenterlinesFromFile( std::string fileName );
-  void createFromGeoCenterlinesFile( std::string const& fileName, std::string const& inputSurfacePath );
+
+  void createFromFile( std::string const& fileName, std::string const& inputSurfacePath );
+  void createFromGeo( std::tuple< std::vector< std::pair<GPoint,double> >, std::vector<std::vector<int> > > const& geoDesc, std::string const& outputSmoothGeoPath );
+  void createFromCenterlines( AngioTkCenterline const& inputCenterlines, std::string const& outputSmoothGeoPath,
+			      double meshSizeUniform=1., double resampleGeoPointSpacing = 4. );
  private :
+  void createFromGeoCenterlinesFile( std::string const& fileName, std::string const& inputSurfacePath );
   void updateCenterlinesForUse(std::vector<GEdge*> const& _modEdges);
   void updateCenterlinesForUse(std::map<int,std::vector<MLine*> > const& _modEdges);
   //void fixBranchConnectivity();
   void checkCenterlinesConnectivity();
+  void updateFieldsDataAfterReduction( std::map<int,int> const& _previousMapVertexGmshIdToVtkId );
+
  public:
   void updateCenterlinesFieldsFromFile(std::string fileName);
-  void updateCenterlinesFields();
 
   void removeBranchIds( std::set<int> const& _removeBranchIds );
+  void cleanBranch();
   void removeDuplicateBranch();
   void addFieldBranchIds( std::string const& fieldName = "BranchIds" );
   void addFieldRadiusMin( std::string const& fieldName = "RadiusMin" );
+  bool hasField( std::string const& fieldName ) const { return M_centerlinesFieldsPointData.find( fieldName ) != M_centerlinesFieldsPointData.end(); }
 
   void applyFieldThresholdMin( std::string const& fieldName,double value );
   void applyFieldThresholdMax( std::string const& fieldName,double value );
@@ -172,22 +242,36 @@ class AngioTkCenterline : public Field{
   void applyFieldThresholdZoneMax(std::vector<std::string> const& fieldName, double value, std::map<int,std::vector<std::tuple<double,double,double> > > const& mapPointPair );
   void applyFieldThresholdZoneImpl(std::vector<std::string> const& fieldName, double value, std::map<int,std::vector<std::tuple<double,double,double> > > const& mapPointPair, int type );
 
+  void applyTubularColisionFix( std::vector<MVertex*> const& vTestedSet, std::pair<double,double> const& param );
+  void applyTubularColisionFix( std::map< MVertex*,std::set<MVertex*> > const& mapVertexTested, std::pair<double,double> const& param,
+				int method /*= 0*/, int maxrecurrence/*=-1*/,int nrecurrence = 0 );
+  void applyTubularColisionFix( AngioTk::pointpair_data_type const& pointPair, std::pair<double,double> const& param );
+  void applyTubularColisionFix( std::pair<double,double> const& param );
 
-  void applyTubularColisionFix( std::map<int,std::vector<std::tuple<double,double,double> > > const& pointPair );
-  void applyTubularColisionFix2();
 
   void writeCenterlinesVTK( std::string fileName );
 
   std::map<MVertex*, std::pair<int,int> > const&
     centerlinesExtremities() const { return M_extremityVertex; }
-  std::vector<Branch> const& centerlinesBranch() const { return edges; }
-  Branch const& centerlinesBranch(int k) const { return edges[k]; }
+  std::vector<BranchDesc> const& centerlinesBranch() const { return edges; }
+  BranchDesc const& centerlinesBranch(int k) const { return edges[k]; }
 
   std::tuple<MVertex*,double> foundClosestPointInCenterlines( double ptToLocalize[3]);
-  std::tuple< std::vector<MLine*> , std::map<MVertex*,int> > pathBetweenVertex( MVertex* vertexA, MVertex* vertexB );
+  std::tuple< std::vector<MLine*> , double > pathBetweenVertex( MVertex* vertexA, MVertex* vertexB );
+
+std::tuple< bool,std::vector<MLine*> , double >
+  pathBetweenVertex2( MVertex* vertexA, MVertex* vertexB, double lengthPathMax, std::set<int> const& branchIdsToIgnore = std::set<int>(), bool searchOnlyCommonBranch = false );
+
+
+  int vertexOnSameBranch( MVertex* vertexA, MVertex* vertexB );
+  //std::set<int>
+  std::tuple<MVertex*, std::vector<int> > vertexOnNeighboringBranch( MVertex* vertexA, MVertex* vertexB, std::set<int> const& branchIdsToIgnore = std::set<int>() );
+  bool canFindPathBetweenVertex( MVertex* vertexA, MVertex* vertexB );
+
+  double maxScalarValueInPath( std::vector<MLine*> const& path, std::string const& fieldName ) const;
 
   std::map<MLine*,double> const& centerlinesRadiusl() const { return radiusl; }
-  double minRadiusAtVertex( MVertex* myvertex ) const;
+  double minRadiusAtVertex( MVertex* myvertex, std::string const& fieldPointDataRadius = "" ) const;
 
   //double centerlinesRadiusFromLine() const { 
     //auto itr = M_angioTkCenterlines->centerlinesRadiusl().find( mylines[lineIdInBranch]/*mylines.front()*/);
@@ -197,8 +281,14 @@ class AngioTkCenterline : public Field{
   void updateRelationMapVertex(std::map<int,int> & _mapVertexGmshIdToVtkId,
 			       std::map<int,int> & _mapVertexVtkIdToGmshId );
   std::map<int,int> M_mapVertexGmshIdToVtkId, M_mapVertexVtkIdToGmshId;
-  std::set<std::pair<int,int> > M_registerLinesToRemoveFromPointIdPairInModelEdge;
+  std::map<int,int> const& mapVertexGmshIdToVtkId() const { return M_mapVertexGmshIdToVtkId; }
+  std::map<int,int> const& mapVertexVtkIdToGmshId() const { return M_mapVertexVtkIdToGmshId; }
+  int mapVertexGmshIdToVtkId(int k) const { return M_mapVertexGmshIdToVtkId.find(k)->second; }
+  int mapVertexVtkIdToGmshId(int k) const { return M_mapVertexVtkIdToGmshId.find(k)->second; }
 
+
+  std::set<std::pair<int,int> > M_registerLinesToRemoveFromPointIdPairInModelEdge;
+  std::set<MLine*> M_registerLinesDuplicatedToIgnore;
 
   std::vector<std::shared_ptr<AngioTkCenterline> > M_attachAngioTkCenterline;
   void attachAngioTkCenterline( std::shared_ptr<AngioTkCenterline> const& obj ) { if ( obj ) M_attachAngioTkCenterline.push_back(obj); }
@@ -254,6 +344,7 @@ class AngioTkCenterline : public Field{
   // mode remesh
   void setIsCut(bool b) { is_cut = b; }
   void setRemeshNbPoints( int i ) { nbPoints=i; }
+  void setCutMeshRadiusUncertainty(double d) { M_cutMeshRadiusUncertainty = d; }
   void runSurfaceRemesh( std::string const& remeshPartitionMeshFile="", bool forceRebuildPartition=true );
   void saveSurfaceRemeshSTL(std::string const outputPath, bool binary );
 
@@ -267,9 +358,14 @@ class AngioTkCenterline : public Field{
   void runTubularExtension();
   void saveTubularExtensionSTL(std::string const outputPath, bool binary );
 
+
  private :
   void saveCurrentGModelSTL(std::string const outputPath, bool binary );
+  void updateMergeFromExtremities( AngioTkCenterline const& centerlinesMerged,
+				   std::map<MVertex*,std::pair< std::vector<std::pair<MLine*,int> >, MVertex*> > & indexVertexReplaced );
 
+  // represent a length where the radius can vary ( e.g. can be equal to the image accuracy )
+  double M_cutMeshRadiusUncertainty;
 };
 #else
 class AngioTkCenterline : public Field{

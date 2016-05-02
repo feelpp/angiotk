@@ -2,18 +2,19 @@
 
 #include <volumefromstl.hpp>
 #include <AngioTkCenterlineField.h>
-#include <centerlinesmanagerwindowinteractor.hpp>
 
 #include <vtkSmartPointer.h>
 #include <vtkPolyDataReader.h>
 #include <vtkMetaImageWriter.h>
-#include <vtkMetaImageReader.h> // mha
-#include <vtkXMLImageDataReader.h> // vti
+#include <vtkMetaImageReader.h> // .mha
+#include <vtkImageChangeInformation.h>
+#include <vtkXMLImageDataReader.h> // .vti
 #include <vtkMarchingCubes.h>
 #include <vtkSTLWriter.h>
 #include <vtkImageTranslateExtent.h>
 #include <vtkPolyDataConnectivityFilter.h>
 #include <vtkPointData.h>
+//#include <vtkCellData.h>
 #include <vtkCleanPolyData.h>
 
 //#include <vtkvmtkPolyBallModeller.h>
@@ -30,8 +31,39 @@
 Feel::fs::path AngioTkEnvironment::S_pathInitial;
 boost::shared_ptr<Feel::Environment> AngioTkEnvironment::S_feelEnvironment;
 
-namespace Feel
+namespace AngioTk
 {
+    using namespace Feel;
+
+AngioTkFilterBase::AngioTkFilterBase( std::string const& prefix )
+    :
+    M_prefix( prefix ),
+    M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
+    M_outputPath( AngioTkEnvironment::expand( soption(_name="output.path",_prefix=this->prefix()) ) ),
+    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
+{
+    if ( !this->outputPath().empty() )
+        {
+            //if ( !fs::exists( this->outputPath() ) )
+            //     M_outputPath.clear();
+            if ( fs::path(M_outputPath).is_relative() )
+                M_outputPath = (fs::path(Feel::Environment::rootRepository())/fs::path(M_outputPath)).string();
+            this->updateOutputDirFromOutputPath();
+        }
+}
+po::options_description
+AngioTkFilterBase::options( std::string const& prefix )
+{
+    po::options_description myFilterBaseOptions( "Modified an Image" );
+
+    myFilterBaseOptions.add_options()
+        (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
+        (prefixvm(prefix,"output.path").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output filename")
+        (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(true), "(bool) force-rebuild")
+        ;
+    return myFilterBaseOptions;
+}
+
 
 InletOutletDesc::InletOutletDesc( std::string const& path )
 {
@@ -59,7 +91,7 @@ InletOutletDesc::add( InletOutletData const& data )
     this->push_back( data );
 }
 
-void
+int
 InletOutletDesc::loadFromSTL( std::string inputPath )
 {
 
@@ -67,6 +99,11 @@ InletOutletDesc::loadFromSTL( std::string inputPath )
     std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
 
     //if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
+    if ( !fs::exists(inputPath) )
+    {
+        std::cout << "WARNING!, the inputPath does not exist : " << inputPath <<"\n";
+        return 1;
+    }
 
     //fs::path gp = M_inputPath;
     std::string nameWithoutExt = fs::path(inputPath).stem().string();
@@ -84,10 +121,10 @@ InletOutletDesc::loadFromSTL( std::string inputPath )
               << "---------------------------------------\n";
     auto err = ::system( __str.str().c_str() );
 
-    if ( !fs::exists(inputPath) )
+    if ( !fs::exists(outputPath) )
     {
         std::cout << "WARNING!, outputPath does not exist : " << outputPath <<"\n";
-        return;
+        return 1;
     }
 
     std::ifstream fileDat(outputPath.c_str(), std::ios::in); // load file .dat
@@ -115,6 +152,8 @@ InletOutletDesc::loadFromSTL( std::string inputPath )
 
     fileDat.close();
     //std::cout << "number of inlet-outlet " << this->size() << "\n";
+
+    return 0;
 }
 void
 InletOutletDesc::save( std::string outputPath )
@@ -141,18 +180,40 @@ InletOutletDesc::save( std::string outputPath )
 
 }
 
+void
+InletOutletDesc::saveJSON( std::string outputPath )
+{
+    std::cout << "save json in : " << outputPath << "\n";
+    fs::path dir = fs::path(outputPath).parent_path();
+    if ( !fs::exists( dir ) )
+        fs::create_directories( dir );
+    
+    boost::property_tree::ptree root, entries;
+    for ( auto const& desc : *this )
+    {
+        boost::property_tree::ptree entry, marker, point, pdata;
+        entry.put("marker", desc.markerLumen());
+        for( int i = 0; i < desc.node().size(); i++)
+        {
+            pdata.put("", desc.node().at(i));
+            point.push_back(std::make_pair("", pdata));
+        }
+        entry.add_child("point", point);
+        root.add_child("fluid", entry);
+    }
+    write_json(outputPath, root);
+}
 
-CenterlinesFromSTL::CenterlinesFromSTL( std::string prefix )
+
+CenterlinesFromSurface::CenterlinesFromSurface( std::string const& prefix )
     :
-    M_prefix( prefix ),
-    M_inputPath( AngioTkEnvironment::expand( soption(_name="input.filename",_prefix=this->prefix()) ) ),
+    super_type( prefix ),
+    M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.surface.filename",_prefix=this->prefix()) ) ),
     M_inputCenterlinesPointSetPath( AngioTkEnvironment::expand( soption(_name="input.pointset.filename",_prefix=this->prefix()) ) ),
     M_inputCenterlinesPointPairPath( AngioTkEnvironment::expand( soption(_name="input.pointpair.filename",_prefix=this->prefix()) ) ),
     M_inputInletOutletDescPath( AngioTkEnvironment::expand( soption(_name="input.desc.filename",_prefix=this->prefix()) ) ),
     M_inputGeoCenterlinesPath( AngioTkEnvironment::expand( soption(_name="input.geo-centerlines.filename",_prefix=this->prefix()) ) ),
-    M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
     M_costFunctionExpr( soption(_name="cost-function.expression",_prefix=this->prefix()) ),
-    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_useInteractiveSelection( boption(_name="use-interactive-selection",_prefix=this->prefix()) ),
     M_viewResults( boption(_name="view-results",_prefix=this->prefix() ) ),
     M_viewResultsWithSurface( boption(_name="view-results.with-surface",_prefix=this->prefix() ) ),
@@ -169,7 +230,7 @@ CenterlinesFromSTL::CenterlinesFromSTL( std::string prefix )
     for ( int id : tids )
         M_targetids.insert( id );
 
-    if ( !M_inputPath.empty() && M_outputPath.empty() )
+    if ( !M_inputSurfacePath.empty() && this->outputPath().empty() )
     {
         this->updateOutputPathFromInputFileName();
     }
@@ -177,30 +238,30 @@ CenterlinesFromSTL::CenterlinesFromSTL( std::string prefix )
 
 
 void
-CenterlinesFromSTL::updateOutputPathFromInputFileName()
+CenterlinesFromSurface::updateOutputPathFromInputFileName()
 {
-    CHECK( !M_inputPath.empty() ) << "input path is empty";
+    CHECK( !this->inputSurfacePath().empty() ) << "input path is empty";
 
     // define output directory
     fs::path meshesdirectories;
-    if ( M_outputDirectory.empty() )
+    if ( this->outputDirectory().empty() )
         meshesdirectories = fs::current_path();
-    else if ( fs::path(M_outputDirectory).is_relative() )
-        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(M_outputDirectory);
+    else if ( fs::path(this->outputDirectory()).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(this->outputDirectory());
     else
-        meshesdirectories = fs::path(M_outputDirectory);
+        meshesdirectories = fs::path(this->outputDirectory());
 
     // get filename without extension
-    fs::path gp = M_inputPath;
+    fs::path gp = this->inputSurfacePath();
     std::string nameMeshFile = gp.stem().string();
 
     std::string newFileName = (boost::format("%1%_centerlines.vtk")%nameMeshFile ).str();
     fs::path outputPath = meshesdirectories / fs::path(newFileName);
-    M_outputPath = outputPath.string();
+    this->setOutputPath( outputPath.string() );
 }
 
 std::tuple< std::vector<std::vector<double> >, std::vector<std::vector<double> > >
-CenterlinesFromSTL::loadFromCenterlinesPointSetFile()
+CenterlinesFromSurface::loadFromCenterlinesPointSetFile()
 {
     if ( !fs::exists( this->inputCenterlinesPointSetPath() ) )
         return std::tuple< std::vector<std::vector<double> >, std::vector<std::vector<double> > >();
@@ -228,7 +289,7 @@ CenterlinesFromSTL::loadFromCenterlinesPointSetFile()
 }
 
 std::vector< std::pair< std::vector<double>,std::vector<double> > >
-CenterlinesFromSTL::loadFromCenterlinesPointPairFile()
+CenterlinesFromSurface::loadFromCenterlinesPointPairFile()
 {
     std::vector< std::pair< std::vector<double>,std::vector<double> > > res;
     if ( !fs::exists( this->inputCenterlinesPointPairPath() ) )
@@ -256,21 +317,22 @@ CenterlinesFromSTL::loadFromCenterlinesPointPairFile()
 }
 
 
-void
-CenterlinesFromSTL::run()
+int
+CenterlinesFromSurface::run()
 {
-    if ( !fs::exists( this->inputPath() ) )
+    if ( !fs::exists( this->inputSurfacePath() ) )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : centerlines computation not done because this input path not exist :" << this->inputPath() << "\n";
-        return;
+            std::cout << "WARNING : centerlines computation will not be done, because the input path does not exist :" << this->inputSurfacePath() << std::endl
+                      << "Please set it with the \"input.surface.filename\" option." << std::endl;
+        return 1;
     }
     if ( this->inputCenterlinesPointSetPath().empty() && this->inputCenterlinesPointPairPath().empty() &&
          this->sourceids().empty() && this->targetids().empty() && this->inputGeoCenterlinesPath().empty() )
     {
         if ( this->worldComm().isMasterRank() )
             std::cout << "WARNING : centerlines computation not done because this sourceids and targetids are empty\n";
-        return;
+        return 1;
     }
 
 
@@ -292,9 +354,9 @@ CenterlinesFromSTL::run()
     coutStr << "\n"
             << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
             << "---------------------------------------\n"
-            << "run CenterlinesFromSTL \n"
+            << "run CenterlinesFromSurface \n"
             << "---------------------------------------\n";
-    coutStr << "input surface path   : " << this->inputPath() << "\n";
+    coutStr << "input surface path   : " << this->inputSurfacePath() << "\n";
     if ( !M_useInteractiveSelection )
     {
         if ( !this->inputGeoCenterlinesPath().empty() )
@@ -337,7 +399,7 @@ CenterlinesFromSTL::run()
 
 
 
-    //fs::path stlNamePath = fs::path(this->inputPath());
+    //fs::path stlNamePath = fs::path(this->inputSurfacePath());
     std::string pathVTP = (directory/fs::path(name+".vtp")).string();
 
     // source ~/packages/vmtk/vmtk.build2/Install/vmtk_env.sh
@@ -354,9 +416,8 @@ CenterlinesFromSTL::run()
             Msg::SetVerbosity( verbosityLevel );
 
             AngioTkCenterline centerlinesTool;
-            centerlinesTool.createFromGeoCenterlinesFile( this->inputGeoCenterlinesPath(),this->inputPath() );
+            centerlinesTool.createFromFile( this->inputGeoCenterlinesPath(),this->inputSurfacePath() );
             centerlinesTool.addFieldBranchIds();
-            centerlinesTool.addFieldRadiusMin("RadiusMin");
             centerlinesTool.addFieldRadiusMin("MaximumInscribedSphereRadius");
             centerlinesTool.writeCenterlinesVTK( this->outputPath() );
         }
@@ -364,7 +425,7 @@ CenterlinesFromSTL::run()
                   !this->inputInletOutletDescPath().empty() ) // use c++ vmtkcenterlines
         {
             vtkSmartPointer<vtkSTLReader> readerSTL = vtkSmartPointer<vtkSTLReader>::New();
-            readerSTL->SetFileName( this->inputPath().c_str());
+            readerSTL->SetFileName( this->inputSurfacePath().c_str());
             readerSTL->Update();
 
             vtkSmartPointer<vtkvmtkPolyDataCenterlines> centerlineFilter = vtkvmtkPolyDataCenterlines::New();
@@ -454,19 +515,36 @@ CenterlinesFromSTL::run()
             std::vector<std::string> pathCenterlinesToFusion;
             for ( int k=0;k<nCenterlinesComputed;++k )
             {
+                std::string outputPathUsed;// = this->outputPath();
+                if ( nCenterlinesComputed > 1 )
+                {
+                    std::string myfilename = (boost::format("%1%_vmtkformat_part%2%.vtk")%name %k).str();
+                    outputPathUsed = (directory / fs::path(myfilename) ).string();
+                }
+                else
+                {
+                    std::string myfilename = (boost::format("%1%_vmtkformat.vtk")%name).str();
+                    outputPathUsed = (directory / fs::path(myfilename) ).string();
+                }
+                pathCenterlinesToFusion.push_back(outputPathUsed);
+                if ( !this->forceRebuild() && fs::exists( outputPathUsed ) )
+                    continue;
+
                 if ( nCenterlinesComputed == 1 )
                 {
                     if ( rebuildDelaunayTessellation )
-                        std::cout << "compute centerline with DelaunayTessellation (can be take a long time!)\n";
+                        std::cout << "Computing centerline with DelaunayTessellation ..." << std::endl
+                                  << "Be patient because this step can take a long time to complete." << std::endl;
                     else
-                        std::cout << "compute centerline\n";
+                        std::cout << "Computing centerline ..." << std::endl;
                 }
                 else
                 {
                     if ( rebuildDelaunayTessellation )
-                        std::cout << "compute centerline " << k+1 << "/" << nCenterlinesComputed << " with DelaunayTessellation (can be take a long time!)\n";
+                        std::cout << "Computing centerline " << k+1 << "/" << nCenterlinesComputed << " with DelaunayTessellation ..." << std::endl
+                                  << "Be patient because this step can take a long time to complete." << std::endl;
                     else
-                        std::cout << "compute centerline " << k+1 << "/" << nCenterlinesComputed << "\n";
+                        std::cout << "Computing centerline " << k+1 << "/" << nCenterlinesComputed << " ..." << std::endl;
                 }
 
                 auto const& sourceTargetIdList = vecSourceTargetIdList[k];
@@ -490,19 +568,6 @@ CenterlinesFromSTL::run()
 
                 vtkSmartPointer<vtkPolyDataWriter> centerlineWriter  = vtkSmartPointer<vtkPolyDataWriter>::New();
                 centerlineWriter->SetInput( centerlineFilter->GetOutput() );
-                std::string outputPathUsed;// = this->outputPath();
-                if ( nCenterlinesComputed > 1 )
-                {
-                    std::string myfilename = (boost::format("%1%_vmtkformat_part%2%.vtk")%name %k).str();
-                    outputPathUsed = (directory / fs::path(myfilename) ).string();
-                }
-                else
-                {
-                    std::string myfilename = (boost::format("%1%_vmtkformat.vtk")%name).str();
-                    outputPathUsed = (directory / fs::path(myfilename) ).string();
-                }
-                pathCenterlinesToFusion.push_back(outputPathUsed);
-
                 centerlineWriter->SetFileName( outputPathUsed.c_str() );
                 //centerlineWriter->SetFileTypeToBinary();
                 centerlineWriter->SetFileTypeToASCII();
@@ -534,10 +599,11 @@ CenterlinesFromSTL::run()
                             Msg::SetVerbosity( verbosityLevel );
                         }
                         centerlinesTool.reset( new AngioTkCenterline );
-                        centerlinesTool->importSurfaceFromFile( this->inputPath() );
+                        centerlinesTool->importSurfaceFromFile( this->inputSurfacePath() );
                     }
                     centerlinesTool->importFile( pathCenterline );
                 }
+                centerlinesTool->addFieldBranchIds();
                 centerlinesTool->writeCenterlinesVTK( this->outputPath() );
             }
         }
@@ -612,7 +678,7 @@ CenterlinesFromSTL::run()
             //__str << " -delaunaytessellationfile " << "toto.vtk ";
 #endif
 
-            __str << " -ifile " << this->inputPath() << " ";
+            __str << " -ifile " << this->inputSurfacePath() << " ";
             __str << " -ofile " << pathVTP << " " //name << ".vtp "
                   << " --pipe " << dirBaseVmtk << "/vmtksurfacewriter "
                   << " -ifile " << pathVTP << " " //name << ".vtp "
@@ -627,7 +693,7 @@ CenterlinesFromSTL::run()
     }
     else
     {
-        std::cout << "already file exist, ignore centerline\n";
+        std::cout << "The output file already exists in " << this->outputPath() << ", skipping step." << std::endl;
     }
 
 
@@ -637,7 +703,7 @@ CenterlinesFromSTL::run()
         ostrView << pythonExecutable << " ";// << dirBaseVmtk << "/vmtk "
         if ( M_viewResultsWithSurface )
         {
-            ostrView << dirBaseVmtk << "/vmtksurfacereader -ifile " << this->inputPath() << " --pipe "
+            ostrView << dirBaseVmtk << "/vmtksurfacereader -ifile " << this->inputSurfacePath() << " --pipe "
                      << dirBaseVmtk << "/vmtkrenderer" << " --pipe "
                      << dirBaseVmtk << "/vmtksurfaceviewer -opacity 0.25 " << " --pipe "
                      << dirBaseVmtk << "/vmtksurfaceviewer -ifile " << this->outputPath() << " -array MaximumInscribedSphereRadius ";
@@ -654,26 +720,26 @@ CenterlinesFromSTL::run()
         auto errView = ::system( ostrView.str().c_str() );
     }
     std::cout << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n";
+
+    return 0;
 }
 
 
 po::options_description
-CenterlinesFromSTL::options( std::string const& prefix )
+CenterlinesFromSurface::options( std::string const& prefix )
 {
     po::options_description myCenterlinesOptions( "Centerlines from STL for blood flow mesh options" );
     myCenterlinesOptions.add_options()
-        (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input filename" )
+        (prefixvm(prefix,"input.surface.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input filename" )
         (prefixvm(prefix,"input.pointset.filename").c_str(), po::value<std::string>()->default_value( "" ), "input.pointset.filename" )
         (prefixvm(prefix,"input.pointpair.filename").c_str(), po::value<std::string>()->default_value( "" ), "input.pointpair.filename" )
         (prefixvm(prefix,"input.desc.filename").c_str(), po::value<std::string>()->default_value( "" ), "inletoutlet-desc.filename" )
         (prefixvm(prefix,"input.geo-centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "geo-centerlines.filename" )
-        (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
 
         (prefixvm(prefix,"use-interactive-selection").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) use-interactive-selection")
         (prefixvm(prefix,"cost-function.expression").c_str(), Feel::po::value<std::string>()->default_value("1/R"), "(string) cost-function")
         (prefixvm(prefix,"source-ids").c_str(), po::value<std::vector<int> >()->multitoken(), "(vector of int) source ids" )
         (prefixvm(prefix,"target-ids").c_str(), po::value<std::vector<int> >()->multitoken(), "(vector of int) target ids" )
-        (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
 
         (prefixvm(prefix,"view-results").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) view-results")
         (prefixvm(prefix,"view-results.with-surface").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) view-results with surface")
@@ -681,24 +747,29 @@ CenterlinesFromSTL::options( std::string const& prefix )
         (prefixvm(prefix,"delaunay-tessellation.output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
         (prefixvm(prefix,"delaunay-tessellation.force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         ;
-    return myCenterlinesOptions;
+    return myCenterlinesOptions.add( super_type::options( prefix ) );
 }
 
 
-CenterlinesManager::CenterlinesManager( std::string prefix )
+CenterlinesManager::CenterlinesManager( std::string const& prefix )
     :
-    M_prefix( prefix ),
+    super_type( prefix ),
     M_inputCenterlinesPath(),// 1, soption(_name="input.centerlines.filename",_prefix=this->prefix()) ),
     M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.surface.filename",_prefix=this->prefix()) ) ),
     M_inputPointSetPath( AngioTkEnvironment::expand( soption(_name="input.point-set.filename",_prefix=this->prefix()) ) ),
-    M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
-    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
-    M_useWindowInteractor( boption(_name="use-window-interactor",_prefix=this->prefix() ) ),
+    M_inputPointPairPath( AngioTkEnvironment::expand( soption(_name="input.point-pair.filename",_prefix=this->prefix()) ) ),
     M_applyThresholdMinRadius( doption(_name="threshold-radius.min",_prefix=this->prefix() ) ),
     M_applyThresholdMaxRadius( doption(_name="threshold-radius.max",_prefix=this->prefix() ) ),
     M_applyThresholdZonePointSetPath( AngioTkEnvironment::expand( soption(_name="thresholdzone-radius.point-set.filename",_prefix=this->prefix()) ) ),
     M_applyThresholdZoneMinRadius( doption(_name="thresholdzone-radius.min",_prefix=this->prefix() ) ),
-    M_applyThresholdZoneMaxRadius( doption(_name="thresholdzone-radius.max",_prefix=this->prefix() ) )
+    M_applyThresholdZoneMaxRadius( doption(_name="thresholdzone-radius.max",_prefix=this->prefix() ) ),
+    M_avoidTubularColision( boption(_name="avoid-tubular-colision.apply",_prefix=this->prefix() ) ),
+    M_avoidTubularColisionDistanceMin( doption(_name="avoid-tubular-colision.distance-min",_prefix=this->prefix() ) ),
+    M_avoidTubularColisionRadiusMin( doption(_name="avoid-tubular-colision.radius-min",_prefix=this->prefix() ) ),
+    M_avoidTubularColisionInputPointPairPath( AngioTkEnvironment::expand( soption(_name="avoid-tubular-colision.point-pair.filename",_prefix=this->prefix() ) ) ),
+    M_smoothResample( boption(_name="smooth-resample.apply",_prefix=this->prefix() ) ),
+    M_smoothResampleMeshSize( doption(_name="smooth-resample.mesh-size",_prefix=this->prefix() ) ),
+    M_smoothResampleGeoPointSpacing( doption(_name="smooth-resample.geo-points-spacing",_prefix=this->prefix() ) )
 {
     if ( Environment::vm().count(prefixvm(this->prefix(),"input.centerlines.filename").c_str()) )
         M_inputCenterlinesPath = Environment::vm()[prefixvm(this->prefix(),"input.centerlines.filename").c_str()].as<std::vector<std::string> >();
@@ -716,7 +787,7 @@ CenterlinesManager::CenterlinesManager( std::string prefix )
             M_inputCenterlinesPath[k] = (AngioTkEnvironment::pathInitial()/fs::path(this->inputCenterlinesPath(k)) ).string();
     }
 
-    if ( !this->inputCenterlinesPath().empty() && !this->inputCenterlinesPath(0).empty() && M_outputPath.empty() )
+    if ( !this->inputCenterlinesPath().empty() && !this->inputCenterlinesPath(0).empty() && this->outputPath().empty() )
     {
         this->updateOutputPathFromInputFileName();
     }
@@ -729,12 +800,12 @@ CenterlinesManager::updateOutputPathFromInputFileName()
 
     // define output directory
     fs::path meshesdirectories;
-    if ( M_outputDirectory.empty() )
+    if ( this->outputDirectory().empty() )
         meshesdirectories = fs::current_path();
-    else if ( fs::path(M_outputDirectory).is_relative() )
-        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(M_outputDirectory);
+    else if ( fs::path(this->outputDirectory()).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(this->outputDirectory());
     else
-        meshesdirectories = fs::path(M_outputDirectory);
+        meshesdirectories = fs::path(this->outputDirectory());
 
     // get filename without extension
     fs::path gp = this->inputCenterlinesPath(0);
@@ -742,7 +813,7 @@ CenterlinesManager::updateOutputPathFromInputFileName()
 
     std::string newFileName = (boost::format("%1%_up.vtk")%nameMeshFile ).str();
     fs::path outputPath = meshesdirectories / fs::path(newFileName);
-    M_outputPath = outputPath.string();
+    this->setOutputPath( outputPath.string() );
 }
 
 std::map<int,std::vector<std::tuple<double,double,double> > >
@@ -768,29 +839,6 @@ CenterlinesManager::loadPointSetFile( std::string const& filepath )
 void
 CenterlinesManager::run()
 {
-    if ( M_useWindowInteractor )
-    {
-        if ( !this->inputSurfacePath().empty() && fs::exists( this->inputSurfacePath() ) )
-        {
-            CenterlinesManagerWindowInteractor windowInteractor;
-            windowInteractor.setInputSurfacePath( this->inputSurfacePath() );
-            if ( !this->inputPointSetPath().empty() && fs::exists( this->inputPointSetPath() ) )
-                windowInteractor.setInputPointSetPath( this->inputPointSetPath() );
-
-            std::vector<std::string> centerlinesPath;
-            for (int k = 0;k<this->inputCenterlinesPath().size();++k)
-                if ( !this->inputCenterlinesPath(k).empty() && fs::exists( this->inputCenterlinesPath(k) ) )
-                    centerlinesPath.push_back( this->inputCenterlinesPath(k) );
-            windowInteractor.setInputCenterlinesPath( centerlinesPath );
-
-            windowInteractor.run();
-        }
-        else if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : Centerlines Manager not run because this input surface path not exist :" << this->inputSurfacePath() << "\n";
-
-        return;
-    }
-
     if ( this->inputCenterlinesPath().empty() )
     {
         if ( this->worldComm().isMasterRank() )
@@ -806,7 +854,8 @@ CenterlinesManager::run()
     if ( this->inputCenterlinesPath().size() > 1 && ( this->inputSurfacePath().empty() || !fs::exists( this->inputSurfacePath() ) ) )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : Centerlines Manager (fusion case) not run because this input centerlines path not exist :" << this->inputCenterlinesPath(0) << "\n";
+            std::cout << "WARNING : The centerlines Manager (fusion case) was not run because the input path for the surface does not exist :" << this->inputSurfacePath() << "\n"
+                      << "Please set it with the \"input.surface.filename\" option." << std::endl;
         return;
     }
 
@@ -846,11 +895,12 @@ CenterlinesManager::run()
     std::cout << coutStr.str();
 
 
-    fs::path directory;
+    fs::path directory = fs::path(this->outputPath()).parent_path();
+    std::string filename = fs::path(this->outputPath()).stem().string();
     // build directories if necessary
     if ( !this->outputPath().empty() && this->worldComm().isMasterRank() )
     {
-        directory = fs::path(this->outputPath()).parent_path();
+        //directory = fs::path(this->outputPath()).parent_path();
         if ( !fs::exists( directory ) )
             fs::create_directories( directory );
     }
@@ -869,6 +919,7 @@ CenterlinesManager::run()
             {
                 if ( true )
                 {
+                    GmshInitialize();
                     CTX::instance()->terminal = 1;
                     int verbosityLevel = 5;
                     Msg::SetVerbosity( verbosityLevel );
@@ -880,9 +931,10 @@ CenterlinesManager::run()
             centerlinesTool->importFile( this->inputCenterlinesPath(k) );
         }
         centerlinesTool->removeBranchIds( M_removeBranchIds );
+        centerlinesTool->cleanBranch();
 
         centerlinesTool->addFieldBranchIds();
-        if ( surfaceMeshExist )
+        if ( !centerlinesTool->hasField("RadiusMin") )
             centerlinesTool->addFieldRadiusMin();
 
         if ( M_applyThresholdMinRadius > 0 || M_applyThresholdMaxRadius > 0 )
@@ -903,8 +955,47 @@ CenterlinesManager::run()
                 centerlinesTool->applyFieldThresholdZoneMax( fieldnames,M_applyThresholdZoneMaxRadius,pointSetData );
         }
 
-        centerlinesTool->writeCenterlinesVTK( this->outputPath() );
+        if ( M_avoidTubularColision )
+        {
+            auto avoidTubularColisionParam = std::make_pair( M_avoidTubularColisionDistanceMin,M_avoidTubularColisionRadiusMin );
+            if ( !M_avoidTubularColisionInputPointPairPath.empty() && fs::exists( M_avoidTubularColisionInputPointPairPath ) )
+            {
+                auto pointPairData = AngioTk::loadFromPointPairFile( M_avoidTubularColisionInputPointPairPath );
+                centerlinesTool->applyTubularColisionFix( pointPairData, avoidTubularColisionParam );
+            }
+            else
+                centerlinesTool->applyTubularColisionFix( avoidTubularColisionParam );
+        }
+
+        if ( M_smoothResample )
+        {
+            fs::path outputOriginalPath = directory / fs::path(filename+"_original.vtk");
+            centerlinesTool->writeCenterlinesVTK( outputOriginalPath.string() );
+
+            fs::path outputSmoothGeoPath = directory / fs::path(filename+".geo");
+            AngioTkCenterline centerlinesSmooth;
+            centerlinesSmooth.createFromCenterlines( *centerlinesTool, outputSmoothGeoPath.string(),
+                                                     M_smoothResampleMeshSize, M_smoothResampleGeoPointSpacing );
+            centerlinesSmooth.addFieldBranchIds();
+            // redo TubularColision if asked
+            if ( M_avoidTubularColision )
+            {
+                auto avoidTubularColisionParam = std::make_pair( M_avoidTubularColisionDistanceMin,M_avoidTubularColisionRadiusMin );
+                if ( !M_avoidTubularColisionInputPointPairPath.empty() && fs::exists( M_avoidTubularColisionInputPointPairPath ) )
+                {
+                    auto pointPairData = AngioTk::loadFromPointPairFile( M_avoidTubularColisionInputPointPairPath );
+                    centerlinesSmooth.applyTubularColisionFix( pointPairData, avoidTubularColisionParam );
+                }
+                else
+                    centerlinesSmooth.applyTubularColisionFix( avoidTubularColisionParam );
+            }
+
+            centerlinesSmooth.writeCenterlinesVTK( this->outputPath() );
+        }
+        else
+            centerlinesTool->writeCenterlinesVTK( this->outputPath() );
     }
+
 
 }
 
@@ -918,34 +1009,40 @@ CenterlinesManager::options( std::string const& prefix )
         (prefixvm(prefix,"input.centerlines.filename").c_str(), po::value<std::vector<std::string>>()->multitoken(), "(vector<string>) input centerline filename" )
         (prefixvm(prefix,"input.surface.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input surface filename" )
         (prefixvm(prefix,"input.point-set.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input point-set filename" )
-        (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
+        (prefixvm(prefix,"input.point-pair.filename").c_str(), po::value<std::string>()->default_value( "" ), "input.pointpair.filename" )
         (prefixvm(prefix,"remove-branch-ids").c_str(), po::value<std::vector<int> >()->multitoken(), "(vector of int) remove branch ids" )
-        (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         (prefixvm(prefix,"use-window-interactor").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) use-window-interactor")
+        (prefixvm(prefix,"window-width").c_str(), Feel::po::value<int>()->default_value(1024), "(int) window width")
+        (prefixvm(prefix,"window-height").c_str(), Feel::po::value<int>()->default_value(768), "(int) window height")
         (prefixvm(prefix,"threshold-radius.min").c_str(), Feel::po::value<double>()->default_value(-1), "(double) threshold-radius.min")
         (prefixvm(prefix,"threshold-radius.max").c_str(), Feel::po::value<double>()->default_value(-1), "(double) threshold-radius.max")
         (prefixvm(prefix,"thresholdzone-radius.point-set.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input point-set filename" )
         (prefixvm(prefix,"thresholdzone-radius.max").c_str(), Feel::po::value<double>()->default_value(-1), "(double) threshold-radius.max")
         (prefixvm(prefix,"thresholdzone-radius.min").c_str(), Feel::po::value<double>()->default_value(-1), "(double) threshold-radius.max")
+        (prefixvm(prefix,"avoid-tubular-colision.apply").c_str(), po::value<bool>()->default_value( false ), "(string) input point-set filename" )
+        (prefixvm(prefix,"avoid-tubular-colision.distance-min").c_str(), po::value<double>()->default_value( 0.4 ), "(double) distance-min" )
+        (prefixvm(prefix,"avoid-tubular-colision.radius-min").c_str(), po::value<double>()->default_value( 0.4 ), "(double) radius-min" )
+        (prefixvm(prefix,"avoid-tubular-colision.point-pair.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input point-set filename" )
+        (prefixvm(prefix,"smooth-resample.apply").c_str(), po::value<bool>()->default_value( false ), "(bool) smooth-resample.apply" )
+        (prefixvm(prefix,"smooth-resample.mesh-size").c_str(), po::value<double>()->default_value( 1.0 ), "(double) mesh size" )
+        (prefixvm(prefix,"smooth-resample.geo-points-spacing").c_str(), po::value<double>()->default_value( 4.0 ), "(double) geo-points-spacing" )
         ;
-    return myCenterlinesManagerOptions;
+    return myCenterlinesManagerOptions.add( super_type::options( prefix ) );
 }
 
 
 
-ImageFromCenterlines::ImageFromCenterlines( std::string prefix )
+ImageFromCenterlines::ImageFromCenterlines( std::string const& prefix )
     :
-    M_prefix( prefix ),
-    M_inputCenterlinesPath( AngioTkEnvironment::expand( soption(_name="input.filename",_prefix=this->prefix()) ) ),
-    M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
-    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
+    super_type( prefix ),
+    M_inputCenterlinesPath( AngioTkEnvironment::expand( soption(_name="input.centerlines.filename",_prefix=this->prefix()) ) ),
     M_dimX( ioption(_name="dim.x",_prefix=this->prefix() ) ),
     M_dimY( ioption(_name="dim.y",_prefix=this->prefix() ) ),
     M_dimZ( ioption(_name="dim.z",_prefix=this->prefix() ) ),
     M_dimSpacing( doption(_name="dim.spacing",_prefix=this->prefix() ) ),
     M_radiusArrayName( soption(_name="radius-array-name",_prefix=this->prefix() ) )
 {
-    if ( !this->inputCenterlinesPath().empty() && M_outputPath.empty() )
+    if ( !this->inputCenterlinesPath().empty() && this->outputPath().empty() )
     {
         this->updateOutputPathFromInputFileName();
     }
@@ -958,12 +1055,12 @@ ImageFromCenterlines::updateOutputPathFromInputFileName()
 
     // define output directory
     fs::path meshesdirectories;
-    if ( M_outputDirectory.empty() )
+    if ( this->outputDirectory().empty() )
         meshesdirectories = fs::current_path();
-    else if ( fs::path(M_outputDirectory).is_relative() )
-        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(M_outputDirectory);
+    else if ( fs::path(this->outputDirectory()).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(this->outputDirectory());
     else
-        meshesdirectories = fs::path(M_outputDirectory);
+        meshesdirectories = fs::path(this->outputDirectory());
 
     // get filename without extension
     fs::path gp = this->inputCenterlinesPath();
@@ -984,17 +1081,18 @@ ImageFromCenterlines::updateOutputPathFromInputFileName()
     //std::string newFileName = (boost::format("%1%_%2%-%3%-%4%.mha")%nameMeshFile %M_dimX %M_dimY %M_dimZ ).str();
     std::string newFileName = (boost::format("%1%%2%%3%.mha")%nameMeshFile %dimComponentTag %dimSpacingTag ).str();
     fs::path outputPath = meshesdirectories / fs::path(newFileName);
-    M_outputPath = outputPath.string();
+    this->setOutputPath( outputPath.string() );
 }
 
-void
+int
 ImageFromCenterlines::run()
 {
     if ( !fs::exists( this->inputCenterlinesPath() ) )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : image building not done because this input path not exist :" << this->inputCenterlinesPath() << "\n";
-        return;
+            std::cout << "WARNING : image building not done because this input path for centerlines does not exist :" << this->inputCenterlinesPath() << std::endl
+                      << "Please set it with the \"input.centerlines.filename\" option." << std::endl;
+        return 1;
     }
 
     std::ostringstream coutStr;
@@ -1083,6 +1181,7 @@ ImageFromCenterlines::run()
 #endif
     }
 
+    return 0;
 }
 
 po::options_description
@@ -1091,34 +1190,51 @@ ImageFromCenterlines::options( std::string const& prefix )
     po::options_description myImageFromCenterlinesOptions( "Create Image from Centerlines options" );
 
     myImageFromCenterlinesOptions.add_options()
-        (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
-        (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
-        (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
+        (prefixvm(prefix,"input.centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
         (prefixvm(prefix,"dim.x").c_str(), Feel::po::value<int>()->default_value(0), "(int) dim.x")
         (prefixvm(prefix,"dim.y").c_str(), Feel::po::value<int>()->default_value(0), "(int) dim.y")
         (prefixvm(prefix,"dim.z").c_str(), Feel::po::value<int>()->default_value(0), "(int) dim.z")
         (prefixvm(prefix,"dim.spacing").c_str(), Feel::po::value<double>()->default_value(0.), "(double) dim.spacing")
         (prefixvm(prefix,"radius-array-name").c_str(), Feel::po::value<std::string>()->default_value("MaximumInscribedSphereRadius"), "(std::string) radius-array-name")
         ;
-    return myImageFromCenterlinesOptions;
+    return myImageFromCenterlinesOptions.add( super_type::options( prefix ) );
 }
 
-SurfaceFromImage::SurfaceFromImage( std::string prefix )
+SurfaceFromImage::SurfaceFromImage( std::string const& prefix )
     :
-    M_prefix( prefix ),
-    M_inputPath( AngioTkEnvironment::expand( soption(_name="input.filename",_prefix=this->prefix()) ) ),
-    M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
+    super_type( prefix ),
+    M_inputImagesPath( /*AngioTkEnvironment::expand( soption(_name="input.filename",_prefix=this->prefix()) )*/ ),
+    M_imageFusionOperator( soption(_name="image-fusion.operator",_prefix=this->prefix()) ),
+    M_resizeFromRefImagePath( AngioTkEnvironment::expand( soption(_name="pre-process.resize-from-reference-image.path",_prefix=this->prefix()) ) ),
     M_method( soption(_name="method",_prefix=this->prefix()) ),
     M_hasThresholdLower(false), M_hasThresholdUpper(false),
     M_thresholdLower(0.0),M_thresholdUpper(0.0),
     M_applyConnectivityLargestRegion( boption(_name="apply-connectivity.largest-region",_prefix=this->prefix()) ),
-    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) )
+    M_applyConnectivityNumberOfRegion( ioption(_name="apply-connectivity.number",_prefix=this->prefix()) )
 {
+    if ( Environment::vm().count(prefixvm(this->prefix(),"input.image.filename").c_str()) )
+        M_inputImagesPath = Environment::vm()[prefixvm(this->prefix(),"input.image.filename").c_str()].as<std::vector<std::string> >();
+    for ( int k=0;k<M_inputImagesPath.size();++k)
+        M_inputImagesPath[k] = AngioTkEnvironment::expand( M_inputImagesPath[k] );
 
     CHECK( M_method == "threshold" || M_method == "isosurface" ) << "invalid method : " << M_method << " -> must be threshold or isosurface";
 
-    if ( !M_inputPath.empty() && fs::path(M_inputPath).is_relative() )
-        M_inputPath = (AngioTkEnvironment::pathInitial()/fs::path(M_inputPath) ).string();
+    CHECK( M_imageFusionOperator == "max" || M_imageFusionOperator == "min" || M_imageFusionOperator == "multiply" || M_imageFusionOperator == "subtract" )
+        << "invalid fusion operator : " << M_imageFusionOperator << " -> must be max,min,multiply,subtract";
+
+    for ( int k=0;k<M_inputImagesPath.size();++k)
+        if ( !M_inputImagesPath[k].empty() && fs::path(M_inputImagesPath[k]).is_relative() )
+            M_inputImagesPath[k] = (AngioTkEnvironment::pathInitial()/fs::path(M_inputImagesPath[k]) ).string();
+
+    if ( !M_resizeFromRefImagePath.empty() && !fs::exists(M_resizeFromRefImagePath) )
+    {
+        //M_resizeFromRefImagePath.clear();
+        std::cout << "SurfaceFromImage::Initialization" << std::endl
+                  << "The pre-process.resize-from-reference-image.path option has been set, but the specified path does not exist ("
+                  << M_resizeFromRefImagePath
+                  << "). Please set it to a correct path or unset the option." << std::endl;
+        exit(1);
+    }
 
     if ( Environment::vm().count(prefixvm(this->prefix(),"threshold.lower").c_str()) )
     {
@@ -1131,51 +1247,62 @@ SurfaceFromImage::SurfaceFromImage( std::string prefix )
         M_thresholdUpper = doption(_name="threshold.upper",_prefix=this->prefix());
     }
 
-
-    if ( !M_inputPath.empty() && M_outputPath.empty() )
+    if ( this->outputPath().empty() )
     {
-        this->updateOutputPathFromInputFileName();
+        if ( !M_inputImagesPath.empty() && !M_inputImagesPath[0].empty() )
+            this->updateOutputPathFromInputFileName();
     }
 }
 
 void
 SurfaceFromImage::updateOutputPathFromInputFileName()
 {
-    CHECK( !M_inputPath.empty() ) << "input path is empty";
+    CHECK( !M_inputImagesPath.empty() ) << "input path is empty";
+    CHECK( !M_inputImagesPath[0].empty() ) << "input path is empty";
 
     // define output directory
     fs::path meshesdirectories;
-    if ( M_outputDirectory.empty() )
+    if ( this->outputDirectory().empty() )
         meshesdirectories = fs::current_path();
-    else if ( fs::path(M_outputDirectory).is_relative() )
-        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(M_outputDirectory);
+    else if ( fs::path(this->outputDirectory()).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(this->outputDirectory());
     else
-        meshesdirectories = fs::path(M_outputDirectory);
+        meshesdirectories = fs::path(this->outputDirectory());
 
     // get filename without extension
-    fs::path gp = M_inputPath;
+    fs::path gp = M_inputImagesPath[0];
     std::string nameMeshFile = gp.stem().string();
 
     std::string newFileName = (boost::format("%1%.stl")%nameMeshFile ).str();
     fs::path outputPath = meshesdirectories / fs::path(newFileName);
-    M_outputPath = outputPath.string();
+    this->setOutputPath( outputPath.string() );
 }
 
-void
+int
 SurfaceFromImage::run()
 {
-    if ( !fs::exists( this->inputPath() ) )
+    if ( this->inputImagesPath().empty() )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : surface segmentation not done because this input path not exist :" << this->inputPath() << "\n";
-        return;
+            std::cout << "WARNING : surface segmentation will not be done, because you specified an empty input path." << std::endl
+                      << "Please set it with the \"input.image.filename\" option." << std::endl;
+        return 1;
+    }
+
+    if( !fs::exists( this->inputImagesPath(0) ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : surface segmentation will not be done because this input path not exist: " << this->inputImagesPath() << std::endl
+                      << "Please set it with the \"input.image.filename\" option." << std::endl;
+        return 1;
     }
 
     if ( !M_hasThresholdLower && !M_hasThresholdUpper )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : surface segmentation not done because no threshold has been given\n";
-        return;
+            std::cout << "WARNING : surface segmentation will not be done because no threshold has been given.\n" << std::endl
+                      << "Please set the threshold values with the \"threshold.lower\" and \"threshold.upper\" options." << std::endl;
+        return 1;
     }
 
     std::ostringstream coutStr;
@@ -1184,7 +1311,8 @@ SurfaceFromImage::run()
             << "---------------------------------------\n"
             << "run SurfaceFromImage \n"
             << "---------------------------------------\n";
-    coutStr << "inputPath         : " << this->inputPath() << "\n";
+    for ( int k=0;k<M_inputImagesPath.size();++k)
+        coutStr << "inputImagesPath         : " << this->inputImagesPath(k) << "\n";
     if ( M_hasThresholdLower )
         coutStr << "threshold lower   : " << M_thresholdLower << "\n";
     if ( M_hasThresholdUpper )
@@ -1195,11 +1323,12 @@ SurfaceFromImage::run()
     std::cout << coutStr.str();
 
 
-    fs::path directory;
+    fs::path directory = fs::path(this->outputPath()).parent_path();
+    std::string outputNameWithoutExt = fs::path(this->outputPath()).stem().string();
+
     // build directories if necessary
     if ( !this->outputPath().empty() && this->worldComm().isMasterRank() )
     {
-        directory = fs::path(this->outputPath()).parent_path();
         if ( !fs::exists( directory ) )
             fs::create_directories( directory );
     }
@@ -1211,13 +1340,44 @@ SurfaceFromImage::run()
         std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
         std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
 
-        std::string nameImageInit = fs::path(this->outputPath()).stem().string()+"_levelsetInit.vti";
-        std::string outputPathImageInit = (fs::path(this->outputPath()).parent_path()/fs::path(nameImageInit)).string();
+        std::string nameImageInit = outputNameWithoutExt+"_levelsetInit.vti";
+        std::string outputPathImageInit = (directory/fs::path(nameImageInit)).string();
+
+        std::string inputImagePath = this->inputImagesPath(0);
+
+        CHECK( M_inputImagesPath.size() <= 2 ) << "TODO image fusion with more than 2 images";
+        if ( M_inputImagesPath.size() == 2 )
+        {
+            std::string nameImageFusion = outputNameWithoutExt+"_fusion.mha";
+            std::string outputPathImageFusion = (directory/fs::path(nameImageFusion)).string();
+            std::ostringstream ostrImageFusion;
+            ostrImageFusion << pythonExecutable << " " << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkimagecompose ";
+            ostrImageFusion << "-ifile " << this->inputImagesPath(0) << " -i2file " << this->inputImagesPath(1) << " -operation " <<  M_imageFusionOperator << " ";
+            ostrImageFusion << "-ofile " << outputPathImageFusion;
+            // run vmtk script
+            auto err = ::system( ostrImageFusion.str().c_str() );
+            // use new image generated as input
+            inputImagePath = outputPathImageFusion;
+        }
+
+        if ( !M_resizeFromRefImagePath.empty() )
+        {
+            std::string nameImageResized = outputNameWithoutExt+"_resized.mha";
+            std::string outputPathImageResized = (directory/fs::path(nameImageResized)).string();
+            ImagesManager myImagesManager;
+            myImagesManager.setInputPath( inputImagePath );
+            myImagesManager.setOutputPath( outputPathImageResized );
+            myImagesManager.setResizeFromRefImageApply( true );
+            myImagesManager.setForceRebuild( true );
+            myImagesManager.setResizeFromRefImagePath( M_resizeFromRefImagePath );
+            myImagesManager.run();
+            inputImagePath = myImagesManager.outputPath();
+        }
 
         std::ostringstream __str;
         __str << pythonExecutable << " ";
         __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkimageinitialization ";
-        __str << "-ifile " << this->inputPath() << " -interactive 0 ";
+        __str << "-ifile " << inputImagePath << " -interactive 0 ";
         if ( M_method == "threshold" )
         {
             __str << "-method threshold ";
@@ -1241,7 +1401,7 @@ SurfaceFromImage::run()
         std::ostringstream __str2;
         __str2 << pythonExecutable << " ";
         __str2 << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtklevelsetsegmentation ";
-        __str2 << "-ifile " << this->inputPath() << " -initiallevelsetsfile " << outputPathImageInit << " -iterations 1 ";
+        __str2 << "-ifile " << inputImagePath << " -initiallevelsetsfile " << outputPathImageInit << " -iterations 1 ";
         //__str2 << "--pipe vmtkmarchingcubes -i @.o -ofile " << this->outputPath();
         __str2 << "--pipe vmtkmarchingcubes -i @.o ";
         if ( true )
@@ -1259,7 +1419,7 @@ SurfaceFromImage::run()
         std::ostringstream __str2;
         __str2 << pythonExecutable << " ";
         __str2 << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtklevelsetsegmentation ";
-        __str2 << "-ifile " << this->inputPath() << " ";
+        __str2 << "-ifile " << inputImagePath << " ";
         //__str2 << "-levelsetstype isosurface -isosurfacevalue 0 ";
         __str2 << "-initiallevelsetsfile " << outputPathImageInit << " ";
         //__str2 << "-initializationimagefile " << outputPathImageInit << " ";
@@ -1279,7 +1439,7 @@ SurfaceFromImage::run()
 
         // read initial image
         vtkSmartPointer<vtkMetaImageReader> readerInitialImage = vtkSmartPointer<vtkMetaImageReader>::New();
-        readerInitialImage->SetFileName(this->inputPath().c_str());
+        readerInitialImage->SetFileName(inputImagePath/*this->inputImagesPath()*/.c_str());
         readerInitialImage->Update();
 #if 0
         double boundIMG[6];
@@ -1357,9 +1517,55 @@ SurfaceFromImage::run()
         vtkSmartPointer<vtkPolyDataConnectivityFilter> connectivityFilter = vtkSmartPointer<vtkPolyDataConnectivityFilter>::New();
         if ( M_applyConnectivityLargestRegion )
         {
-            connectivityFilter->SetInput(/*surface*/cleanPolyData->GetOutput());
-            connectivityFilter->SetExtractionModeToLargestRegion();
-            connectivityFilter->Update();
+            if ( M_applyConnectivityNumberOfRegion == 1 )
+            {
+                connectivityFilter->SetInput(/*surface*/cleanPolyData->GetOutput());
+                connectivityFilter->SetExtractionModeToLargestRegion();
+                connectivityFilter->Update();
+            }
+            else if ( M_applyConnectivityNumberOfRegion > 1 )
+            {
+                connectivityFilter->SetInput(/*surface*/cleanPolyData->GetOutput());
+                connectivityFilter->SetExtractionModeToAllRegions();
+                connectivityFilter->ColorRegionsOn();
+                connectivityFilter->Update();
+                int nRegion = connectivityFilter->GetNumberOfExtractedRegions();
+
+                if ( connectivityFilter->GetOutput()->GetPointData()->HasArray("RegionId") == 0 )
+                    CHECK( false ) << "RegionId must be present";
+
+                std::vector<int> counterCellInRegion(nRegion,0);
+                vtkIdType dataRegionIdSize = connectivityFilter->GetOutput()->GetPointData()->GetArray("RegionId")->GetSize();
+                auto arrayRegionId = connectivityFilter->GetOutput()->GetPointData()->GetArray("RegionId");
+                for (vtkIdType k=0;k<dataRegionIdSize;++k)
+                {
+                    double* val = arrayRegionId->GetTuple(k);
+                    vtkIdType curRegionId = static_cast<vtkIdType>( val[0] );
+                    CHECK( curRegionId >= 0 && curRegionId <= nRegion ) << "invalid curRegionId" << curRegionId;
+                    ++counterCellInRegion[curRegionId];
+                }
+
+                // thanks to std::set with tuple, we can have automaticaly an ordering with respect to connectivity size
+                std::set<std::tuple<int,int> > cellInRegionIdSet;
+                for (int k=0;k<nRegion;++k )
+                {
+                    cellInRegionIdSet.insert( std::make_pair( counterCellInRegion[k],k ) );
+                }
+
+                std::set<int> regionIdExtracted;
+                for ( auto rit=cellInRegionIdSet.rbegin(); rit != cellInRegionIdSet.rend(); ++rit)
+                {
+                    regionIdExtracted.insert(std::get<1>(*rit));
+                    if ( regionIdExtracted.size() == M_applyConnectivityNumberOfRegion ) break;
+                }
+
+                connectivityFilter->SetExtractionModeToSpecifiedRegions();
+                connectivityFilter->InitializeSpecifiedRegionList();
+                for ( vtkIdType _regionId : regionIdExtracted )
+                    connectivityFilter->AddSpecifiedRegion(_regionId);
+                connectivityFilter->Update();
+
+            }
         }
 
         // save stl on disk
@@ -1377,6 +1583,8 @@ SurfaceFromImage::run()
 
     //vmtkimageinitialization -ifile hh32.mha -method threshold -lowerthreshold -1 -interactive 0 -osurfacefile imginit.stl -olevelsetsfile levelsetinit.vti
     //vmtklevelsetsegmentation -ifile hh32.mha -initiallevelsetsfile levelsetinit2.vti -iterations 1  --pipe vmtkmarchingcubes -i @.o -ofile bid.stl
+    
+    return 0;
 }
 
 po::options_description
@@ -1385,36 +1593,201 @@ SurfaceFromImage::options( std::string const& prefix )
     po::options_description mySurfaceFromImageOptions( "Create Surface from Image options" );
 
     mySurfaceFromImageOptions.add_options()
-        (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
-        (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
+        (prefixvm(prefix,"input.image.filename").c_str(), po::value<std::vector<std::string> >()->multitoken(), "(vector of string) input image filename" )
         (prefixvm(prefix,"method").c_str(), Feel::po::value<std::string>()->default_value("threshold"), "(string) method : threshold, isosurface")
+        (prefixvm(prefix,"image-fusion.operator").c_str(), Feel::po::value<std::string>()->default_value("max"), "(string) operator : max, min, multiply, subtract")
+        (prefixvm(prefix,"pre-process.resize-from-reference-image.path").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) resize-from-reference-image")
+
         (prefixvm(prefix,"threshold.lower").c_str(), Feel::po::value<double>(), "(double) threshold lower")
         (prefixvm(prefix,"threshold.upper").c_str(), Feel::po::value<double>(), "(double) threshold upper")
         (prefixvm(prefix,"apply-connectivity.largest-region").c_str(), Feel::po::value<bool>()->default_value(true), "(bool) apply-connectivity.largest-region")
-        (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
+        (prefixvm(prefix,"apply-connectivity.number").c_str(), Feel::po::value<int>()->default_value(1), "(bool) number of largest region")
         ;
-    return mySurfaceFromImageOptions;
+    return mySurfaceFromImageOptions.add( super_type::options( prefix ) );
+}
+
+
+ImagesManager::ImagesManager()
+    :
+    super_type(),
+    M_resizeFromRefImageApply( false )
+{}
+
+ImagesManager::ImagesManager( std::string const& prefix )
+    :
+    super_type( prefix ),
+    M_inputPath(),
+    M_resizeFromRefImageApply( boption(_name="resize-from-reference-image.apply",_prefix=this->prefix()) ),
+    M_resizeFromRefImagePath( AngioTkEnvironment::expand( soption(_name="resize-from-reference-image.path",_prefix=this->prefix()) ) )
+{
+    if ( Environment::vm().count(prefixvm(this->prefix(),"input.image.path").c_str()) )
+        M_inputPath = Environment::vm()[prefixvm(this->prefix(),"input.image.path").c_str()].as<std::vector<std::string> >();
+    for ( int k=0;k<M_inputPath.size();++k)
+        M_inputPath[k] = AngioTkEnvironment::expand( M_inputPath[k] );
+
+    if ( this->outputPath().empty() && !this->inputPath().empty() && !this->inputPath(0).empty() )
+        this->updateOutputPathFromInputFileName();
+}
+
+void
+ImagesManager::updateOutputPathFromInputFileName()
+{
+    CHECK( !this->inputPath().empty() ) << "input path is empty";
+    CHECK( !this->inputPath(0).empty() ) << "input path is empty";
+
+    // define output directory
+    fs::path meshesdirectories;
+    if ( this->outputDirectory().empty() )
+        meshesdirectories = fs::current_path();
+    else if ( fs::path(this->outputDirectory()).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(this->outputDirectory());
+    else
+        meshesdirectories = fs::path(this->outputDirectory());
+
+    // get filename without extension
+    fs::path gp = M_inputPath[0];
+    std::string nameMeshFile = gp.stem().string();
+
+    std::string newFileName = (boost::format("%1%_cvrt.mha")%nameMeshFile ).str();
+    fs::path outputPath = meshesdirectories / fs::path(newFileName);
+    this->setOutputPath( outputPath.string() );
+}
+
+void
+ImagesManager::printInfo() const
+{
+    std::ostringstream coutStr;
+    coutStr << "\n"
+            << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
+            << "---------------------------------------\n"
+            << "run ImagesManager \n"
+            << "---------------------------------------\n";
+    for ( int k=0;k<this->inputPath().size();++k)
+        coutStr << "inputPath         : " << this->inputPath(k) << "\n";
+    coutStr << "output path       : " << this->outputPath() << "\n";
+    if ( this->resizeFromRefImageApply() )
+        coutStr << "input reference image path : " << this->resizeFromRefImagePath() << "\n";
+    coutStr << "---------------------------------------\n"
+            << "---------------------------------------\n";
+    std::cout << coutStr.str();
+}
+
+void
+ImagesManager::run()
+{
+    this->printInfo();
+
+    if ( this->inputPath().empty() )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : ImagesManager do nothing because input path is empty\n";
+        return;
+    }
+    if ( !fs::exists( this->inputPath(0) ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : ImagesManager do nothing done because this input path does not exist :" << this->inputPath(0) << "\n";
+        return;
+    }
+    if ( this->resizeFromRefImageApply() && !fs::exists( this->resizeFromRefImagePath() ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : ImagesManager do nothing because resizeFromRefImage path does not exist :" << this->resizeFromRefImagePath() << "\n";
+        return;
+    }
+
+    this->createOutputDirectory();
+
+    if ( this->resizeFromRefImageApply() )
+        this->updateResizeFromRefImage();
+}
+
+void
+ImagesManager::updateResizeFromRefImage()
+{
+    std::string extInitialImage = fs::path(this->inputPath(0)).extension().string();
+    std::string extRefImage = fs::path(this->resizeFromRefImagePath()).extension().string();
+    CHECK( extInitialImage == ".mha" /*|| extInitialImage == ".nii"*/ ) << " image format not supported " << extInitialImage;
+    CHECK( extRefImage == ".mha" /*|| extInitialImage == ".nii"*/ ) << " image format not supported " << extRefImage;
+
+    vtkSmartPointer<vtkMetaImageReader> readerRefImage = vtkSmartPointer<vtkMetaImageReader>::New();
+    readerRefImage->SetFileName(this->resizeFromRefImagePath().c_str());
+    readerRefImage->Update();
+    double originRefImage[3];
+    readerRefImage->GetOutput()->GetOrigin(originRefImage);
+    int dimRefImage[3];
+    readerRefImage->GetOutput()->GetDimensions( dimRefImage );
+    double spacingRefImage[3];
+    readerRefImage->GetOutput()->GetSpacing( spacingRefImage );
+    double lengthRefImage[3] = { spacingRefImage[0]*(dimRefImage[0]-1), spacingRefImage[1]*(dimRefImage[1]-1),spacingRefImage[2]*(dimRefImage[2]-1) };
+
+    vtkSmartPointer<vtkMetaImageReader> readerInitialImage = vtkSmartPointer<vtkMetaImageReader>::New();
+    readerInitialImage->SetFileName(this->inputPath(0).c_str());
+    readerInitialImage->Update();
+    double originInitialImage[3];
+    readerInitialImage->GetOutput()->GetOrigin(originInitialImage);
+    int dimInitialImage[3];
+    readerInitialImage->GetOutput()->GetDimensions( dimInitialImage );
+    double spacingInitialImage[3];
+    readerInitialImage->GetOutput()->GetSpacing( spacingInitialImage );
+    double lengthInitialImage[3] = { spacingInitialImage[0]*(dimInitialImage[0]-1), spacingInitialImage[1]*(dimInitialImage[1]-1),spacingInitialImage[2]*(dimInitialImage[2]-1) };
+
+    if ( true )
+    {
+        std::cout << "originRefImage " << originRefImage[0] << "," << originRefImage[1] << "," << originRefImage[2] << "\n";
+        std::cout << "dimRefImage " << dimRefImage[0] << "," << dimRefImage[1] << "," << dimRefImage[2] << "\n";
+        std::cout << "lengthRefImage " << lengthRefImage[0] << "," << lengthRefImage[1] << "," << lengthRefImage[2] << "\n";
+        std::cout << "spacingRefImage " << spacingRefImage[0] << "," << spacingRefImage[1] << "," << spacingRefImage[2] << "\n";
+        std::cout << "originInitialImage " << originInitialImage[0] << "," << originInitialImage[1] << "," << originInitialImage[2] << "\n";
+        std::cout << "dimInitialImage " << dimInitialImage[0] << "," << dimInitialImage[1] << "," << dimInitialImage[2] << "\n";
+        std::cout << "spacingInitialImage " << spacingInitialImage[0] << "," << spacingInitialImage[1] << "," << spacingInitialImage[2] << "\n";
+        std::cout << "lengthInitialImage " << lengthInitialImage[0] << "," << lengthInitialImage[1] << "," << lengthInitialImage[2] << "\n";
+    }
+
+    double spacingNewImage[3] = { lengthRefImage[0]/(dimInitialImage[0]-1), lengthRefImage[1]/(dimInitialImage[1]-1), lengthRefImage[2]/(dimInitialImage[2]-1) };
+
+    vtkSmartPointer<vtkImageChangeInformation> imageChangeInfo = vtkSmartPointer<vtkImageChangeInformation>::New();
+    imageChangeInfo->SetInput(readerInitialImage->GetOutput());
+    imageChangeInfo->SetOutputOrigin(originRefImage);
+    imageChangeInfo->SetOutputSpacing(spacingNewImage);
+    imageChangeInfo->Update();
+
+    vtkSmartPointer<vtkMetaImageWriter> metaImageWriter = vtkSmartPointer<vtkMetaImageWriter>::New();
+    metaImageWriter->SetFileName(this->outputPath().c_str());
+    metaImageWriter->SetInput(imageChangeInfo->GetOutput());
+
+    metaImageWriter->Write();
+
+}
+
+po::options_description
+ImagesManager::options( std::string const& prefix )
+{
+    po::options_description myImagesManagerOptions( "Modified an Image" );
+
+    myImagesManagerOptions.add_options()
+        (prefixvm(prefix,"input.image.path").c_str(), po::value<std::vector<std::string> >()->multitoken(), "(vector of string) input image filename" )
+        (prefixvm(prefix,"resize-from-reference-image.path").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) reference-image path")
+        (prefixvm(prefix,"resize-from-reference-image.apply").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) resize-from-reference-image")
+        ;
+    return myImagesManagerOptions.add( super_type::options( prefix ) );
 }
 
 
 
-SubdivideSurface::SubdivideSurface( std::string prefix )
+SubdivideSurface::SubdivideSurface( std::string const& prefix )
     :
-    M_prefix( prefix ),
-    M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.filename",_prefix=this->prefix()) ) ),
-    M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
-    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
+    super_type( prefix ),
+    M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.surface.filename",_prefix=this->prefix()) ) ),
     M_method( soption(_name="method",_prefix=this->prefix()) ),
     M_nSubdivisions( ioption(_name="subdivisions",_prefix=this->prefix()) )
 {
     CHECK( M_method == "linear" || M_method == "butterfly" || M_method == "loop" ) << "invalid method " << M_method << "\n";
-    if ( !this->inputSurfacePath().empty() && M_outputPath.empty() )
+    if ( !this->inputSurfacePath().empty() && this->outputPath().empty() )
     {
         this->updateOutputPathFromInputFileName();
     }
 }
-
-
 
 void
 SubdivideSurface::updateOutputPathFromInputFileName()
@@ -1423,12 +1796,12 @@ SubdivideSurface::updateOutputPathFromInputFileName()
 
     // define output directory
     fs::path meshesdirectories;
-    if ( M_outputDirectory.empty() )
+    if ( this->outputDirectory().empty() )
         meshesdirectories = fs::current_path();
-    else if ( fs::path(M_outputDirectory).is_relative() )
-        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(M_outputDirectory);
+    else if ( fs::path(this->outputDirectory()).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(this->outputDirectory());
     else
-        meshesdirectories = fs::path(M_outputDirectory);
+        meshesdirectories = fs::path(this->outputDirectory());
 
     // get filename without extension
     //fs::path gp = M_inputPath;
@@ -1436,7 +1809,7 @@ SubdivideSurface::updateOutputPathFromInputFileName()
 
     std::string newFileName = (boost::format("%1%_subdivide%2%%3%.stl")%nameMeshFile %M_nSubdivisions %M_method ).str();
     fs::path outputPath = meshesdirectories / fs::path(newFileName);
-    M_outputPath = outputPath.string();
+    this->setOutputPath( outputPath.string() );
 }
 
 void
@@ -1501,30 +1874,25 @@ SubdivideSurface::options( std::string const& prefix )
     po::options_description mySubdivideSurfaceOptions( "Subdivide the surface options" );
 
     mySubdivideSurfaceOptions.add_options()
-        (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
-        (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
-        (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
+        (prefixvm(prefix,"input.surface.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
         (prefixvm(prefix,"method").c_str(), Feel::po::value<std::string>()->default_value("butterfly"), "(string) linear, butterfly, loop")
         (prefixvm(prefix,"subdivisions").c_str(), Feel::po::value<int>()->default_value(1), "(int) number of subdivisions")
         ;
-    return mySubdivideSurfaceOptions;
-
+    return mySubdivideSurfaceOptions.add( super_type::options( prefix ) );
 }
 
-SmoothSurface::SmoothSurface( std::string prefix )
+SmoothSurface::SmoothSurface( std::string const& prefix )
     :
-    M_prefix( prefix ),
-    M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.filename",_prefix=this->prefix()) ) ),
+    super_type( prefix ),
+    M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.surface.filename",_prefix=this->prefix()) ) ),
     M_inputCenterlinesPath( AngioTkEnvironment::expand( soption(_name="input.centerlines.filename",_prefix=this->prefix()) ) ),
-    M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
-    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_method( soption(_name="method",_prefix=this->prefix()) ),
     M_nIterations( ioption(_name="iterations",_prefix=this->prefix()) ),
     M_taubinPassBand( doption(_name="taubin.passband",_prefix=this->prefix()) ),
     M_laplaceRelaxationFactor( doption(_name="laplace.relaxation",_prefix=this->prefix()) )
 {
     CHECK( M_method == "taubin" || M_method == "laplace" || M_method == "centerlines" ) << "invalid method " << M_method << "\n";
-    if ( !this->inputSurfacePath().empty() && M_outputPath.empty() )
+    if ( !this->inputSurfacePath().empty() && this->outputPath().empty() )
     {
         this->updateOutputPathFromInputFileName();
     }
@@ -1537,12 +1905,12 @@ SmoothSurface::updateOutputPathFromInputFileName()
 
     // define output directory
     fs::path meshesdirectories;
-    if ( M_outputDirectory.empty() )
+    if ( this->outputDirectory().empty() )
         meshesdirectories = fs::current_path();
-    else if ( fs::path(M_outputDirectory).is_relative() )
-        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(M_outputDirectory);
+    else if ( fs::path(this->outputDirectory()).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(this->outputDirectory());
     else
-        meshesdirectories = fs::path(M_outputDirectory);
+        meshesdirectories = fs::path(this->outputDirectory());
 
     // get filename without extension
     fs::path gp = this->inputSurfacePath();
@@ -1554,7 +1922,7 @@ SmoothSurface::updateOutputPathFromInputFileName()
     else
         newFileName = (boost::format("%1%_smooth%2%Laplace%3%.stl")%nameMeshFile %M_nIterations %M_laplaceRelaxationFactor ).str();
     fs::path outputPath = meshesdirectories / fs::path(newFileName);
-    M_outputPath = outputPath.string();
+    this->setOutputPath( outputPath.string() );
 }
 
 void
@@ -1626,32 +1994,28 @@ SmoothSurface::options( std::string const& prefix )
     po::options_description mySmoothSurfaceOptions( "Smooth the surface options" );
 
     mySmoothSurfaceOptions.add_options()
-        (prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
+        (prefixvm(prefix,"input.surface.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
         (prefixvm(prefix,"input.centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
-        (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
-        (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         (prefixvm(prefix,"method").c_str(), Feel::po::value<std::string>()->default_value("taubin"), "(string) taubin or laplace")
         (prefixvm(prefix,"iterations").c_str(), Feel::po::value<int>()->default_value(30), "(int) number of iterations")
         (prefixvm(prefix,"taubin.passband").c_str(), Feel::po::value<double>()->default_value(0.1), "(double) taubin passband")
         (prefixvm(prefix,"laplace.relaxation").c_str(), Feel::po::value<double>()->default_value(0.01), "(double) laplace.relaxation")
         ;
-    return mySmoothSurfaceOptions;
-
+    return mySmoothSurfaceOptions.add( super_type::options( prefix ) );
 }
 
 
 
-OpenSurface::OpenSurface( std::string prefix )
+OpenSurface::OpenSurface( std::string const& prefix )
     :
-    M_prefix( prefix ),
+    super_type( prefix ),
     M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.surface.filename",_prefix=this->prefix()) ) ),
     M_inputCenterlinesPath( AngioTkEnvironment::expand( soption(_name="input.centerlines.filename",_prefix=this->prefix()) ) ),
-    M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
-    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_distanceClipScalingFactor( doption(_name="distance-clip.scaling-factor",_prefix=this->prefix() ) ),
+    M_radiusUncertainty( doption(_name="radius-uncertainty",_prefix=this->prefix()) ),
     M_saveOutputSurfaceBinary( boption(_name="output.save-binary",_prefix=this->prefix() ) )
 {
-    if ( !M_inputSurfacePath.empty() && M_outputPath.empty() )
+    if ( !M_inputSurfacePath.empty() && this->outputPath().empty() )
     {
         this->updateOutputPathFromInputFileName();
     }
@@ -1662,15 +2026,21 @@ void
 OpenSurface::updateOutputPathFromInputFileName()
 {
     CHECK( !M_inputSurfacePath.empty() ) << "input path is empty";
+    if(M_inputSurfacePath.empty())
+    {
+        std::cout << "WARNING : opening surface step will not be done, because this input surface path for centerlines does not exist: " << this->inputSurfacePath() << std::endl
+                  << "Please set it with the input.surface.filename option" << std::endl; 
+        exit(1);
+    }
 
     // define output directory
     fs::path meshesdirectories;
-    if ( M_outputDirectory.empty() )
+    if ( this->outputDirectory().empty() )
         meshesdirectories = fs::current_path();
-    else if ( fs::path(M_outputDirectory).is_relative() )
-        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(M_outputDirectory);
+    else if ( fs::path(this->outputDirectory()).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(this->outputDirectory());
     else
-        meshesdirectories = fs::path(M_outputDirectory);
+        meshesdirectories = fs::path(this->outputDirectory());
 
     // get filename without extension
     fs::path gp = M_inputSurfacePath;
@@ -1678,23 +2048,25 @@ OpenSurface::updateOutputPathFromInputFileName()
 
     std::string newFileName = (boost::format("%1%_open.stl")%nameMeshFile ).str();
     fs::path outputPath = meshesdirectories / fs::path(newFileName);
-    M_outputPath = outputPath.string();
+    this->setOutputPath( outputPath.string() );
 }
 
-void
+int
 OpenSurface::run()
 {
     if ( !fs::exists( this->inputSurfacePath() ) )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : opening surface not done because this input surface path for centerlines not exist :" << this->inputSurfacePath() << "\n";
-        return;
+            std::cout << "WARNING : opening surface step will not be done, because this input surface path for centerlines does not exist: " << this->inputSurfacePath() << std::endl
+                      << "Please set it with the \"input.surface.filename\" option" << std::endl; 
+        return 1;
     }
     if ( !fs::exists( this->inputCenterlinesPath() ) )
     {
         if ( this->worldComm().isMasterRank() )
-            std::cout << "WARNING : opening surface not done because this input centerlines path for centerlines not exist :" << this->inputCenterlinesPath() << "\n";
-        return;
+            std::cout << "WARNING : opening surface not done because this input centerlines path for centerlines not exist :" << this->inputCenterlinesPath() << std::endl
+                      << "Please set it with the \"input.centerlines.filename\" option" << std::endl; 
+        return 1;
     }
 
     std::ostringstream coutStr;
@@ -1733,6 +2105,7 @@ OpenSurface::run()
             this->runVMTK();
     }
 
+    return 0;
 }
 
 
@@ -1757,6 +2130,7 @@ OpenSurface::runGMSH()
     std::shared_ptr<AngioTkCenterline> centerlinesTool( new AngioTkCenterline );
     centerlinesTool->setModeClipMesh(true);
     centerlinesTool->setClipMeshScalingFactor( M_distanceClipScalingFactor );
+    centerlinesTool->setCutMeshRadiusUncertainty( M_radiusUncertainty );
     centerlinesTool->importSurfaceFromFile( this->inputSurfacePath() );
     centerlinesTool->importFile( this->inputCenterlinesPath() );
     centerlinesTool->runClipMesh();
@@ -1830,33 +2204,31 @@ OpenSurface::options( std::string const& prefix )
     myOpenSurfaceOptions.add_options()
         (prefixvm(prefix,"input.centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
         (prefixvm(prefix,"input.surface.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
-        (prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
-        (prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         (prefixvm(prefix,"distance-clip.scaling-factor").c_str(), Feel::po::value<double>()->default_value(0.0), "(double) scaling-factor")
+        (prefixvm(prefix,"radius-uncertainty").c_str(), Feel::po::value<double>()->default_value(0.), "(double) radius-uncertainty")
         (prefixvm(prefix,"output.save-binary").c_str(), Feel::po::value<bool>()->default_value(true), "(bool) save-binary")
         ;
-    return myOpenSurfaceOptions;
+    return myOpenSurfaceOptions.add( super_type::options( prefix ) );
 }
 
 
 
 
-RemeshSTL::RemeshSTL( std::string prefix )
+RemeshSurface::RemeshSurface( std::string const& prefix )
     :
-    M_prefix( prefix ),
+    super_type( prefix ),
     M_packageType(soption(_name="package-type",_prefix=this->prefix())),
-    M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.filename",_prefix=this->prefix())) ),
-    M_inputCenterlinesPath( AngioTkEnvironment::expand(soption(_name="centerlines.filename",_prefix=this->prefix())) ),
-    M_gmshRemeshNbPointsInCircle( ioption(_name="nb-points-in-circle",_prefix=this->prefix()) ),
+    M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.surface.filename",_prefix=this->prefix())) ),
+    M_inputCenterlinesPath( AngioTkEnvironment::expand(soption(_name="gmsh.centerlines.filename",_prefix=this->prefix())) ),
+    M_gmshRemeshNbPointsInCircle( ioption(_name="gmsh.nb-points-in-circle",_prefix=this->prefix()) ),
+    M_gmshRemeshRadiusUncertainty( doption(_name="gmsh.radius-uncertainty",_prefix=this->prefix()) ),
     M_gmshRemeshPartitionForceRebuild( boption(_name="gmsh.remesh-partition.force-rebuild",_prefix=this->prefix()) ),
-    M_vmtkArea( doption(_name="area",_prefix=this->prefix()) ),
+    M_vmtkArea( doption(_name="vmtk.area",_prefix=this->prefix()) ),
     M_vmtkNumberOfIteration( ioption(_name="vmtk.n-iteration",_prefix=this->prefix()) ),
-    M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
-    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_saveOutputSurfaceBinary( boption(_name="output.save-binary",_prefix=this->prefix() ) )
 {
     CHECK( M_packageType == "gmsh" || M_packageType == "gmsh-executable" || M_packageType == "vmtk" ) << "error on packageType : " << M_packageType;
-    if ( !this->inputSurfacePath().empty() && M_outputPathGMSH.empty() )
+    if ( !this->inputSurfacePath().empty() && this->outputPath().empty() )
     {
         this->updateOutputPathFromInputFileName();
     }
@@ -1864,39 +2236,55 @@ RemeshSTL::RemeshSTL( std::string prefix )
 
 
 void
-RemeshSTL::updateOutputPathFromInputFileName()
+RemeshSurface::updateOutputPathFromInputFileName()
 {
     CHECK( !this->inputSurfacePath().empty() ) << "input surface path is empty";
 
     // define output directory
     fs::path meshesdirectories;
-    if ( M_outputDirectory.empty() )
+    if ( this->outputDirectory().empty() )
         meshesdirectories = fs::current_path();
-    else if ( fs::path(M_outputDirectory).is_relative() )
-        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(M_outputDirectory);
+    else if ( fs::path(this->outputDirectory()).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(this->outputDirectory());
     else
-        meshesdirectories = fs::path(M_outputDirectory);
+        meshesdirectories = fs::path(this->outputDirectory());
 
     // get filename without extension
     fs::path gp = this->inputSurfacePath();
     std::string nameMeshFile = gp.stem().string();
 
-    std::string specGMSH = (boost::format( "remeshGMSHpt%1%") %this->remeshNbPointsInCircle() ).str();
-    std::string specVMTK = (boost::format( "remeshVMTKarea%1%") %this->area() ).str();
-    std::string newFileNameGMSH = (boost::format("%1%_%2%.stl")%nameMeshFile %specGMSH ).str();
-    std::string newFileNameVMTK = (boost::format("%1%_%2%.stl")%nameMeshFile %specVMTK ).str();
+    std::string specStr;
+    if ( this->packageType() =="gmsh" || this->packageType() == "gmsh-executable" )
+        specStr = (boost::format( "remeshGMSHpt%1%") %this->remeshNbPointsInCircle() ).str();
+    else if ( this->packageType() == "vmtk" )
+        specStr = (boost::format( "remeshVMTKarea%1%") %this->area() ).str();
 
-    M_outputPathGMSH = ( meshesdirectories / fs::path(newFileNameGMSH) ).string();
-    M_outputPathVMTK = ( meshesdirectories / fs::path(newFileNameVMTK) ).string();
+    std::string newFileName = (boost::format("%1%_%2%.stl")%nameMeshFile %specStr ).str();
+    this->setOutputPath( ( meshesdirectories / fs::path(newFileName) ).string() );
 }
 
-void
-RemeshSTL::run()
+int
+RemeshSurface::run()
 {
+    if ( !fs::exists( this->inputSurfacePath() ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : remesh surface not done because this input surface path for centerlines not exist :" << this->inputSurfacePath() << std::endl
+                      << "Please set it with the \"input.surface.filename\" option." << std::endl;
+        return 1;
+    }
+    if ( ( this->packageType() == "gmsh" || this->packageType() == "gmsh-executable" ) && !fs::exists( this->inputCenterlinesPath() ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+            std::cout << "WARNING : remesh surface not done because this input centerlines path for centerlines not exist :" << this->inputCenterlinesPath() << std::endl
+                      << "Please set it with the \"gmsh.centerlines.filename\" option." << std::endl;
+        return 1;
+    }
+
     std::cout << "\n"
               << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
               << "---------------------------------------\n"
-              << "run RemeshSTL \n"
+              << "run RemeshSurface \n"
               << "---------------------------------------\n";
     std::cout << "type                 : " << M_packageType << "\n"
               << "inputSurfacePath     : " << this->inputSurfacePath() << "\n";
@@ -1912,9 +2300,9 @@ RemeshSTL::run()
 
     if ( !this->forceRebuild() && fs::exists( this->outputPath() ) )
     {
-        std::cout << "already file exist, ignore remeshSTL\n"
-                  << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n";
-        return;
+        std::cout << "The output file already exists in " << this->outputPath() << ", skipping remeshSTL." << std::endl
+                  << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" << std::endl;
+        return 0;
     }
 
     fs::path directory;
@@ -1936,10 +2324,12 @@ RemeshSTL::run()
         this->runVMTK();
 
     std::cout << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n";
+
+    return 0;
 }
 
 void
-RemeshSTL::runVMTK()
+RemeshSurface::runVMTK()
 {
     CHECK( !this->inputSurfacePath().empty() ) << "inputSurfacePath is empty";
 
@@ -1961,7 +2351,7 @@ RemeshSTL::runVMTK()
 
 
 void
-RemeshSTL::runGMSHwithExecutable()
+RemeshSurface::runGMSHwithExecutable()
 {
     CHECK( !this->inputSurfacePath().empty() ) << "inputSurfacePath is empty";
     CHECK( !this->inputCenterlinesPath().empty() ) << "inputCenterlinesPath is empty";
@@ -2001,7 +2391,7 @@ RemeshSTL::runGMSHwithExecutable()
 }
 
 void
-RemeshSTL::runGMSH()
+RemeshSurface::runGMSH()
 {
     CHECK( !this->inputSurfacePath().empty() && fs::exists(this->inputSurfacePath()) ) << "inputSurfacePath is empty or not exist";
     CHECK( !this->inputCenterlinesPath().empty() && fs::exists(this->inputCenterlinesPath()) ) << "inputCenterlinesPath is empty or not exist";
@@ -2024,8 +2414,10 @@ RemeshSTL::runGMSH()
     std::shared_ptr<AngioTkCenterline> centerlinesTool( new AngioTkCenterline );
     centerlinesTool->setIsCut(true);
     centerlinesTool->setRemeshNbPoints( this->remeshNbPointsInCircle() );
+    centerlinesTool->setCutMeshRadiusUncertainty( this->gmshRemeshRadiusUncertainty() );
     centerlinesTool->importSurfaceFromFile( this->inputSurfacePath() );
     centerlinesTool->importFile( this->inputCenterlinesPath() );
+
 
     fs::path gp = this->inputSurfacePath();
     std::string remeshPartitionMeshFileName = gp.stem().string() + "_remeshpartition.msh";
@@ -2040,38 +2432,35 @@ RemeshSTL::runGMSH()
 
 
 po::options_description
-RemeshSTL::options( std::string const& prefix )
+RemeshSurface::options( std::string const& prefix )
 {
     po::options_description myMeshSurfaceOptions( "Mesh surface blood flow from STL and Centerlines options" );
     myMeshSurfaceOptions.add_options()
 
         ( prefixvm(prefix,"package-type").c_str(), po::value<std::string>()->default_value( "vmtk" ), "force-remesh" )
-        ( prefixvm(prefix,"input.filename").c_str(), po::value<std::string>()->default_value( "" ), "stl.filename" )
-        ( prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
-        ( prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
+        ( prefixvm(prefix,"input.surface.filename").c_str(), po::value<std::string>()->default_value( "" ), "surface filename" )
         ( prefixvm(prefix,"output.save-binary").c_str(), Feel::po::value<bool>()->default_value(true), "(bool) save-binary")
         // gmsh options
-        ( prefixvm(prefix,"centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "centerlines.filename" )
-        ( prefixvm(prefix,"nb-points-in-circle").c_str(), po::value<int>()->default_value( 15 ), "nb-points-in-circle" )
+        ( prefixvm(prefix,"gmsh.centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "centerlines.filename" )
+        ( prefixvm(prefix,"gmsh.nb-points-in-circle").c_str(), po::value<int>()->default_value( 15 ), "nb-points-in-circle" )
         ( prefixvm(prefix,"gmsh.remesh-partition.force-rebuild").c_str(), Feel::po::value<bool>()->default_value(true), "(bool) force-rebuild")
+        ( prefixvm(prefix,"gmsh.radius-uncertainty").c_str(), Feel::po::value<double>()->default_value(0.), "(double) radius-uncertainty")
         // vmtk options
-        ( prefixvm(prefix,"area").c_str(), po::value<double>()->default_value( 0.5 ), "area" )
+        ( prefixvm(prefix,"vmtk.area").c_str(), po::value<double>()->default_value( 0.5 ), "area" )
         ( prefixvm(prefix,"vmtk.n-iteration").c_str(), po::value<int>()->default_value( 10 ), "maxit" )
         ;
-    return myMeshSurfaceOptions;
+    return myMeshSurfaceOptions.add( super_type::options( prefix ) );
 }
 
 
-TubularExtension::TubularExtension( std::string prefix )
+TubularExtension::TubularExtension( std::string const& prefix )
     :
-    M_prefix( prefix ),
+    super_type( prefix ),
     M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.surface.filename",_prefix=this->prefix()) ) ),
     M_inputCenterlinesPath( AngioTkEnvironment::expand( soption(_name="input.centerlines.filename",_prefix=this->prefix()) ) ),
-    M_outputDirectory( AngioTkEnvironment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
-    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_saveOutputSurfaceBinary( boption(_name="output.save-binary",_prefix=this->prefix() ) )
 {
-    if ( !M_inputSurfacePath.empty() && M_outputPath.empty() )
+    if ( !M_inputSurfacePath.empty() && this->outputPath().empty() )
     {
         this->updateOutputPathFromInputFileName();
     }
@@ -2084,12 +2473,12 @@ TubularExtension::updateOutputPathFromInputFileName()
 
     // define output directory
     fs::path meshesdirectories;
-    if ( M_outputDirectory.empty() )
+    if ( this->outputDirectory().empty() )
         meshesdirectories = fs::current_path();
-    else if ( fs::path(M_outputDirectory).is_relative() )
-        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(M_outputDirectory);
+    else if ( fs::path(this->outputDirectory()).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(this->outputDirectory());
     else
-        meshesdirectories = fs::path(M_outputDirectory);
+        meshesdirectories = fs::path(this->outputDirectory());
 
     // get filename without extension
     fs::path gp = M_inputSurfacePath;
@@ -2097,7 +2486,7 @@ TubularExtension::updateOutputPathFromInputFileName()
 
     std::string newFileName = (boost::format("%1%_tubeext.stl")%nameMeshFile ).str();
     fs::path outputPath = meshesdirectories / fs::path(newFileName);
-    M_outputPath = outputPath.string();
+    this->setOutputPath( outputPath.string() );
 }
 
 void
@@ -2172,18 +2561,15 @@ TubularExtension::options( std::string const& prefix )
     myTubularExtensionOptions.add_options()
         ( prefixvm(prefix,"input.centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
         ( prefixvm(prefix,"input.surface.filename").c_str(), po::value<std::string>()->default_value( "" ), "(string) input centerline filename" )
-        ( prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
-        ( prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         ( prefixvm(prefix,"output.save-binary").c_str(), Feel::po::value<bool>()->default_value(true), "(bool) save-binary")
         ;
-
-    return myTubularExtensionOptions;
+    return myTubularExtensionOptions.add( super_type::options( prefix ) );
 }
 
 namespace detail
 {
 void
-generateMeshFromGeo( std::string inputGeoName,std::string outputMeshName,int dim )
+generateMeshFromGeo( std::string const& inputGeoName,std::string const& outputMeshName,int dim )
 {
     //fs::path outputMeshNamePath=fs::path(Environment::findFile(outputMeshName));
     fs::path outputMeshNamePath=fs::path(outputMeshName);
@@ -2259,22 +2645,19 @@ generateMeshFromGeo( std::string inputGeoName,std::string outputMeshName,int dim
 
 
 
-VolumeMeshing::VolumeMeshing( std::string prefix )
+VolumeMeshing::VolumeMeshing( std::string const& prefix )
     :
-    M_prefix( prefix ),
-    M_inputSTLPath( AngioTkEnvironment::expand( soption(_name="input.stl.filename",_prefix=this->prefix()) ) ),
+    super_type( prefix ),
+    M_inputSurfacePath( AngioTkEnvironment::expand( soption(_name="input.surface.filename",_prefix=this->prefix()) ) ),
     M_inputCenterlinesPath( AngioTkEnvironment::expand( soption(_name="input.centerlines.filename",_prefix=this->prefix())) ),
     M_inputInletOutletDescPath( AngioTkEnvironment::expand( soption(_name="input.desc.filename",_prefix=this->prefix())) ),
     M_remeshNbPointsInCircle( ioption(_name="nb-points-in-circle",_prefix=this->prefix() ) ),
     M_extrudeWall( boption(_name="extrude-wall",_prefix=this->prefix() ) ),
     M_extrudeWallNbElemLayer( ioption(_name="extrude-wall.nb-elt-layer",_prefix=this->prefix() ) ),
     M_extrudeWallhLayer( doption(_name="extrude-wall.h-layer",_prefix=this->prefix()) ),
-    M_outputPath(),
-    M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
-    M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
     M_saveOutputVolumeBinary( boption(_name="output.save-binary",_prefix=this->prefix() ) )
 {
-    if ( !M_inputSTLPath.empty() && M_outputPath.empty() )
+    if ( !this->inputSurfacePath().empty() && this->outputPath().empty() )
     {
         this->updateOutputPathFromInputFileName();
     }
@@ -2284,19 +2667,19 @@ VolumeMeshing::VolumeMeshing( std::string prefix )
 void
 VolumeMeshing::updateOutputPathFromInputFileName()
 {
-    CHECK( !this->inputSTLPath().empty() ) << "input path is empty";
+    CHECK( !this->inputSurfacePath().empty() ) << "input path is empty";
 
     // define output directory
     fs::path meshesdirectories;
-    if ( M_outputDirectory.empty() )
+    if ( this->outputDirectory().empty() )
         meshesdirectories = fs::current_path();
-    else if ( fs::path(M_outputDirectory).is_relative() )
-        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(M_outputDirectory);
+    else if ( fs::path(this->outputDirectory()).is_relative() )
+        meshesdirectories = fs::path(Environment::rootRepository())/fs::path(this->outputDirectory());
     else
-        meshesdirectories = fs::path(M_outputDirectory);
+        meshesdirectories = fs::path(this->outputDirectory());
 
     // get filename without extension
-    fs::path gp = M_inputSTLPath;
+    fs::path gp = this->inputSurfacePath();
     std::string nameMeshFile = gp.stem().string();
 
 
@@ -2312,7 +2695,7 @@ VolumeMeshing::updateOutputPathFromInputFileName()
                                ).str();
 
     fs::path outputPath = meshesdirectories / fs::path(newFileName);
-    M_outputPath = outputPath.string();
+    this->setOutputPath( outputPath.string() );
 }
 
 void
@@ -2323,7 +2706,7 @@ VolumeMeshing::run()
               << "---------------------------------------\n"
               << "run VolumeMeshing \n"
               << "---------------------------------------\n";
-    std::cout << "input path              : " << this->inputSTLPath() << "\n"
+    std::cout << "input surface path      : " << this->inputSurfacePath() << "\n"
               << "centerlines path        : " << this->inputCenterlinesPath() << "\n"
               << "inletoutlet desc path   : " << this->inputInletOutletDescPath() << "\n"
               << "extrude arterial wall   : " << std::boolalpha << M_extrudeWall << "\n";
@@ -2335,14 +2718,41 @@ VolumeMeshing::run()
               << "---------------------------------------\n"
               << "---------------------------------------\n";
 
-    CHECK( !this->inputSTLPath().empty() ) << "inputSTLPath is empty";
-    CHECK( !this->inputCenterlinesPath().empty() ) << "centerlinesFileName is empty";
-    CHECK( !this->inputInletOutletDescPath().empty() ) << "inletOutletDescFileName is empty";
+    if ( !fs::exists( this->inputSurfacePath() ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+        {
+            std::cout << "WARNING : Volume meshing will not be done because this input surface path does not not exist: " << this->inputSurfacePath() << std::endl
+                      << "Please set it with the \"input.surface.filename\" option." << std::endl;
+        }
+        return;
+    }
+    //CHECK( !this->inputSurfacePath().empty() ) << "inputSurfacePath is empty";
+    if ( !fs::exists( this->inputCenterlinesPath() ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+        {
+            std::cout << "WARNING : Volume meshing will not be done because the centerline file does not exist: " << this->inputCenterlinesPath() << std::endl
+                      << "Please set it with the \"input.centerlines.filename\" option." << std::endl;
+        }
+        return;
+    }
+    //CHECK( !this->inputCenterlinesPath().empty() ) << "centerlinesFileName is empty";
+    if ( !fs::exists( this->inputInletOutletDescPath() ) )
+    {
+        if ( this->worldComm().isMasterRank() )
+        {
+            std::cout << "WARNING : Volume meshing will not be done because this input description file does not exist: " << this->inputInletOutletDescPath() << std::endl
+                      << "Please set it with the \"input.desc.filename\" option." << std::endl;
+        }
+        return;
+    }
+    //CHECK( !this->inputInletOutletDescPath().empty() ) << "inletOutletDescFileName is empty";
 
     if ( fs::exists( this->outputPath() ) && !this->forceRebuild() )
     {
-        std::cout << "already file exist, ignore meshVolume\n"
-                  << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n";
+        std::cout << "The output file already exists in " << this->outputPath() << ", skipping meshVolume" << std::endl
+                  << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" << std::endl;
         return;
     }
 
@@ -2368,7 +2778,7 @@ VolumeMeshing::run()
 }
 
 void
-VolumeMeshing::generateGeoFor3dVolumeFromSTLAndCenterlines(std::string geoname)
+VolumeMeshing::generateGeoFor3dVolumeFromSTLAndCenterlines(std::string const& geoname)
 {
     std::ostringstream geodesc;
     geodesc << "General.ExpertMode=1;\n";
@@ -2381,7 +2791,7 @@ VolumeMeshing::generateGeoFor3dVolumeFromSTLAndCenterlines(std::string geoname)
     //Mesh.CharacteristicLengthFactor=0.015;
 
     //Merge "stl_remesh_gmsh/fluidskin_P15.stl";
-    geodesc << "Merge \""<< this->inputSTLPath() <<"\";\n";
+    geodesc << "Merge \""<< this->inputSurfacePath() <<"\";\n";
 
     //geodesc << "Field[1] = Centerline;\n";
     geodesc << "Field[1] = AngioTkCenterline;\n";
@@ -2420,18 +2830,16 @@ VolumeMeshing::options( std::string const& prefix )
 {
     po::options_description myMeshVolumeOptions( "Mesh volume blood flow from STL and Centerlines options" );
     myMeshVolumeOptions.add_options()
-        ( prefixvm(prefix,"input.stl.filename").c_str(), po::value<std::string>()->default_value( "" ), "stl.filename" )
+        ( prefixvm(prefix,"input.surface.filename").c_str(), po::value<std::string>()->default_value( "" ), "stl.filename" )
         ( prefixvm(prefix,"input.centerlines.filename").c_str(), po::value<std::string>()->default_value( "" ), "centerlines.filename" )
         ( prefixvm(prefix,"input.desc.filename").c_str(), po::value<std::string>()->default_value( "" ), "inletoutlet-desc.filename" )
-        ( prefixvm(prefix,"output.directory").c_str(), Feel::po::value<std::string>()->default_value(""), "(string) output directory")
         ( prefixvm(prefix,"output.save-binary").c_str(), Feel::po::value<bool>()->default_value(true), "(bool) save-binary")
-        ( prefixvm(prefix,"force-rebuild").c_str(), Feel::po::value<bool>()->default_value(false), "(bool) force-rebuild")
         ( prefixvm(prefix,"nb-points-in-circle").c_str(), po::value<int>()->default_value( 15 ), "nb-points-in-circle" )
         ( prefixvm(prefix,"extrude-wall").c_str(),po::value<bool>()->default_value( false ), "extrude-wall" )
         ( prefixvm(prefix,"extrude-wall.nb-elt-layer").c_str(), po::value<int>()->default_value( 2 ), "nb-elt-layer" )
         ( prefixvm(prefix,"extrude-wall.h-layer").c_str(), po::value<double>()->default_value( 0.2 ), "h-layer" )
         ;
-    return myMeshVolumeOptions;
+    return myMeshVolumeOptions.add( super_type::options( prefix ) );
 }
 
 

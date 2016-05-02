@@ -6,8 +6,16 @@ add_library( angiotk_meshing_volumefromstl
   angiotkPolyBallModeller.cxx
   angiotkPolyBallLine.cxx
   centerlinesmanagerwindowinteractor.cpp
+  centerlinesmanageriodata.cpp
   )
 target_link_libraries( angiotk_meshing_volumefromstl ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} ${VMTK_LIBRARIES} )
+
+install(TARGETS angiotk_meshing_volumefromstl
+    LIBRARY DESTINATION Modules/Meshing/lib
+)
+
+angiotk_add_component( meshing_centerlinesmanagergui centerlinesmanagergui_main.cpp )
+target_link_libraries( meshing_centerlinesmanagergui ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
 
 
 angiotk_add_component( meshing_createinletoutletdesc createinletoutletdesc_main.cpp )
@@ -35,6 +43,9 @@ target_link_libraries( meshing_imagefromcenterlines ${FEELPP_LIBRARY} ${FEELPP_L
 
 angiotk_add_component( meshing_surfacefromimage surfacefromimage_main.cpp )
 target_link_libraries( meshing_surfacefromimage ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
+
+angiotk_add_component( meshing_imagesmanager imagesmanager_main.cpp )
+target_link_libraries( meshing_imagesmanager ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
 
 angiotk_add_component( meshing_opensurface opensurface_main.cpp )
 target_link_libraries( meshing_opensurface ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)

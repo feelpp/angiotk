@@ -8,6 +8,10 @@
 #include <angiotkMeshingConfig.h>
 
 #include <feel/feelfilters/gmsh.hpp>
+
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+
 #if defined( FEELPP_HAS_GMSH_H )
 
 #include <GmshConfig.h>
@@ -55,14 +59,64 @@ public :
     //{}
     static std::string expand( std::string const& expr ) { return Feel::Environment::expand( expr ); }
 
+    static Feel::po::variables_map const& vm() { return Feel::Environment::vm(); }
+
 private :
     static Feel::fs::path S_pathInitial;
     static boost::shared_ptr<Feel::Environment> S_feelEnvironment;
 };
 
 
-namespace Feel
+
+namespace AngioTk
 {
+//namespace fs = boost::filesystem;
+//namespace fs = Feel::fs;
+//namespace po = Feel::po;
+using namespace Feel;
+
+class AngioTkFilterBase
+{
+public :
+    AngioTkFilterBase()
+        :
+        M_forceRebuild( true )
+    {}
+    AngioTkFilterBase( std::string const& prefix );
+    AngioTkFilterBase( AngioTkFilterBase const& e ) = default;
+    Feel::WorldComm const& worldComm() const { return Feel::Environment::worldComm(); }
+    std::string const& prefix() const { return M_prefix; }
+    std::string const& outputDirectory() const { return M_outputDirectory; }
+    std::string const& outputPath() const { return M_outputPath; }
+    bool forceRebuild() const { return M_forceRebuild; }
+    void setOutputPath( std::string const& path ) { M_outputPath=path; this->updateOutputDirFromOutputPath(); }
+    void setOutputDirectory( std::string const& path ) { M_outputDirectory=path; }
+    void setForceRebuild( bool b ) { M_forceRebuild = b; }
+
+    void createOutputDirectory()
+    {
+        // build directories if necessary
+        if ( !this->outputDirectory().empty() && this->worldComm().isMasterRank() )
+            {
+                if ( !fs::exists( this->outputDirectory() ) )
+                    fs::create_directories( this->outputDirectory() );
+            }
+        // // wait all process
+        this->worldComm().globalComm().barrier();
+    }
+    static po::options_description options( std::string const& prefix );
+
+private :
+    void updateOutputDirFromOutputPath()
+    {
+        if ( this->outputPath().empty() ) return;
+        if ( fs::path(this->outputPath()).is_absolute() )
+            M_outputDirectory = fs::path(this->outputPath()).parent_path().string();
+    }
+    std::string M_prefix;
+    std::string M_outputDirectory, M_outputPath;
+    bool M_forceRebuild;
+};
 
 enum BCType { BC_INLET=0,BC_OUTLET=1 };
 
@@ -108,45 +162,41 @@ public :
 
     void add( InletOutletData const& data );
 
-    void loadFromSTL( std::string inputPath );
+    int loadFromSTL( std::string inputPath );
     void save( std::string outputPath );
+    void saveJSON( std::string outputPath );
 
  private :
 //std::string M_path;
 
 };
 
-class CenterlinesFromSTL
+class CenterlinesFromSurface : public AngioTkFilterBase
 {
+    typedef AngioTkFilterBase super_type;
 public :
 
-    CenterlinesFromSTL( std::string prefix );
-    CenterlinesFromSTL( CenterlinesFromSTL const& e ) = default;
+    CenterlinesFromSurface( std::string const& prefix );
+    CenterlinesFromSurface( CenterlinesFromSurface const& e ) = default;
 
-    std::string prefix() const { return M_prefix; }
-    WorldComm const& worldComm() const { return Environment::worldComm(); }
-
-    std::string inputPath() const { return M_inputPath; }
+    std::string inputSurfacePath() const { return M_inputSurfacePath; }
     std::string inputCenterlinesPointSetPath() const { return M_inputCenterlinesPointSetPath; }
     std::string inputCenterlinesPointPairPath() const { return M_inputCenterlinesPointPairPath; }
     std::string inputInletOutletDescPath() const { return M_inputInletOutletDescPath; }
     std::string inputGeoCenterlinesPath() const { return M_inputGeoCenterlinesPath; }
-    std::string outputPath() const { return M_outputPath; }
-    void setOutputPath(std::string const& path) { M_outputPath=path; }
+
     std::set<int> const& targetids() const { return M_targetids; }
     std::set<int> const& sourceids() const { return M_sourceids; }
-    bool forceRebuild() const { return M_forceRebuild; }
     bool viewResults() const { return M_viewResults; }
 
-    void setStlFileName(std::string s) { M_inputPath=s; }
+    void setInputSurfacePath(std::string s) { M_inputSurfacePath=s; }
     void setTargetids( std::set<int> const& s ) { M_targetids=s; }
     void setSourceids( std::set<int> const& s ) { M_sourceids=s; }
-    void setForceRebuild( bool b ) { M_forceRebuild=b; }
     void setViewResults(bool b) { M_viewResults=b; }
 
     void updateOutputPathFromInputFileName();
 
-    void run();
+    int run();
 
     static po::options_description options( std::string const& prefix );
 private :
@@ -158,14 +208,11 @@ private :
     loadFromCenterlinesPointPairFile();
 
 private :
-    std::string M_prefix;
-    std::string M_inputPath, M_inputCenterlinesPointSetPath, M_inputCenterlinesPointPairPath, M_inputInletOutletDescPath, M_outputPath;
+    std::string M_inputSurfacePath, M_inputCenterlinesPointSetPath, M_inputCenterlinesPointPairPath, M_inputInletOutletDescPath;
     std::string M_inputGeoCenterlinesPath;
-    std::string M_outputDirectory;
     std::set<int> M_targetids, M_sourceids;
     std::string M_costFunctionExpr;
 
-    bool M_forceRebuild;
     bool M_useInteractiveSelection;
     bool M_viewResults,M_viewResultsWithSurface;
 
@@ -173,11 +220,12 @@ private :
     bool M_delaunayTessellationForceRebuild;
 };
 
-class CenterlinesManager
+class CenterlinesManager : public AngioTkFilterBase
 {
+    typedef AngioTkFilterBase super_type;
 public :
 
-    CenterlinesManager( std::string prefix );
+    CenterlinesManager( std::string const& prefix );
     CenterlinesManager( CenterlinesManager const& e ) = default;
 
     void updateOutputPathFromInputFileName();
@@ -190,223 +238,216 @@ public :
 
     static po::options_description options( std::string const& prefix );
 
-    std::string const& prefix() const { return M_prefix; }
-    WorldComm const& worldComm() const { return Environment::worldComm(); }
     std::vector<std::string> const& inputCenterlinesPath() const { return M_inputCenterlinesPath; }
     std::string const& inputCenterlinesPath(int k) const { return M_inputCenterlinesPath[k]; }
     std::string const& inputSurfacePath() const { return M_inputSurfacePath; }
     std::string const& inputPointSetPath() const { return M_inputPointSetPath; }
-    std::string const& outputPath() const { return M_outputPath; }
-    bool forceRebuild() const { return M_forceRebuild; }
+    std::string const& inputPointPairPath() const { return M_inputPointPairPath; }
 
     void setInputCenterlinesPath(std::string const& path) { M_inputCenterlinesPath = { path }; }
     void setInputSurfacePath(std::string const& path) { M_inputSurfacePath=path; }
     void setInputPointSetPath(std::string const& path) { M_inputPointSetPath=path; }
-    void setOutputPath(std::string const& path) { M_outputPath=path; }
-    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
-    void setForceRebuild(bool b) { M_forceRebuild=b; }
+    void setInputPointPairPath(std::string const& path) { M_inputPointPairPath=path; }
 
 private :
-    std::string M_prefix;
     std::vector<std::string> M_inputCenterlinesPath;
-    std::string M_inputSurfacePath, M_inputPointSetPath, M_outputDirectory, M_outputPath;
-    bool M_forceRebuild;
-    bool M_useWindowInteractor;
+    std::string M_inputSurfacePath, M_inputPointSetPath, M_inputPointPairPath;
     std::set<int> M_removeBranchIds;
     double M_applyThresholdMinRadius,M_applyThresholdMaxRadius;
     std::string M_applyThresholdZonePointSetPath;
     double M_applyThresholdZoneMinRadius,M_applyThresholdZoneMaxRadius;
+    bool M_avoidTubularColision;
+    double M_avoidTubularColisionDistanceMin, M_avoidTubularColisionRadiusMin;
+    std::string M_avoidTubularColisionInputPointPairPath;
+    bool M_smoothResample;
+    double M_smoothResampleMeshSize, M_smoothResampleGeoPointSpacing;
 };
 
-class ImageFromCenterlines
+class ImageFromCenterlines : public AngioTkFilterBase
 {
+    typedef AngioTkFilterBase super_type;
 public :
 
-    ImageFromCenterlines( std::string prefix );
+    ImageFromCenterlines( std::string const& prefix );
     ImageFromCenterlines( ImageFromCenterlines const& e ) = default;
 
     void updateOutputPathFromInputFileName();
 
-    void run();
+    int run();
 
     static po::options_description options( std::string const& prefix );
 
-    std::string prefix() const { return M_prefix; }
-    WorldComm const& worldComm() const { return Environment::worldComm(); }
     std::string inputCenterlinesPath() const { return M_inputCenterlinesPath; }
-    std::string outputPath() const { return M_outputPath; }
-    bool forceRebuild() const { return M_forceRebuild; }
 
 private :
-    std::string M_prefix;
-    std::string M_inputCenterlinesPath, M_outputDirectory,M_outputPath;
-    bool M_forceRebuild;
-    int/*double*/ M_dimX,M_dimY,M_dimZ;
+    std::string M_inputCenterlinesPath;
+    int M_dimX,M_dimY,M_dimZ;
     double M_dimSpacing;
     std::string M_radiusArrayName;
 };
 
-class SurfaceFromImage
+class SurfaceFromImage : public AngioTkFilterBase
 {
+    typedef AngioTkFilterBase super_type;
 public :
 
-    SurfaceFromImage( std::string prefix );
+    SurfaceFromImage( std::string const& prefix );
     SurfaceFromImage( SurfaceFromImage const& e ) = default;
 
     void updateOutputPathFromInputFileName();
 
-    void run();
+    int run();
 
     static po::options_description options( std::string const& prefix );
 
-    std::string prefix() const { return M_prefix; }
-    WorldComm const& worldComm() const { return Environment::worldComm(); }
-    std::string inputPath() const { return M_inputPath; }
-    std::string method() { return M_method; }
-    std::string outputPath() const { return M_outputPath; }
-    bool forceRebuild() const { return M_forceRebuild; }
-
-    void setOutputPath(std::string const& path) { M_outputPath=path; }
-    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
+    std::vector<std::string> const& inputImagesPath() const { return M_inputImagesPath; }
+    std::string const& inputImagesPath( int k ) const { return M_inputImagesPath[k]; }
+    std::string const& method() const { return M_method; }
 
 private :
-    std::string M_prefix;
-    std::string M_inputPath, M_outputDirectory,M_outputPath;
+    std::vector<std::string> M_inputImagesPath;
+    std::string M_imageFusionOperator;
+    std::string M_resizeFromRefImagePath;
     std::string M_method;
     double M_thresholdLower,M_thresholdUpper;
     bool M_hasThresholdLower,M_hasThresholdUpper;
     bool M_applyConnectivityLargestRegion;
-    bool M_forceRebuild;
+    int M_applyConnectivityNumberOfRegion;
 };
 
-class SubdivideSurface
+
+class ImagesManager : public AngioTkFilterBase
 {
+    typedef AngioTkFilterBase super_type;
 public :
 
-    SubdivideSurface( std::string prefix );
+    ImagesManager();
+    ImagesManager( std::string const& prefix );
+    ImagesManager( ImagesManager const& e ) = default;
+    void updateOutputPathFromInputFileName();
+    void run();
+    void printInfo() const;
+    static po::options_description options( std::string const& prefix );
+
+    std::vector<std::string> const& inputPath() const { return M_inputPath; }
+    std::string const& inputPath(int k) const { return M_inputPath[k]; }
+    bool resizeFromRefImageApply() const { return M_resizeFromRefImageApply; }
+    std::string const& resizeFromRefImagePath() const { return M_resizeFromRefImagePath; }
+
+    void setInputPath( std::string const& path ) { M_inputPath.clear(); M_inputPath.push_back( path ); }
+    void setResizeFromRefImageApply( bool b ) { M_resizeFromRefImageApply = b; }
+    void setResizeFromRefImagePath( std::string const& path ) { M_resizeFromRefImagePath = path; }
+
+private :
+    void updateResizeFromRefImage();
+private :
+    std::vector<std::string> M_inputPath;
+    bool M_resizeFromRefImageApply;
+    std::string M_resizeFromRefImagePath;
+};
+
+
+class SubdivideSurface : public AngioTkFilterBase
+{
+    typedef AngioTkFilterBase super_type;
+public :
+
+    SubdivideSurface( std::string const& prefix );
     SubdivideSurface( SubdivideSurface const& e ) = default;
 
     void updateOutputPathFromInputFileName();
 
     void run();
 
-    std::string prefix() const { return M_prefix; }
-    WorldComm const& worldComm() const { return Environment::worldComm(); }
     std::string inputSurfacePath() const { return M_inputSurfacePath; }
-    std::string outputPath() const { return M_outputPath; }
-    bool forceRebuild() const { return M_forceRebuild; }
 
     void setInputSurfacePath(std::string const& path) { M_inputSurfacePath=path; }
-    void setOutputPath(std::string const& path) { M_outputPath=path; }
-    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
-    void setForceRebuild( bool b ) { M_forceRebuild=b; }
 
     static po::options_description options( std::string const& prefix );
 
 private :
-    std::string M_prefix;
-    std::string M_inputSurfacePath, M_outputDirectory, M_outputPath;
+    std::string M_inputSurfacePath;
     std::string M_method;
     int M_nSubdivisions;
-    bool M_forceRebuild;
 };
 
-class SmoothSurface
+class SmoothSurface : public AngioTkFilterBase
 {
+    typedef AngioTkFilterBase super_type;
 public :
 
-    SmoothSurface( std::string prefix );
+    SmoothSurface( std::string const& prefix );
     SmoothSurface( SmoothSurface const& e ) = default;
 
     void updateOutputPathFromInputFileName();
 
     void run();
 
-    std::string prefix() const { return M_prefix; }
-    WorldComm const& worldComm() const { return Environment::worldComm(); }
     std::string inputSurfacePath() const { return M_inputSurfacePath; }
-    std::string outputPath() const { return M_outputPath; }
-    bool forceRebuild() const { return M_forceRebuild; }
 
     void setInputSurfacePath(std::string const& path) { M_inputSurfacePath=path; }
-    void setOutputPath(std::string const& path) { M_outputPath=path; }
-    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
-    void setForceRebuild( bool b ) { M_forceRebuild=b; }
 
     static po::options_description options( std::string const& prefix );
 
 private :
-    std::string M_prefix;
-    std::string M_inputSurfacePath, M_inputCenterlinesPath, M_outputDirectory, M_outputPath;
+    std::string M_inputSurfacePath, M_inputCenterlinesPath;
     std::string M_method;
     int M_nIterations;
     double M_taubinPassBand;
     double M_laplaceRelaxationFactor;
-    bool M_forceRebuild;
 };
 
-class OpenSurface
+class OpenSurface : public AngioTkFilterBase
 {
+    typedef AngioTkFilterBase super_type;
 public :
 
-    OpenSurface( std::string prefix );
+    OpenSurface( std::string const& prefix );
     OpenSurface( OpenSurface const& e ) = default;
 
     void updateOutputPathFromInputFileName();
 
-    void run();
+    int run();
     void runGMSH();
     void runGMSHwithExecutable();
     void runVMTK();
 
     static po::options_description options( std::string const& prefix );
 
-    std::string prefix() const { return M_prefix; }
-    WorldComm const& worldComm() const { return Environment::worldComm(); }
     std::string inputSurfacePath() const { return M_inputSurfacePath; }
     std::string inputCenterlinesPath() const { return M_inputCenterlinesPath; }
-    std::string outputPath() const { return M_outputPath; }
-    bool forceRebuild() const { return M_forceRebuild; }
 
     void setInputSurfacePath(std::string const& s) { M_inputSurfacePath=s; }
     void setInputCenterlinesPath(std::string const& s) { M_inputCenterlinesPath=s; }
-    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
-    void setForceRebuild( bool b ) { M_forceRebuild=b; }
 
 private :
-    std::string M_prefix;
-    std::string M_inputSurfacePath, M_inputCenterlinesPath, M_outputDirectory, M_outputPath;
-    bool M_forceRebuild;
-    double M_distanceClipScalingFactor;
+    std::string M_inputSurfacePath, M_inputCenterlinesPath;
+    double M_distanceClipScalingFactor, M_radiusUncertainty;
     bool M_saveOutputSurfaceBinary;
 };
 
 namespace detail
 {
-void generateMeshFromGeo( std::string inputGeoName,std::string outputMeshName,int dim);
+void generateMeshFromGeo( std::string const& inputGeoName,std::string const& outputMeshName,int dim);
 }
 
-class RemeshSTL
+class RemeshSurface : public AngioTkFilterBase
 {
+    typedef AngioTkFilterBase super_type;
 public :
 
-    RemeshSTL( std::string prefix );
-    RemeshSTL( RemeshSTL const& e ) = default;
+    RemeshSurface( std::string const& prefix );
+    RemeshSurface( RemeshSurface const& e ) = default;
 
-    std::string prefix() const { return M_prefix; }
-    WorldComm const& worldComm() const { return Environment::worldComm(); }
     std::string packageType() const { return M_packageType; }
     std::string inputSurfacePath() const { return M_inputSurfacePath; }
     std::string inputCenterlinesPath() const { return M_inputCenterlinesPath; }
+
+    // gmsh
     int remeshNbPointsInCircle() const { return M_gmshRemeshNbPointsInCircle; }
+    double gmshRemeshRadiusUncertainty() const { return M_gmshRemeshRadiusUncertainty; }
+    // vmtk
     double area() const { return M_vmtkArea; }
-    std::string outputPath() const
-    {
-        if ( this->packageType() =="gmsh" || this->packageType() == "gmsh-executable" )
-            return M_outputPathGMSH;
-        else return M_outputPathVMTK;
-    }
-    bool forceRebuild() const { return M_forceRebuild; }
 
     void setPackageType( std::string type)
     {
@@ -415,19 +456,10 @@ public :
     }
     void setInputSurfacePath(std::string const& s) { M_inputSurfacePath=s; }
     void setInputCenterlinesPath(std::string const& s) { M_inputCenterlinesPath=s; }
-    void setOutputPath(std::string const& path)
-    {
-        if ( this->packageType() =="gmsh" || this->packageType() == "gmsh-executable" )
-            M_outputPathGMSH=path;
-        else M_outputPathVMTK=path;
-    }
-    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
-
-    void setForceRebuild( bool b ) { M_forceRebuild=b; }
 
     void updateOutputPathFromInputFileName();
 
-    void run();
+    int run();
     void runVMTK();
     void runGMSH();
     void runGMSHwithExecutable();
@@ -435,94 +467,75 @@ public :
     static po::options_description options( std::string const& prefix );
 
 private :
-    std::string M_prefix;
     std::string M_packageType;
     std::string M_inputSurfacePath;
     // with gmsh
     std::string M_inputCenterlinesPath;
     int M_gmshRemeshNbPointsInCircle;
     bool M_gmshRemeshPartitionForceRebuild;
+    double M_gmshRemeshRadiusUncertainty;
     // with vmtk
     double M_vmtkArea;
     int M_vmtkNumberOfIteration;
 
-    std::string M_outputPathGMSH, M_outputPathVMTK;
-    std::string M_outputDirectory;
-    bool M_forceRebuild;
-
     bool M_saveOutputSurfaceBinary;
-}; // class RemeshSTL
+};
 
-class TubularExtension
+class TubularExtension : public AngioTkFilterBase
 {
+    typedef AngioTkFilterBase super_type;
 public :
 
-    TubularExtension( std::string prefix );
+    TubularExtension( std::string const& prefix );
     TubularExtension( TubularExtension const& e ) = default;
 
     void updateOutputPathFromInputFileName();
     void run();
 
-    std::string prefix() const { return M_prefix; }
-    WorldComm const& worldComm() const { return Environment::worldComm(); }
     std::string inputSurfacePath() const { return M_inputSurfacePath; }
     std::string inputCenterlinesPath() const { return M_inputCenterlinesPath; }
-    std::string outputPath() const { return M_outputPath; }
-    bool forceRebuild() const { return M_forceRebuild; }
 
     void setInputSurfacePath(std::string const& path) { M_inputSurfacePath=path; }
     void setInputCenterlinesPath(std::string const& s) { M_inputCenterlinesPath=s; }
-    void setOutputPath(std::string const& path) { M_outputPath=path; }
-    void setOutputDirectory(std::string const& path) { M_outputDirectory=path; }
-    void setForceRebuild( bool b ) { M_forceRebuild=b; }
 
     static po::options_description options( std::string const& prefix );
 
 private :
-    std::string M_prefix;
     std::string M_inputSurfacePath, M_inputCenterlinesPath;
-    std::string M_outputDirectory, M_outputPath;
-    bool M_forceRebuild;
     bool M_saveOutputSurfaceBinary;
 };
 
-class VolumeMeshing
+class VolumeMeshing : public AngioTkFilterBase
 {
+    typedef AngioTkFilterBase super_type;
 public :
 
-    VolumeMeshing( std::string prefix );
+    VolumeMeshing( std::string const& prefix );
     VolumeMeshing( VolumeMeshing const& e ) = default;
 
-    std::string prefix() const { return M_prefix; }
-    WorldComm const& worldComm() const { return Environment::worldComm(); }
-
-    std::string inputSTLPath() const { return M_inputSTLPath; }
-    std::string inputCenterlinesPath() const { return M_inputCenterlinesPath; }
-    std::string inputInletOutletDescPath() const { return M_inputInletOutletDescPath; }
-    std::string outputPath() const { return M_outputPath; }
-    bool forceRebuild() const { return M_forceRebuild; }
+    std::string const& inputSurfacePath() const { return M_inputSurfacePath; }
+    std::string const& inputCenterlinesPath() const { return M_inputCenterlinesPath; }
+    std::string const& inputInletOutletDescPath() const { return M_inputInletOutletDescPath; }
     int remeshNbPointsInCircle() const { return M_remeshNbPointsInCircle; }
     bool extrudeWall() const { return M_extrudeWall; }
     int extrudeWall_nbElemLayer() const { return M_extrudeWallNbElemLayer; }
     double extrudeWall_hLayer() const { return M_extrudeWallhLayer; }
 
-    void setInputSTLPath(std::string s) { M_inputSTLPath=s; }
-    void setInputCenterlinesPath(std::string s) { M_inputCenterlinesPath=s; }
-    void setInputInletOutletDescPath(std::string s) { M_inputInletOutletDescPath=s; }
-    void setForceRebuild( bool b ) { M_forceRebuild=b; }
+    void setInputSurfacePath(std::string const& s) { M_inputSurfacePath=s; }
+    void setInputCenterlinesPath(std::string const& s) { M_inputCenterlinesPath=s; }
+    void setInputInletOutletDescPath(std::string const& s) { M_inputInletOutletDescPath=s; }
 
     void updateOutputPathFromInputFileName();
 
     void run();
-    void generateGeoFor3dVolumeFromSTLAndCenterlines(std::string geoname);
+    void generateGeoFor3dVolumeFromSTLAndCenterlines(std::string const& geoname);
 
     static po::options_description options( std::string const& prefix );
 
 
 private :
 
-    std::string M_prefix;
-    std::string M_inputSTLPath;
+    std::string M_inputSurfacePath;
     std::string M_inputCenterlinesPath;
 
     std::string M_inputInletOutletDescPath;
@@ -533,14 +546,9 @@ private :
     int M_extrudeWallNbElemLayer;
     double M_extrudeWallhLayer;
 
-    std::string M_outputPath;
-    std::string M_outputDirectory;
-    bool M_forceRebuild;
-
     bool M_saveOutputVolumeBinary;
-
 };
 
-} // namespace Feel
+} // namespace AngioTk
 
 #endif // __VOLUMEFROMSTL_H

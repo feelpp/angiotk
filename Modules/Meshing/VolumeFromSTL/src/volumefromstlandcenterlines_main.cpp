@@ -5,7 +5,7 @@
 
 int main( int argc, char** argv )
 {
-    using namespace Feel;
+    using namespace AngioTk;
 
     po::options_description myoptions = VolumeMeshing::options("");
 
@@ -19,18 +19,38 @@ int main( int argc, char** argv )
     VolumeMeshing myMeshingVolume("");
     if ( myMeshingVolume.inputInletOutletDescPath().empty() )
       {
-	std::string inputSurfacePath = myMeshingVolume.inputSTLPath();
+	std::string inputSurfacePath = myMeshingVolume.inputSurfacePath();
 	std::string nameWithoutExt = fs::path(inputSurfacePath).stem().string();
 	std::string outputDescPath = (fs::path(myMeshingVolume.outputPath()).parent_path()/fs::path(nameWithoutExt+".desc")).string();
+
+    if( !fs::exists(myMeshingVolume.inputSurfacePath()))
+    {
+        std::cout << "WARNING: The input surface path file does not exists." << std::endl
+                  << "Please set it with the \"input.surface.filename\" option." << std::endl;
+    }
 
 	if ( !fs::exists( outputDescPath ) || myMeshingVolume.forceRebuild() )
 	  {
 	    InletOutletDesc ioDesc;
-	    ioDesc.loadFromSTL( inputSurfacePath );
+        /* Handle non-zero returns (errors) */
+	    if(ioDesc.loadFromSTL( inputSurfacePath ))
+        {
+            return 1;
+        }
 	    ioDesc.save(outputDescPath);
 	  }
 	myMeshingVolume.setInputInletOutletDescPath(outputDescPath);
       }
+
+    /* Create json file path */
+    std::string baseDir = fs::path(myMeshingVolume.inputInletOutletDescPath()).parent_path().string();
+    std::string jsonFile = fs::path(myMeshingVolume.inputInletOutletDescPath()).stem().string() + ".json";
+	std::string outputJSONPath = baseDir + "/" + jsonFile;
+
+    /* write json file */
+    InletOutletDesc ioDesc(myMeshingVolume.inputInletOutletDescPath());
+    ioDesc.saveJSON(outputJSONPath);
+
     myMeshingVolume.run();
 
     return 0;

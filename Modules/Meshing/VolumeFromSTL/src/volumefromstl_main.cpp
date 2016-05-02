@@ -6,7 +6,7 @@
 
 int main( int argc, char** argv )
 {
-    using namespace Feel;
+    using namespace AngioTk;
 
     po::options_description myoptions( "blood flow mesh from STL options" );
     myoptions.add_options()
@@ -17,8 +17,8 @@ int main( int argc, char** argv )
       ( "force-rebuild", po::value<bool>()->default_value( false ), "(bool) force rebuild" )
       ;
 
-    myoptions.add( CenterlinesFromSTL::options("centerlines") )
-      .add( RemeshSTL::options("mesh-surface") )
+    myoptions.add( CenterlinesFromSurface::options("centerlines") )
+      .add( RemeshSurface::options("mesh-surface") )
       .add( VolumeMeshing::options("mesh-volume") );
 
     AngioTkEnvironment env( _argc=argc, _argv=argv,
@@ -29,32 +29,32 @@ int main( int argc, char** argv )
 
 
     bool doForceRebuild = boption(_name="force-rebuild");
-    bool doRemeshSTLForCenterlines=boption(_name="remesh-stl-for-centerlines") || doForceRebuild;
+    bool doRemeshSurfaceForCenterlines=boption(_name="remesh-stl-for-centerlines") || doForceRebuild;
     bool doComputeCenterlines = boption(_name="compute-centerlines") || doForceRebuild;
     bool doRemeshSurface=boption(_name="remesh-surface") || doForceRebuild;
     bool doMeshVolume=boption(_name="mesh-volume") || doForceRebuild;
 
-    CenterlinesFromSTL centerlines("centerlines");
+    CenterlinesFromSurface centerlines("centerlines");
     if ( doForceRebuild )
       centerlines.setForceRebuild(true);
     if ( doComputeCenterlines )
     {
-        if ( doRemeshSTLForCenterlines )
+        if ( doRemeshSurfaceForCenterlines )
         {
-	    RemeshSTL remshVMTK("mesh-surface");
+	    RemeshSurface remshVMTK("mesh-surface");
 	    if ( doForceRebuild )
 	      remshVMTK.setForceRebuild(true);
 	    remshVMTK.setPackageType("vmtk");
-            remshVMTK.setInputSurfacePath( centerlines.inputPath() );
+            remshVMTK.setInputSurfacePath( centerlines.inputSurfacePath() );
 	    remshVMTK.updateOutputPathFromInputFileName();
             remshVMTK.run();
-            centerlines.setStlFileName( remshVMTK.outputPath() );
+            centerlines.setInputSurfacePath( remshVMTK.outputPath() );
 	    centerlines.updateOutputPathFromInputFileName();
         }
         centerlines.run();
     }
 
-    RemeshSTL remshGMSH("mesh-surface");
+    RemeshSurface remshGMSH("mesh-surface");
     if ( doForceRebuild )
       remshGMSH.setForceRebuild(true);
     remshGMSH.setPackageType("gmsh");
@@ -62,7 +62,7 @@ int main( int argc, char** argv )
     {
         if ( remshGMSH.inputSurfacePath().empty() )
 	{
-            remshGMSH.setInputSurfacePath( centerlines.inputPath() );
+            remshGMSH.setInputSurfacePath( centerlines.inputSurfacePath() );
 	    remshGMSH.updateOutputPathFromInputFileName();
 	}
         remshGMSH.setInputCenterlinesPath( centerlines.outputPath() );
@@ -74,7 +74,7 @@ int main( int argc, char** argv )
       meshVolume.setForceRebuild(true);
     if ( doMeshVolume )
     {
-        meshVolume.setInputSTLPath( remshGMSH.outputPath() );
+        meshVolume.setInputSurfacePath( remshGMSH.outputPath() );
         meshVolume.setInputCenterlinesPath( centerlines.outputPath() );
 	meshVolume.updateOutputPathFromInputFileName();
         meshVolume.run();

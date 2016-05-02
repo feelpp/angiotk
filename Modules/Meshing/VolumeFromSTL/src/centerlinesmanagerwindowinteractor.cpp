@@ -1,67 +1,6 @@
 /* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim:fenc=utf-8:ft=tcl:et:sw=4:ts=4:sts=4*/
 
-#include <centerlinesmanagerwindowinteractor.hpp>
-
-#include <vtkSmartPointer.h>
-#include <vtkRendererCollection.h>
-
-#include <vtkWorldPointPicker.h>
-#include <vtkPointPicker.h>
-#include <vtkPropPicker.h>
-
-#include <vtkSphereSource.h>
-#include <vtkLineSource.h>
-#include <vtkPolyDataMapper.h>
-#include <vtkRenderer.h>
-#include <vtkRenderWindow.h>
-#include <vtkRenderWindowInteractor.h>
-#include <vtkActor.h>
-#include <vtkInteractorStyleTrackballCamera.h>
-
-#include <vtkObjectFactory.h>
-
-
-
-
-
-
-#include <vtkPolyData.h>
-#include <vtkSTLReader.h>
-#include <vtkPolyDataReader.h>
-#include <vtkSmartPointer.h>
-#include <vtkPolyDataMapper.h>
-#include <vtkActor.h>
-#include <vtkRenderWindow.h>
-#include <vtkRenderer.h>
-#include <vtkRenderWindowInteractor.h>
-
-#include <vtkProperty.h>
-
-#include <vtkTextActor.h>
-#include <vtkTextProperty.h>
-#include <vtkTextWidget.h>
-#include <vtkTextRepresentation.h>
-
-#include <vtkAxesActor.h>
-#include <vtkOrientationMarkerWidget.h>
-
-#include <vtkCoordinate.h>
-
-#include <cmath>
-#include <tuple>
-
-#include <vtkBoxWidget.h>
-#include <vtkBoxWidget2.h>
-#include <vtkCommand.h>
-#include <vtkTransform.h>
-#include <vtkBoxRepresentation.h>
-
-
-#include <feel/feelcore/feel.hpp>
-
-#include <AngioTkCenterlineField.h>
-#include <Gmsh.h>
-#include <Context.h>
+#include "centerlinesmanagerwindowinteractor.hpp"
 
 class vtkMyCallback : public vtkCommand
 {
@@ -107,14 +46,6 @@ class SphereSourceObject
 {
 public :
 
-    SphereSourceObject()
-        :
-        M_geometry(),
-        M_actor(),
-        M_typePoint(0),
-        M_isValidated( false )
-    {}
-
     SphereSourceObject( vtkSmartPointer<vtkSphereSource> geo, vtkSmartPointer<vtkActor> actor,
                         int typePoint = 0, bool isValidated = false )
         :
@@ -141,7 +72,7 @@ public :
     bool isTargetPoint() const { return (this->typePoint() == 1); }
     void changeTypePoint() { this->setTypePoint( (this->typePoint()+1)%2); }
 
-    bool isNull() const { return ( this->geometry() != NULL || this->actor() != NULL); }
+    bool isNull() const { return ( this->geometry() == NULL || this->actor() == NULL); }
 
     void applyColoring()
     {
@@ -158,8 +89,9 @@ public :
     }
 
     void
-    activateBoxAroundSphere( vtkRenderWindowInteractor *interactor )
+    initializeWidgetBox( vtkRenderWindowInteractor *interactor )
     {
+        if ( this->isNull() ) return;
 
         if ( !M_widgetBoxAroundSphere )
         {
@@ -168,13 +100,21 @@ public :
             M_widgetBoxAroundSphere->AddObserver(vtkCommand::InteractionEvent, M_callbackBoxAroundSphere);
             //M_widgetBoxAroundSphere->HandlesOff();
         }
-
         M_widgetBoxAroundSphere->SetInteractor( interactor );
         //M_widgetBoxAroundSphere->SetPlaceFactor(1.25);
         M_widgetBoxAroundSphere->SetPlaceFactor(1.);
         M_widgetBoxAroundSphere->SetProp3D( this->actor() );
-        this->actor()->GetProperty()->SetOpacity(0.2);
 
+        M_widgetBoxAroundSphere->Off();
+    }
+
+
+    void
+    activateWidgetBox()
+    {
+        if ( !M_widgetBoxAroundSphere ) return;
+
+        this->actor()->GetProperty()->SetOpacity(0.2);
         M_widgetBoxAroundSphere->PlaceWidget();
         double radiusSphere = this->geometry()->GetRadius();
         M_widgetBoxAroundSphere->SetHandleSize(radiusSphere/10000.);
@@ -183,7 +123,7 @@ public :
     }
 
     void
-    deactivateBoxAroundSphere()
+    deactivateWidgetBox()
     {
         if (!M_widgetBoxAroundSphere) return;
         double * p=M_widgetBoxAroundSphere->GetProp3D()->GetCenter();
@@ -236,10 +176,11 @@ class PointPairConnection
 public :
     typedef std::shared_ptr<SphereSourceObject> point_object_ptrtype;
     PointPairConnection() {}
-    PointPairConnection( point_object_ptrtype pt1, point_object_ptrtype pt2 )
+    PointPairConnection( point_object_ptrtype pt1, point_object_ptrtype pt2, int connectionId = -1 )
         :
         M_pointObjet1( pt1 ),
-        M_pointObjet2( pt2 )
+        M_pointObjet2( pt2 ),
+        M_connectionId( connectionId )
     {}
     PointPairConnection( PointPairConnection const& o ) = default;
 
@@ -286,6 +227,7 @@ public :
 #else
             this->updatePosition();
 #endif
+
             //Create a mapper and actor
             vtkSmartPointer<vtkPolyDataMapper> lineMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
             lineMapper->SetInputConnection(M_lineSource->GetOutputPort());
@@ -294,14 +236,47 @@ public :
             M_lineActor->GetProperty()->SetColor(1.0, 0.5, 0.0); //(R,G,B)
             M_lineActor->GetProperty()->SetLineWidth(2.0);//defautl is 1.0
 
+            /* Create an on-screen text indicating the id of the current connection line */
+            std::ostringstream oss;
+            oss << M_connectionId;
+            vtkSmartPointer<vtkVectorText> textSource = vtkSmartPointer<vtkVectorText>::New();
+            textSource->SetText( oss.str().c_str() );
+
+            // Create a mapper
+            vtkSmartPointer<vtkPolyDataMapper> mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+            mapper->SetInputConnection( textSource->GetOutputPort() );
+
+            /* Compute the center of the line */
+            double * pos1 = M_lineSource->GetPoint1();
+            double * pos2 = M_lineSource->GetPoint2();
+
+            double fpos[3];
+            for(int i = 0; i < 3; i++)
+            {
+                fpos[i] = (pos2[i] + pos1[i]) / 2.0;
+            }
+
+            /* Add a follower object for the text: The text will always be facing the camera */
+            M_follower = vtkSmartPointer<vtkFollower>::New();
+            M_follower->SetMapper( mapper );
+            M_follower->GetProperty()->SetColor( 1, 0, 0 );
+            M_follower->SetPosition( fpos );
+            M_follower->SetScale(8.0);
+            M_follower->SetCamera(interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->GetActiveCamera());
+
+            // add the follower to the scene
+            interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(M_follower);
+
             M_callbackPointPairConnection1 = vtkSmartPointer<vtkCallbackPointPairConnection>::New();
             M_callbackPointPairConnection1->initialize(this,1);
             M_callbackPointPairConnection2 = vtkSmartPointer<vtkCallbackPointPairConnection>::New();
             M_callbackPointPairConnection2->initialize(this,2);
             M_pointObjet1->widgetBoxAroundSphere()->AddObserver(vtkCommand::InteractionEvent, M_callbackPointPairConnection1);
             M_pointObjet2->widgetBoxAroundSphere()->AddObserver(vtkCommand::InteractionEvent, M_callbackPointPairConnection2);
+
         }
         interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(M_lineActor);
+        
     }
 
     void
@@ -312,6 +287,8 @@ public :
             interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->RemoveActor(M_lineActor);
             M_pointObjet1->widgetBoxAroundSphere()->RemoveObserver(M_callbackPointPairConnection1);
             M_pointObjet2->widgetBoxAroundSphere()->RemoveObserver(M_callbackPointPairConnection2);
+
+            interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->RemoveActor(M_follower);
         }
     }
 
@@ -344,8 +321,11 @@ private :
     point_object_ptrtype M_pointObjet1, M_pointObjet2;
     vtkSmartPointer<vtkLineSource> M_lineSource;
     vtkSmartPointer<vtkActor> M_lineActor;
+    vtkSmartPointer<vtkFollower> M_follower;
 
     vtkSmartPointer<vtkCallbackPointPairConnection> M_callbackPointPairConnection1,M_callbackPointPairConnection2;
+
+    int M_connectionId;
 
 };
 
@@ -372,6 +352,8 @@ public:
 
     AngioTkWindowInteractorStyle()
         :
+        M_windowSizePreviousFullScreen( 2, 0 ), // init correctly when go in full screen (store previous size)
+        M_windowFullScreen( false ),
         M_activatedMode( ModeType::NO_MODE ),
         M_sphereActorSelectionId(),
         M_lenghtSTL(0),
@@ -388,6 +370,7 @@ public:
         helpCommandStr << "Help Commands :\n"
                        << "q : exit  \n"
                        << "h : enable/disable help commands  \n"
+                       << "f : enable/disable full screen\n"
                        << "a : enable/disable orientation axis\n"
                        << "s : save points insertion on disk\n"
                        << "0 : no mode (view only)\n"
@@ -396,12 +379,13 @@ public:
                        << "3 : mode centerlines manager\n";
         textActorCommandHelpCommon->SetInput ( helpCommandStr.str().c_str() );
         vtkSmartPointer<vtkTextRepresentation> textRepresentation = vtkSmartPointer<vtkTextRepresentation>::New();
-        //textRepresentation->GetPositionCoordinate()->SetValue( .15, .15 );
-        //textRepresentation->GetPosition2Coordinate()->SetValue( .7, .2 );
+        textRepresentation->GetPositionCoordinate()->SetValue( 0.7, 0.75 );
+        textRepresentation->GetPosition2Coordinate()->SetValue( 0.3, 0.25 );
         M_widgetTextCommandHelp->SetRepresentation( textRepresentation );
         textRepresentation->SetTextActor( textActorCommandHelpCommon );
-        textRepresentation->SetPosition(0.7,0.2);
-        textRepresentation->SetPosition2(0.3,0.8);
+        //textRepresentation->SetPosition(0.7,0.5);
+        //textRepresentation->SetPosition2(0.3,0.8);
+        //textRepresentation->SetProportionalResize(1);
         textActorCommandHelpCommon->GetTextProperty()->SetColor ( 0.0,0.0,0.0 );
         textActorCommandHelpCommon->GetTextProperty()->SetJustificationToLeft();
         textActorCommandHelpCommon->GetTextProperty()->SetVerticalJustificationToTop();
@@ -410,13 +394,15 @@ public:
         M_widgetTextActivatedMode = vtkSmartPointer<vtkTextWidget>::New();
         M_widgetTextActivatedMode->SelectableOff();
         vtkSmartPointer<vtkTextRepresentation> textRepresentation2 = vtkSmartPointer<vtkTextRepresentation>::New();
+        textRepresentation2->GetPositionCoordinate()->SetValue( 0.01, 0.7 );
+        textRepresentation2->GetPosition2Coordinate()->SetValue( 0.4, 0.3 );
         M_widgetTextActivatedMode->SetRepresentation( textRepresentation2 );
         vtkSmartPointer<vtkTextActor> textActor2 = vtkSmartPointer<vtkTextActor>::New();
         textRepresentation2->SetTextActor( textActor2 );
         //textRepresentation2->SetPosition(0.01,0.2);
         //textRepresentation2->SetPosition2(0.3,0.8);
-        textRepresentation2->SetPosition(0.01,0.95);
-        textRepresentation2->SetPosition2(0.3,0.05);
+        //textRepresentation2->SetPosition(0.01,0.95);
+        //textRepresentation2->SetPosition2(0.3,0.05);
         textActor2->GetTextProperty()->SetColor ( 0.0,0.0,0.0 );
         textActor2->GetTextProperty()->SetJustificationToLeft();
         textActor2->GetTextProperty()->SetVerticalJustificationToTop();
@@ -456,16 +442,18 @@ public:
         std::ostringstream helpStr;
         helpStr << "Mode : Points Insertion :                          \n";
         if ( showHelpCommands )
-            helpStr << "c : change point type (source,target)\n"
-                    << "y : valide point\n"
+            helpStr << "c : change point type (source=red,target=blue)\n"
+                    << "y : validate point\n"
                     << "r : remove selection\n"
                     //<< "u : undo insertion\n"
-                    << "[Up] : move selection\n"
-                    << "[Down] : move selection\n"
-                    << "[Left] : move selection\n"
-                    << "[Right] : move selection\n"
-                    << "o : move selection\n"
-                    << "l : move selection\n";
+                    << "[Up] : move selection (axis Y +)\n"
+                    << "[Down] : move selection (axis Y -)\n"
+                    << "[Left] : move selection (axis X -)\n"
+                    << "[Right] : move selection (axis X +)\n"
+                    << "o : move selection (axis Z +)\n"
+                    << "l : move selection (axis Z -)\n"
+                    << "p/m : increase/decrease sphere size\n"
+                    << "d : Connect/disconnect 2 selected points\n";
         return helpStr.str();
     }
 
@@ -493,6 +481,7 @@ public:
         std::cout << "savePointSetOnDisk : " << pathFileStr << "\n";
 
         std::ofstream fileWrited( pathFileStr, std::ios::out | std::ios::trunc);
+        fileWrited.precision( 16 );
         for (int k = 0; k< M_vectorSphereSourceObject.size() ;++ k)
         {
             double radius = M_vectorSphereSourceObject[k]->geometry()->GetRadius();
@@ -516,6 +505,7 @@ public:
         std::cout << "savePointPairOnDisk : " << pathFileStr << "\n";
 
         std::ofstream fileWrited( pathFileStr, std::ios::out | std::ios::trunc);
+        fileWrited.precision( 16 );
         for (int k = 0; k< M_vectorPointPairConnection.size() ;++ k)
         {
             double radius1 = M_vectorPointPairConnection[k]->pointObjet(1)->geometry()->GetRadius();
@@ -528,36 +518,78 @@ public:
         fileWrited.close();
     }
 
-    void loadFromDisk( std::string const& pathFile )
+    void loadPointSetFromFile( std::string const& pathFile )
     {
-        std::ifstream fileLoaded( pathFile, std::ios::in);
-        while ( !fileLoaded.eof() )
+        std::cout << "LOADING" << std::endl;
+        auto data = AngioTk::loadFromPointSetFile( pathFile );
+        for ( auto const& point : data )
         {
-            double * center = new double[3];
-            double radius;
-            int typePt = -1;
-            fileLoaded >> typePt;
-            if ( fileLoaded.eof() ) break;
-            fileLoaded >> center[0] >> center[1] >> center[2] >> radius;
-            //std::cout << "add center " << center[0] <<","<< center[1] <<","<< center[2]<<"\n";
-            vtkSmartPointer<vtkSphereSource> sphereSource = vtkSmartPointer<vtkSphereSource>::New();
-            sphereSource->SetRadius(radius);
-            sphereSource->SetCenter(center);
-            delete [] center;
-            sphereSource->Update();
-            //Create a mapper and actor
-            vtkSmartPointer<vtkPolyDataMapper> mapperSphere = vtkSmartPointer<vtkPolyDataMapper>::New();
-            mapperSphere->SetInputConnection(sphereSource->GetOutputPort());
-            vtkSmartPointer<vtkActor> actorSphere = vtkSmartPointer<vtkActor>::New();
-            actorSphere->SetMapper(mapperSphere);
-            actorSphere->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
-
-            M_vectorSphereSourceObject.push_back(std::make_shared<SphereSourceObject>(sphereSource,actorSphere,typePt,true) );
-            M_vectorSphereSourceObject.back()->applyColoring();
-            this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(actorSphere);
+            auto const& coord = std::get<0>( point );
+            auto const& radius = std::get<1>( point );
+            auto const& type = std::get<2>( point );
+            int ptId = this->hasPoint( coord );
+            if ( ptId < 0 )
+                this->addPoint( coord, radius, type );
         }
-        fileLoaded.close();
         this->Interactor->GetRenderWindow()->Render();
+    }
+
+    void loadPointPairFromFile( std::string const& pathFile )
+    {
+        auto data = AngioTk::loadFromPointPairFile( pathFile );
+        for ( auto const& pointpair : data )
+        {
+            auto const& ptdata1 = pointpair.first;
+            auto const& ptdata2 = pointpair.second;
+            auto const& coord1 = std::get<0>( ptdata1 );
+            auto const& coord2 = std::get<0>( ptdata2 );
+            double radius1 = std::get<1>( ptdata1 );
+            double radius2 = std::get<1>( ptdata2 );
+            int ptId1 = this->hasPoint( coord1 );
+            if ( ptId1 < 0 )
+            {
+                this->addPoint( coord1, radius1 );
+                ptId1 = M_vectorSphereSourceObject.size()-1;
+            }
+            int ptId2 = this->hasPoint( coord2 );
+            if ( ptId2 < 0 )
+            {
+                this->addPoint( coord2, radius2 );
+                ptId2 = M_vectorSphereSourceObject.size()-1;
+            }
+
+            int connectionId = this->hasPointPairConnection( M_vectorSphereSourceObject[ptId1],M_vectorSphereSourceObject[ptId2] );
+            if ( connectionId < 0 )
+            {
+                std::shared_ptr<PointPairConnection> ptPairConnection = std::make_shared<PointPairConnection>( M_vectorSphereSourceObject[ptId1],
+                                                                                                               M_vectorSphereSourceObject[ptId2], 
+                                                                                                               M_vectorPointPairConnection.size());
+                M_vectorPointPairConnection.push_back( ptPairConnection );
+                ptPairConnection->addPlot( this->Interactor );
+            }
+
+        }
+        //std::cout << "size after load " << M_vectorSphereSourceObject.size() << "\n";
+        this->Interactor->GetRenderWindow()->Render();
+    }
+
+    void addPoint( std::vector<double> const& pt, double radius, int type=0 )
+    {
+        CHECK( pt.size() == 3 ) << "invalid point size : " << pt.size() << " ( must be 3 )";
+        vtkSmartPointer<vtkSphereSource> sphereSource = vtkSmartPointer<vtkSphereSource>::New();
+        sphereSource->SetRadius( radius );
+        sphereSource->SetCenter( pt[0],pt[1],pt[2] );
+        sphereSource->Update();
+        vtkSmartPointer<vtkPolyDataMapper> mapperSphere = vtkSmartPointer<vtkPolyDataMapper>::New();
+        mapperSphere->SetInputConnection(sphereSource->GetOutputPort());
+        vtkSmartPointer<vtkActor> actorSphere = vtkSmartPointer<vtkActor>::New();
+        actorSphere->SetMapper(mapperSphere);
+        //actorSphere->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
+        M_vectorSphereSourceObject.push_back(std::make_shared<SphereSourceObject>(sphereSource,actorSphere,type,true) );
+        M_vectorSphereSourceObject.back()->initializeWidgetBox( this->Interactor );
+        M_vectorSphereSourceObject.back()->applyColoring();
+        this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(actorSphere);
+
     }
 
     void addSphereAtCenterlinesExtrimities()
@@ -602,10 +634,31 @@ public:
             actorSphere->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
 
             M_vectorSphereSourceObject.push_back( std::make_shared<SphereSourceObject>(sphereSource,actorSphere,typePt) );
+            M_vectorSphereSourceObject.back()->initializeWidgetBox( this->Interactor );
             M_vectorSphereSourceObject.back()->applyColoring();
             this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(actorSphere);
         }
 
+    }
+
+
+    int hasPoint( std::vector<double> const& pt )
+    {
+        CHECK( pt.size() == 3 ) << "invalid point size : " << pt.size() << " ( must be 3 )";
+        return this->hasPoint( pt[0],pt[1],pt[2] );
+    }
+
+    int hasPoint( double x,double y,double z )
+    {
+        for ( int k = 0 ; k<M_vectorSphereSourceObject.size() ; ++k )
+        {
+            double * center = M_vectorSphereSourceObject[k]->geometry()->GetCenter();
+            if ( ( std::abs( center[0] - x ) < 1e-9 ) &&
+                 ( std::abs( center[1] - y ) < 1e-9 ) &&
+                 ( std::abs( center[2] - z ) < 1e-9 ) )
+                return k;
+        }
+        return -1;
     }
 
     int hasActor( vtkActor * _actor ) const
@@ -652,7 +705,7 @@ public:
     {
         if ( selectId >= 0 && M_sphereActorSelectionId.find(selectId) == M_sphereActorSelectionId.end() )
         {
-            M_vectorSphereSourceObject[selectId]->activateBoxAroundSphere(this->Interactor);
+            M_vectorSphereSourceObject[selectId]->activateWidgetBox();
             M_sphereActorSelectionId.insert( selectId );
         }
     }
@@ -661,7 +714,7 @@ public:
     {
         for ( int selectId : M_sphereActorSelectionId )
         {
-            M_vectorSphereSourceObject[selectId]->deactivateBoxAroundSphere();
+            M_vectorSphereSourceObject[selectId]->deactivateWidgetBox();
         }
         M_sphereActorSelectionId.clear();
     }
@@ -719,17 +772,22 @@ public:
             }
             else if ( M_sphereActorSelectionId.empty() )
             {
-                typedef vtkPointPicker picker_type; // vtkPointPicker, vtkWorldPointPicker
+                //typedef vtkPointPicker picker_type; // vtkPointPicker, vtkWorldPointPicker
+                typedef vtkCellPicker picker_type; // vtkPointPicker, vtkWorldPointPicker
                 vtkSmartPointer<picker_type> myPicker = vtkSmartPointer<picker_type>::New();
                 //myPicker->SetTolerance(0.0005);
                 //myPicker->SetTolerance( 1e-4*M_lenghtSTL );
                 //myPicker->SetTolerance( (1./M_lenghtSTL) );
                 //std::cout << "M_lenghtSTL " << M_lenghtSTL << "\n";
                 //myPicker->SetTolerance( 1e-4*M_lenghtSTL );
+#if 0
                 if ( M_lenghtSTL > 50 )
                     myPicker->SetTolerance(1e-3);
                 else
                     myPicker->SetTolerance(1e-2);
+#else
+                myPicker->SetTolerance(5e-3);
+#endif
                 int result = myPicker->Pick(this->Interactor->GetEventPosition()[0],
                                             this->Interactor->GetEventPosition()[1],
                                             0,  // always zero.
@@ -771,6 +829,7 @@ public:
                     }
 
                     M_vectorSphereSourceObject.push_back( std::make_shared<SphereSourceObject>(sphereSource,actorSphere,0,false) );
+                    M_vectorSphereSourceObject.back()->initializeWidgetBox( this->Interactor );
 
                     this->Interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(actorSphere);
                 } // result != 0
@@ -797,6 +856,35 @@ public:
         if ( key == "q" )
         {
             rwi->ExitCallback();
+        }
+
+        if ( key == "f" )
+        {
+#if 0
+            // NOT WORKS !
+            int fullScreenState = this->Interactor->GetRenderWindow()->GetFullScreen();
+            this->Interactor->GetRenderWindow()->SetFullScreen( (fullScreenState+1)%2 );
+            this->Interactor->GetRenderWindow()->Render();
+#else
+            if ( !M_windowFullScreen )
+            {
+                this->Interactor->GetRenderWindow()->Render();
+                int * windowsize = this->Interactor->GetRenderWindow()->GetSize();
+                M_windowSizePreviousFullScreen[0] = windowsize[0];
+                M_windowSizePreviousFullScreen[1] = windowsize[1];
+                int * fullscreensize = this->Interactor->GetRenderWindow()->GetScreenSize();
+                this->Interactor->GetRenderWindow()->SetSize(fullscreensize[0],fullscreensize[1]);
+                M_windowFullScreen = true;
+            }
+            else
+            {
+                this->Interactor->GetRenderWindow()->SetSize(M_windowSizePreviousFullScreen[0],M_windowSizePreviousFullScreen[1]);
+                M_windowFullScreen = false;
+            }
+            this->Interactor->GetRenderWindow()->Render();
+            //this->Interactor->GetRenderWindow()->Modified();
+            //this->Interactor->GetRenderWindow()->Render();
+#endif
         }
 
         // display/remove axis orientation
@@ -844,13 +932,19 @@ public:
 
             if ( M_widgetTextCommandHelp->GetEnabled() )
             {
-                vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->SetPosition(0.01,0.2);
-                vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->SetPosition2(0.3,0.8);
+                //vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->SetPosition(0.01,0.2);
+                //vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->SetPosition2(0.3,0.8);
+
+                vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->GetPositionCoordinate()->SetValue( 0.01, 0.7 );
+                vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->GetPosition2Coordinate()->SetValue( 0.4, 0.3 );
             }
             else
             {
-                vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->SetPosition(0.01,0.95);
-                vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->SetPosition2(0.3,0.05);
+                //vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->SetPosition(0.01,0.95);
+                //vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->SetPosition2(0.3,0.05);
+
+                vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->GetPositionCoordinate()->SetValue( 0.01, 0.7 );
+                vtkTextRepresentation::SafeDownCast( M_widgetTextActivatedMode->GetRepresentation() )->GetPosition2Coordinate()->SetValue( 0.4, 0.3 );
             }
 
             this->Interactor->GetRenderWindow()->Render();
@@ -1036,7 +1130,8 @@ public:
                   if ( connectionId < 0 )
                   {
                       std::shared_ptr<PointPairConnection> ptPairConnection = std::make_shared<PointPairConnection>( M_vectorSphereSourceObject[ptId1],
-                                                                                                                     M_vectorSphereSourceObject[ptId2] );
+                                                                                                                     M_vectorSphereSourceObject[ptId2],
+                                                                                                                     M_vectorPointPairConnection.size() );
                       M_vectorPointPairConnection.push_back( ptPairConnection );
                       ptPairConnection->addPlot( this->Interactor );
                   }
@@ -1149,6 +1244,10 @@ public :
 
 
 private :
+
+    std::vector<int> M_windowSizePreviousFullScreen;
+    bool M_windowFullScreen;
+
     ModeType M_activatedMode;
 
     vtkActor * M_LastPickedActor;
@@ -1173,23 +1272,24 @@ private :
 };
 vtkStandardNewMacro(AngioTkWindowInteractorStyle);
 
+CenterlinesManagerWindowInteractor::CenterlinesManagerWindowInteractor()
+    :
+    M_windowWidth( 1024 ),
+    M_windowHeight (768)
+{}
 
 void
-CenterlinesManagerWindowInteractor::run()
+CenterlinesManagerWindowInteractor::run()//bool fullscreen, int windowWidth, int windowHeight)
 {
     typedef vtkPointPicker picker_type; // vtkPointPicker, vtkWorldPointPicker
     //vtkSmartPointer<picker_type> worldPointPicker = vtkSmartPointer<picker_type>::New();
     //worldPointPicker->SetTolerance(0.0005);
     //--------------------------------------------
-    // read stl
-    if ( this->inputSurfacePath().empty() )
-    {
-        std::cout << "Required parameters: Filename" << endl;
-        return;
-    }
     // Create a renderer, render window, and interactor
     vtkSmartPointer<vtkRenderer> renderer = vtkSmartPointer<vtkRenderer>::New();
     vtkSmartPointer<vtkRenderWindow> renderWindow = vtkSmartPointer<vtkRenderWindow>::New();
+    renderWindow->SetSize(this->windowWidth(), this->windowHeight());
+
     renderWindow->AddRenderer(renderer);
     vtkSmartPointer<vtkRenderWindowInteractor> renderWindowInteractor = vtkSmartPointer<vtkRenderWindowInteractor>::New();
     //renderWindowInteractor->SetPicker(worldPointPicker);
@@ -1209,30 +1309,43 @@ CenterlinesManagerWindowInteractor::run()
 
 
     // load surface
-    std::string inputFilename = this->inputSurfacePath();
-    vtkSmartPointer<vtkSTLReader> readerSTL = vtkSmartPointer<vtkSTLReader>::New();
-    readerSTL->SetFileName(inputFilename.c_str());
-    readerSTL->Update();
-    // Create a mapper and actor
-    vtkSmartPointer<vtkPolyDataMapper> mapperSTL = vtkSmartPointer<vtkPolyDataMapper>::New();
-    mapperSTL->SetInputConnection(readerSTL->GetOutputPort());
-    vtkSmartPointer<vtkActor> actorSTL = vtkSmartPointer<vtkActor>::New();
-    actorSTL->SetMapper(mapperSTL);
-    actorSTL->GetProperty()->SetOpacity(0.25);//0.8);//0.7//0.3
-    //actorSTL->GetProperty()->SetOpacity(0.8);//0.7//0.3
+    if ( !this->inputSurfacePath().empty() )
+    {
+        std::string inputFilename = this->inputSurfacePath();
+        vtkSmartPointer<vtkSTLReader> readerSTL = vtkSmartPointer<vtkSTLReader>::New();
+        readerSTL->SetFileName(inputFilename.c_str());
+        readerSTL->Update();
 
-    // Add the actor to the scene
-    renderer->AddActor(actorSTL);
+        vtkSmartPointer<vtkPolyData> polyData = readerSTL->GetOutput();
+        std::cout << "Read STL file " << this->inputSurfacePath() << std::endl;
+        std::cout << "- Number of Points: " << polyData->GetNumberOfPoints() << std::endl;
+        std::cout << "- Number of Cells: " << polyData->GetNumberOfCells() << std::endl;
 
-    // update info in style
-    style->setActorSTL( actorSTL );
-    style->setBoundsSTL(mapperSTL->GetBounds());
-    style->setLenghtSTL(mapperSTL->GetLength());
+        // Create a mapper and actor
+        vtkSmartPointer<vtkPolyDataMapper> mapperSTL = vtkSmartPointer<vtkPolyDataMapper>::New();
+        mapperSTL->SetInputConnection(readerSTL->GetOutputPort());
+        vtkSmartPointer<vtkActor> actorSTL = vtkSmartPointer<vtkActor>::New();
+        actorSTL->SetMapper(mapperSTL);
+        actorSTL->GetProperty()->SetOpacity(0.25);//0.8);//0.7//0.3
+        //actorSTL->GetProperty()->SetOpacity(0.8);//0.7//0.3
 
-    std::string namePointSetFile = Feel::fs::path(this->inputSurfacePath()).stem().string()+"_pointset.data";
-    std::string namePointPairFile = Feel::fs::path(this->inputSurfacePath()).stem().string()+"_pointpair.data";
-    style->setOutputPathPointSetFile(namePointSetFile);
-    style->setOutputPathPointPairFile(namePointPairFile);
+        // Add the actor to the scene
+        renderer->AddActor(actorSTL);
+
+        // update info in style
+        style->setActorSTL( actorSTL );
+        style->setBoundsSTL(mapperSTL->GetBounds());
+        style->setLenghtSTL(mapperSTL->GetLength());
+
+        std::string namePointSetFile = Feel::fs::path(this->inputSurfacePath()).stem().string()+"_pointset.data";
+        std::string namePointPairFile = Feel::fs::path(this->inputSurfacePath()).stem().string()+"_pointpair.data";
+        style->setOutputPathPointSetFile(namePointSetFile);
+        style->setOutputPathPointPairFile(namePointPairFile);
+    }
+    else
+    {
+        std::cout << "The program won't load surface data as it is empty. Specify it with --input.surface.path" << std::endl;
+    }
 
     boost::shared_ptr<AngioTkCenterline> centerlinesTool;
     for ( int k=0;k<this->inputCenterlinesPath().size();++k)
@@ -1285,8 +1398,10 @@ CenterlinesManagerWindowInteractor::run()
     if ( !this->inputPointSetPath().empty() )
     {
         std::string previousData = this->inputPointSetPath();
-        style->loadFromDisk(previousData);
+        style->loadPointSetFromFile(previousData);
     }
+    if ( !this->inputPointPairPath().empty() )
+        style->loadPointPairFromFile( this->inputPointPairPath() );
 
     renderer->ResetCamera();
     //ren->GetActiveCamera()->Zoom(1.5);

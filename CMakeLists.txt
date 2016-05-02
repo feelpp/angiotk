@@ -60,6 +60,7 @@ ENDIF ("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64")
 # Find ITK (required)
 FIND_PACKAGE(ITK)
 IF(ITK_FOUND)
+  message(STATUS "[ITK] Use file: ${ITK_USE_FILE}")
   INCLUDE(${ITK_USE_FILE})
   if(${ITK_VERSION_MAJOR} EQUAL 3)
     message(FATAL_ERROR "AngioTk only works with ITK version 4 and higher")
@@ -70,22 +71,64 @@ ENDIF(ITK_FOUND)
 
 #=========================================================
 # Find Feel++
-FIND_PATH(FEELPP_CMAKE_MODULES FindFeel++.cmake PATH $ENV{FEELPP_DIR}/share/feel/cmake/modules/   /usr/share/feel/cmake/modules/ /usr/local/share/feel/cmake/modules/ )
-if ( FEELPP_CMAKE_MODULES )
-  set(CMAKE_MODULE_PATH ${FEELPP_CMAKE_MODULES})
-  Find_Package(Feel++)
-  set(Feel++_FOUND 1)
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g0 -O3 -DNDEBUG  -finline-functions -pedantic  -ftemplate-depth-256 -Wno-inline" )
+OPTION(ANGIOTK_USE_OLD_FEELPP_CMAKE_DETECTION "use old cmake feel++ detection" OFF)
+if ( ANGIOTK_USE_OLD_FEELPP_CMAKE_DETECTION )
+  FIND_PATH(FEELPP_CMAKE_MODULES FindFeel++.cmake PATH $ENV{FEELPP_DIR}/share/feel/cmake/modules/   /usr/share/feel/cmake/modules/ /usr/local/share/feel/cmake/modules/ )
+  if ( FEELPP_CMAKE_MODULES )
+    set(CMAKE_MODULE_PATH ${FEELPP_CMAKE_MODULES})
+    Find_Package(Feel++)
+    set(Feel++_FOUND 1)
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g0 -O3 -DNDEBUG  -finline-functions -pedantic  -ftemplate-depth-256 -Wno-inline" )
 
-  if(BUILD_MODULE_Meshing AND (NOT ANN_INCLUDE_DIR OR NOT ANN_LIB))
-    message(FATAL_ERROR "ANN does not seem to be installed on this platform. Please install Feel++ with ANN support.")
+    if(BUILD_MODULE_Meshing AND (NOT ANN_INCLUDE_DIR OR NOT ANN_LIB))
+      message(FATAL_ERROR "ANN does not seem to be installed on this platform. Please install Feel++ with ANN support.")
+    endif()
+  else()
+    # The meshing module uses Feel++
+    # If it is not installed, make cmake end up with an error
+    if(BUILD_MODULE_Meshing)
+      message(FATAL_ERROR "Feel++ does not seem to be installed on this platform. Please set the FEELPP_DIR variable.")
+    endif()
   endif()
 else()
-  # The meshing module uses Feel++
-  # If it is not installed, make cmake end up with an error
-  if(BUILD_MODULE_Meshing)
-    message(FATAL_ERROR "Feel++ does not seem to be installed on this platform. Please set the FEELPP_DIR variable.")
-  endif()
+if ( ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR} )
+    find_package(Feel++ PATHS $ENV{FEELPP_DIR}/share/feel/cmake/modules /usr/share/feel/cmake/modules /usr/local/share/feel/cmake/modules /opt/share/feel/cmake/modules)
+    if(NOT FEELPP_FOUND)
+        message(FATAL_ERROR "Feel++ was not found on your system. Make sure to install it and specify the FEELPP_DIR to reference the installation directory.") 
+    endif()
+    if(BUILD_MODULE_Meshing AND (NOT FEELPP_HAS_ANN))
+        message(FATAL_ERROR "ANN does not seem to be installed on this platform. Please install Feel++ with ANN support.")
+    endif()
+
+    # Check that the COMPILER flags are compatible, in case we don't compile with the same compiler as Feel++ was built with
+    # Clang and GCC might have flag differences
+    include(CheckCXXCompilerFlag)
+    # store the previous value of CXX flags
+    string(REGEX REPLACE "[ ]+" " " _CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+    set(CMAKE_CXX_FLAGS "")
+    string(REPLACE " " ";" _CXX_FLAGS ${_CMAKE_CXX_FLAGS})
+    set(REMOVED_FLAGS "")
+
+    # Remove flags if needed
+    set(_counter 0)
+    foreach(flag ${_CXX_FLAGS})
+        CHECK_CXX_COMPILER_FLAG("${flag}" FLAG_${_counter})
+        if(${FLAG_${_counter}})
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${flag}")
+        else()
+            set(REMOVED_FLAGS "${REMOVED_FLAGS} ${flag}")
+        endif()
+        math(EXPR _counter "${_counter} + 1")
+    endforeach()
+
+    # Inform the user about potentially removed flags
+    if(REMOVED_FLAGS)
+        message(WARNING "Initial C++ flags: ${_CMAKE_CXX_FLAGS}")
+        message(WARNING "Removed flags: ${REMOVED_FLAGS}")
+    endif()
+    unset(_CMAKE_CXX_FLAGS)
+    unset(REMOVED_FLAGS)
+endif()
 endif()
 
 #=========================================================
@@ -212,3 +255,8 @@ INCLUDE("${AngioTk_SOURCE_DIR}/CMake/AngioTkModules.cmake")
 
 ExternalData_Add_Target(angioTkData)
 
+add_subdirectory(Data)
+add_subdirectory(Pipeline)
+add_subdirectory(Examples/MeshFromMRI)
+
+include(CMake/AngioTkDirective.cmake)

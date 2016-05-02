@@ -6,7 +6,7 @@
 
 int main( int argc, char** argv )
 {
-    using namespace Feel;
+    using namespace AngioTk;
 
     //std::cout << "fs::current_path() " << fs::current_path() << "\n";
     fs::path initialPath = fs::current_path();
@@ -39,7 +39,11 @@ int main( int argc, char** argv )
     }
 
     InletOutletDesc ioDesc;
-    ioDesc.loadFromSTL(inputPath);
+    /* Handle non-zero returns (errors) */
+    if(ioDesc.loadFromSTL(inputPath))
+    {
+        return 1;
+    }
 
     std::string nameWithoutExt = fs::path(inputPath).stem().string();
     std::string outputPath = (fs::path(inputPath).parent_path()/fs::path(nameWithoutExt+".desc")).string();

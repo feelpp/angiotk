@@ -5,13 +5,20 @@
 
 int main( int argc, char** argv )
 {
-    using namespace Feel;
+    using namespace AngioTk;
+
+    std::ostringstream oss;
+    for( int i = 1; i < argc; i++)
+    {
+        oss << argv[i] << " ";
+    }
+    std::cout << "SurfaceFromImage: Using the following commandline arguments: " << std::endl << oss.str() << std::endl;
 
     po::options_description myoptions = SurfaceFromImage::options("");
     myoptions.
       add( SubdivideSurface::options("subdivide-surface") ).
       add( SmoothSurface::options("smooth-surface") ).
-      add( RemeshSTL::options("remesh-surface") );
+      add( RemeshSurface::options("remesh-surface") );
     myoptions.add_options()
       ("post-process.subdivide-surface", Feel::po::value<bool>()->default_value(false), "subdivide-surface")
       ("post-process.smooth-surface", Feel::po::value<bool>()->default_value(false), "smooth-surface")
@@ -37,7 +44,12 @@ int main( int argc, char** argv )
       {
 	surfaceFromImage.setOutputPath( (fs::path(finalOutputPath).parent_path()/ fs::path(finalOutputFileName+"_surfaceFromImage.stl")).string() );
       }
-    surfaceFromImage.run();
+    
+    /* If we get a return code different of 0 -> error */
+    if(surfaceFromImage.run())
+    {
+        return 1;
+    }
 
 
     SubdivideSurface mySubdivideSurface("subdivide-surface");
@@ -74,7 +86,7 @@ int main( int argc, char** argv )
 	mySmoothSurface.run();
       }
 
-    RemeshSTL myRemeshSurface("remesh-surface");
+    RemeshSurface myRemeshSurface("remesh-surface");
     if ( postProcessRemeshSurface )
       {
 	myRemeshSurface.setPackageType("vmtk");
