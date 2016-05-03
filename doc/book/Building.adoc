@@ -1,0 +1,75 @@
+# Step by step building documentation 
+
+## Initial setup
+
+Make sur you have all the dependencies installed for both feel++ and angiotk.
+
+Feel++ requires at least:
+* openmpi
+* petsc/slepc
+* gmsh
+* boost
+
+Advice regarding to compiler: prefer the use of clang instead of gcc (less memory and less compilation time).
+
+Angiotk requires at least:
+* feel++
+* openmpi
+* ITK
+* vmtk
+
+## Building
+
+### Feel++
+
+Regarding to building Feel++, please refer to the Feel++ documentation.
+You will have to install Feel++, so you might want to set up an installation path with `-DCMAKE_INSTALL_PREFIX="..."` (if you don't want to install Feel++ in your system), then build and install Feel++ with `make install-feelpp`.
+
+Once Feel++ is installed, you need to export the `FEELPP_DIR` variable in your shell (e.g. put it in your .bashrc file). Set it to the installation directory of Feel++ (that you previously set at the cmake step).
+
+### VMTK
+
+If you can install vmtk through your package system, you can do it this way, it will be easier. 
+
+If you need to build vmtk, pay attention to the library versions you will use.
+As of version 1.2, it has been built successfully with ITK 4.8.0 and VTK 5.10.1 (It won't work with VTK 6.x.y version).
+
+Confirmed cmake working commands for installation:   
+* ITK 4.8.0:    
+```
+cmake <itk_source_dir> -DCMAKE_INSTALL_PREFIX=<itk_install_dir> -DBUILD_EXAMPLES=ON -DITKV3_COMPATIBILITY=ON -DITK_USE_REVIEW=ON -DBUILD_SHARED_LIBS=ON
+```
+`ITKV3_COMPATIBILITY` and `ITK_USE_REVIEW` are required for vmtk to work.      
+`BUILD_EXAMPLES=ON` is optional, but very recommended. There is a code example that allows to convert DICOM data to the mha format.   
+   
+Export the ITK_DIR variable to the install directory.
+
+* VTK 5.10.1:   
+```
+cmake <vtk_source_dir> -DCMAKE_INSTALL_PREFIX=<vtk_install_dir> -DVTK_Group_MPI=ON -DVTK_Group_Qt=ON -DBUILD_SHARED_LIBS=ON -DVTK_WRAP_PYTHON=ON
+```   
+You need at least `VTK_WRAP_PYTHON`.
+   
+Export the VTK_DIR variable to the install directory.
+   
+* VMTK 1.2   
+```
+cmake <vmtk_source_dir> -DUSE_SYSTEM_ITK=ON -DUSE_SYSTEM_VTK=ON
+```   
+Here we use the ITK and VTK that we just configured and installed in the system.
+   
+Export the VMTK_DIR or VMTKHOME variable to the install directory.
+
+For all those libraries, you might need to setup `PATH`, `LD_LIBRARY_PATH`, `CMAKE_PREFIX_PATH` ... or use the module command.
+
+### Angiotk
+
+To build the angiotk environment, first clone the angiotk repository.
+
+Then build and activate modules that you require.   
+For example, if you only want to enable the `Meshing` module:
+```   
+cmake /home/aancel/git/angiotk -DBUILD_MODULE_Meshing=ON
+```
+
+If your build fails, then the problem must come from the previous installations that you have done. Please re-check them.
