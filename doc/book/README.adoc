@@ -1,7 +1,7 @@
 Angiotk
 ======
 
-This is the ANGIOTK project
+This is the ANGIOTK project.
 
 https://gitter.im/vivabrain/angiotk?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge[https://badges.gitter.im/vivabrain/angiotk.svg[Gitter]]
 
