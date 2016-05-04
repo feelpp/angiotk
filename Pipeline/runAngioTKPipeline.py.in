@@ -337,7 +337,12 @@ def main():
         "--output.directory " +  AngiotTKOutputPath + "/imagefromcenterlines"
     executeCommand("", cmd, logPath + "/meshing_imagefromcenterlines")
 
-    newImage = max(glob.iglob(AngiotTKOutputPath + "/imagefromcenterlines/*.mha"), key=os.path.getctime)
+    # Get the output of the imagefromcenterlines algorithm
+    imgGlob = glob.iglob(AngiotTKOutputPath + "/imagefromcenterlines/*.mha")
+    if(len(imgGlob) == 0):
+        print "Cannot find output of imagefromcenterlines. Aborting."
+        exit(1)
+    newImage = max(imgGlob, key=os.path.getctime)
 
     # Extract the mesh
     print "Extracting surface from image ... "
