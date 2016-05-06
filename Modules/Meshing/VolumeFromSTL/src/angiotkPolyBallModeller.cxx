@@ -193,7 +193,12 @@ int angiotkPolyBallModeller::RequestData(
     }
 
   output->SetExtent(outInfo->Get(vtkStreamingDemandDrivenPipeline::WHOLE_EXTENT()));
+
+#if VTK_MAJOR_VERSION <= 5 
   output->AllocateScalars();
+#else
+  output->AllocateScalars(output->GetScalarType(), output->GetNumberOfScalarComponents());
+#endif
 
   vtkDoubleArray *functionArray = vtkDoubleArray::SafeDownCast(output->GetPointData()->GetScalars());
   functionArray->SetName(this->RadiusArrayName);
