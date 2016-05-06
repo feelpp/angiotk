@@ -102,7 +102,9 @@ void angiotkPolyBallLine::Update()
     }
 
   this->Input->BuildCells();
+#if VTK_MAJOR_VERSION <= 5
   this->Input->Update();
+#endif
 
   // build cellIds
   cellIds = vtkIdList::New();

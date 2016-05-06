@@ -5,6 +5,7 @@
 
 #include <vtkSmartPointer.h>
 #include <vtkPolyDataReader.h>
+#include <vtkPolyDataWriter.h>
 #include <vtkMetaImageWriter.h>
 #include <vtkMetaImageReader.h> // .mha
 #include <vtkImageChangeInformation.h>
@@ -429,7 +430,11 @@ CenterlinesFromSurface::run()
             readerSTL->Update();
 
             vtkSmartPointer<vtkvmtkPolyDataCenterlines> centerlineFilter = vtkvmtkPolyDataCenterlines::New();
+#if VTK_MAJOR_VERSION <= 5
             centerlineFilter->SetInput( readerSTL->GetOutput() );
+#else
+            centerlineFilter->SetInputData( readerSTL->GetOutput() );
+#endif
 
             vtkSmartPointer<vtkPointLocator> pointLocator = vtkSmartPointer<vtkPointLocator>::New();
             pointLocator->SetDataSet( readerSTL->GetOutput() );
@@ -567,7 +572,11 @@ CenterlinesFromSurface::run()
                 centerlineFilter->Update();
 
                 vtkSmartPointer<vtkPolyDataWriter> centerlineWriter  = vtkSmartPointer<vtkPolyDataWriter>::New();
+#if VTK_MAJOR_VERSION <= 5
                 centerlineWriter->SetInput( centerlineFilter->GetOutput() );
+#else
+                centerlineWriter->SetInputData( centerlineFilter->GetOutput() );
+#endif
                 centerlineWriter->SetFileName( outputPathUsed.c_str() );
                 //centerlineWriter->SetFileTypeToBinary();
                 centerlineWriter->SetFileTypeToASCII();
@@ -576,7 +585,11 @@ CenterlinesFromSurface::run()
                 if ( rebuildDelaunayTessellation )
                 {
                     vtkSmartPointer<vtkUnstructuredGridWriter> delaunayTessellationWriter = vtkSmartPointer<vtkUnstructuredGridWriter>::New();
+#if VTK_MAJOR_VERSION <= 5
                     delaunayTessellationWriter->SetInput( centerlineFilter->GetDelaunayTessellation() );
+#else
+                    delaunayTessellationWriter->SetInputData( centerlineFilter->GetDelaunayTessellation() );
+#endif
                     delaunayTessellationWriter->SetFileName( pathDelaunayTessellation.c_str() );
                     delaunayTessellationWriter->SetFileTypeToBinary();
                     delaunayTessellationWriter->Write();
@@ -1150,7 +1163,11 @@ ImageFromCenterlines::run()
 
         //vtkSmartPointer<vtkvmtkPolyBallModeller> modeller = vtkvmtkPolyBallModeller::New();
         vtkSmartPointer<angiotkPolyBallModeller> modeller = angiotkPolyBallModeller::New();
+#if VTK_MAJOR_VERSION <= 5
         modeller->SetInput( (vtkDataObject*)readerVTK->GetOutput() );
+#else
+        modeller->SetInputData( (vtkDataObject*)readerVTK->GetOutput() );
+#endif
         modeller->SetRadiusArrayName(M_radiusArrayName.c_str());
         modeller->UsePolyBallLineOn();
 
@@ -1175,7 +1192,11 @@ ImageFromCenterlines::run()
         modeller->Update();
 
         vtkSmartPointer<vtkMetaImageWriter> writer = vtkSmartPointer<vtkMetaImageWriter>::New();
+#if VTK_MAJOR_VERSION <= 5
         writer->SetInput(modeller->GetOutput());
+#else
+        writer->SetInputData(modeller->GetOutput());
+#endif
         writer->SetFileName(this->outputPath().c_str());
         writer->Write();
 #endif
@@ -1487,8 +1508,11 @@ SurfaceFromImage::run()
 
         // marching cube
         vtkSmartPointer<vtkMarchingCubes> surface = vtkSmartPointer<vtkMarchingCubes>::New();
-        //#if VTK_MAJOR_VERSION <= 5
+#if VTK_MAJOR_VERSION <= 5
         surface->SetInput(readerSegmentation->GetOutput());
+#else
+        surface->SetInputData(readerSegmentation->GetOutput());
+#endif
         //surface->SetInput(imageTranslated->GetOutput());
         //#else
         //surface->SetInputData(volume);
@@ -1510,7 +1534,11 @@ SurfaceFromImage::run()
          // clean surface : ensure that mesh has no duplicate entities
         vtkSmartPointer<vtkCleanPolyData> cleanPolyData = vtkSmartPointer<vtkCleanPolyData>::New();
         //cleanPolyData->SetInputConnection(surface->GetOutputPort());
+#if VTK_MAJOR_VERSION <= 5
         cleanPolyData->SetInput(surface->GetOutput());
+#else
+        cleanPolyData->SetInputData(surface->GetOutput());
+#endif
         cleanPolyData->Update();
 
         // keep only largest region
@@ -1519,13 +1547,21 @@ SurfaceFromImage::run()
         {
             if ( M_applyConnectivityNumberOfRegion == 1 )
             {
+#if VTK_MAJOR_VERSION <= 5
                 connectivityFilter->SetInput(/*surface*/cleanPolyData->GetOutput());
+#else
+                connectivityFilter->SetInputData(/*surface*/cleanPolyData->GetOutput());
+#endif
                 connectivityFilter->SetExtractionModeToLargestRegion();
                 connectivityFilter->Update();
             }
             else if ( M_applyConnectivityNumberOfRegion > 1 )
             {
+#if VTK_MAJOR_VERSION <= 5
                 connectivityFilter->SetInput(/*surface*/cleanPolyData->GetOutput());
+#else
+                connectivityFilter->SetInputData(/*surface*/cleanPolyData->GetOutput());
+#endif
                 connectivityFilter->SetExtractionModeToAllRegions();
                 connectivityFilter->ColorRegionsOn();
                 connectivityFilter->Update();
@@ -1572,9 +1608,21 @@ SurfaceFromImage::run()
         vtkSmartPointer<vtkSTLWriter> stlWriter = vtkSmartPointer<vtkSTLWriter>::New();
         stlWriter->SetFileName(this->outputPath().c_str());
         if ( M_applyConnectivityLargestRegion )
+        {
+#if VTK_MAJOR_VERSION <= 5
             stlWriter->SetInput(connectivityFilter->GetOutput());
+#else
+            stlWriter->SetInputData(connectivityFilter->GetOutput());
+#endif
+        }
         else
+        {
+#if VTK_MAJOR_VERSION <= 5
             stlWriter->SetInput(/*surface*/cleanPolyData->GetOutput());
+#else
+            stlWriter->SetInputData(/*surface*/cleanPolyData->GetOutput());
+#endif
+        }
         //stlWriter->SetInputConnection(surface->GetOutputPort());
         stlWriter->Write();
 
@@ -1747,14 +1795,22 @@ ImagesManager::updateResizeFromRefImage()
     double spacingNewImage[3] = { lengthRefImage[0]/(dimInitialImage[0]-1), lengthRefImage[1]/(dimInitialImage[1]-1), lengthRefImage[2]/(dimInitialImage[2]-1) };
 
     vtkSmartPointer<vtkImageChangeInformation> imageChangeInfo = vtkSmartPointer<vtkImageChangeInformation>::New();
+#if VTK_MAJOR_VERSION <= 5
     imageChangeInfo->SetInput(readerInitialImage->GetOutput());
+#else
+    imageChangeInfo->SetInputData(readerInitialImage->GetOutput());
+#endif
     imageChangeInfo->SetOutputOrigin(originRefImage);
     imageChangeInfo->SetOutputSpacing(spacingNewImage);
     imageChangeInfo->Update();
 
     vtkSmartPointer<vtkMetaImageWriter> metaImageWriter = vtkSmartPointer<vtkMetaImageWriter>::New();
     metaImageWriter->SetFileName(this->outputPath().c_str());
+#if VTK_MAJOR_VERSION <= 5 
     metaImageWriter->SetInput(imageChangeInfo->GetOutput());
+#else
+    metaImageWriter->SetInputData(imageChangeInfo->GetOutput());
+#endif
 
     metaImageWriter->Write();
 
