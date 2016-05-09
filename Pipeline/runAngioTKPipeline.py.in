@@ -340,7 +340,7 @@ def main():
     executeCommand("", cmd, logPath + "/meshing_imagefromcenterlines")
 
     # Get the output of the imagefromcenterlines algorithm
-    imgGlob = glob.iglob(AngiotTKOutputPath + "/imagefromcenterlines/*.mha")
+    imgGlob = glob.glob(AngiotTKOutputPath + "/imagefromcenterlines/*.mha")
     if(len(imgGlob) == 0):
         print "Cannot find output of imagefromcenterlines. Aborting."
         exit(1)
