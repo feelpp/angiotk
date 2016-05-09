@@ -13,10 +13,15 @@ import sys
 import threading
 import time
 
+debug = 1
+
 # execute a command line
 def executeCommand(text, cmd, logPrefix=""):
     out = ""
     returnCode = 0
+
+    if(debug > 0):
+        print cmd
 
     # if we specify an absolute command path
     # we check that the file exists
@@ -183,7 +188,6 @@ def main():
             print "Attempting to correct spacing"
             cmd = "ResampleVolumesToBeIsotropic " + AngiotTKOutputPath + "/data/" + inputFileNoExt + ".mha " + \
                   AngiotTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha 0 255"
-            print cmd
             if(not os.path.exists(AngiotTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha")):
                 retcode, _ = executeCommand("", cmd, logPath + "/Convert_iso")
             sanityCheckFile(AngiotTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha")
@@ -226,7 +230,6 @@ def main():
     cmd = "RORPO_multiscale_usage " + AngiotTKOutputPath + "/data/" + inputFileNoExt + ".nii " + \
         AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii " + \
         str(scaleMin) + " " + str(factor) + " " + str(nbScales) + " --core " + str(nbCores) + " --verbose"
-    print cmd
     if(not os.path.exists(AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii")):
         retcode, _ = executeCommand("", cmd, logPath + "/RORPO")
     sanityCheckFile(AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii")
@@ -326,7 +329,6 @@ def main():
     cmd = cmd + "--output.directory " + AngiotTKOutputPath + "/centerlinesmanager "
     for i in range(len(cltpool)):
         cmd = cmd + "--input.centerlines.filename " + AngiotTKOutputPath + "/centerlines/part" + str(i) + "/model_centerlines.vtk "
-    print cmd
     executeCommand("", cmd, logPath + "/meshing_centerlinesmanager")
 
     # Regenerate image from centerlines
@@ -361,7 +363,6 @@ def main():
         "--input.surface.filename " + newSTL + " "  \
         "--gmsh.centerlines.filename " + AngiotTKOutputPath + "/centerlinesmanager/model_centerlines_up.vtk " \
         "--output.directory " +  AngiotTKOutputPath + "/remeshgmsh"
-    print cmd
     executeCommand("", cmd, logPath + "/meshing_remeshstlgmsh")
 
     newSTL = max(glob.iglob(AngiotTKOutputPath + "/remeshgmsh/*"), key=os.path.getctime)
@@ -373,7 +374,6 @@ def main():
         "--input.surface.filename " + newSTL + " " \
         "--input.centerlines.filename " + AngiotTKOutputPath + "/centerlinesmanager/model_centerlines_up.vtk " \
         "--output.directory " + AngiotTKOutputPath + "/volumefromstlandcenterlines"
-    print cmd
     executeCommand("", cmd, logPath + "/meshing_volumefromstlandcenterlines")
 
     # Print timing
