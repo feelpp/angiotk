@@ -26,4 +26,4 @@ The mesh is prepared to be used in computer simulation:
 * Optionnally, the blood vessels thickness is taken into account by extruding de boundary layer according to a given percentage of the blood vessels radius.
 * The Mesh is partitioned for numerical simulation.
 
-[Go back to Overview](Introduction.adoc)
+[Go back to Overview](Overview.adoc)
