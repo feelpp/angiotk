@@ -1,0 +1,39 @@
+#!/usr/bin/env python
+
+# This scripts takes an offline screenshot using ParaView
+# usage: pvpython <script_name> <path_to_data_file>
+
+# To use this, you can either use:
+# - The classical ParaView version with X exported through ssh (DISPLAY)
+# - The EGL version of ParaView (no need for X or DISPLAY)
+
+import sys
+from paraview.simple import *
+
+if( len(sys.argv) != 3 ):
+    print "Use used: "
+    for i in range (0, len(sys.argv)):
+        print "arg[" + str(i) + "]: " +sys.argv[i] 
+    print "Usage: pvpython " + sys.argv[0] + " <data_file> + <target_file>"
+    exit(1)
+
+reader = OpenDataFile(sys.argv[1])
+reader.UpdatePipeline()
+
+view = GetActiveViewOrCreate('RenderView')
+#view.UseOffscreenRendering=1
+view.ViewSize = [ 3840, 2160 ]
+view.ResetCamera()
+
+model = GetActiveSource()
+
+modelDisplay = GetDisplayProperties(model, view)
+modelDisplay.SetRepresentationType('Volume')
+
+cam = GetActiveCamera()
+cam.SetPosition(-1,0,0)
+cam.SetViewUp(0,0,1)
+Render()
+
+SaveScreenshot(sys.argv[2], view)
+print 'screenShot.py: screenshot saved in ' + sys.argv[2]
