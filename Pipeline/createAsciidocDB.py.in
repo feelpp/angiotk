@@ -63,8 +63,8 @@ def main():
         dbFile = open(jsonFile,'r')
         resultsDB = json.load(dbFile, object_pairs_hook=OrderedDict)
         dbFile.close()
-    except:
-        print 'createAsciidocDB.py: the file ' + jsonFile + ' was not found'
+    except Exception, e:
+        print 'createAsciidocDB.py: ', e
     
     adocFile = open(asciidocFile, 'w')
 
@@ -72,29 +72,46 @@ def main():
     #print json.dumps(resultsDB, indent=4)
     #print ''
 
-
+    # write configuration
+    adocFile.write("##Configuration\n\n")
+    for info, value in resultsDB['configuration'].items():
+        adocFile.write('- ' + str(info) + ": " + str(value) + '\n')
+    adocFile.write('\n')
     # write text before table
-    adocFile.write("AngioTK results table:\n\n")
+    adocFile.write("##Results table:\n\n")
     # write table title
+    #adocFile.write(':tabletags-red.bodydata: <td style=\"background-color:red;\">|</td>\n')
+    #adocFile.write(':tabledef-default.red-style: tags=\"red\"\n\n')
     adocFile.write(".Results table\n")
     # write columns titles (i.e. the top row)
     adocFile.write("[style=\"verse,asciidoc\",options=\"header,footer\"]\n")
     adocFile.write("|===\n")
     adocFile.write("|Dataset\Steps")
-    pipelineSteps = next (iter(resultsDB.values()))
+    pipelineSteps = next (iter(resultsDB['results'].values()))
     for step in pipelineSteps:
         adocFile.write('|'+step)
-    adocFile.write("\n")
-    # write other rowsrows (
-    for dataset, pipelineSteps in resultsDB.items():
-        adocFile.write('|' + dataset)
+    adocFile.write("\n\n")
+    # write other rows
+    for dataset, pipelineSteps in resultsDB['results'].items():
+        adocFile.write('|{set:cellbgcolor!}\n')
+        adocFile.write(dataset)
+        wasRed=False
         for stepName, step in pipelineSteps.items():
             adocFile.write('|')
             for metadataName, metadata in step.items():
-                if metadataName=='Screenshot':
-                    adocFile.write( 'image:' + str(metadata) + '[\"screenshot\",width=100,link=\"' + str(metadata) + '\"]\n')
+                if metadataName=='Success':
+                    if metadata==False: # step failure
+                        if not wasRed:
+                            adocFile.write('{set:cellbgcolor:red}\n')
+                            wasRed=True
+                    else: # step success
+                        if wasRed:
+                            adocFile.write('{set:cellbgcolor!}\n')
+                            wasRed=False
+                elif metadataName=='Screenshot':
+                    adocFile.write('image:' + str(metadata) + '[\"screenshot\",width=100,link=\"' + str(metadata) + '\"] +\n')
                 else:
-                    adocFile.write( metadataName + ': ' + str(metadata) + '\n')
+                    adocFile.write( metadataName + ': ' + str(metadata) + ' +\n')
         adocFile.write("\n")
     adocFile.write("|===\n")
     

@@ -1,0 +1,207 @@
+#!/usr/bin/env python                                                                       
+
+import argparse
+import ConfigParser
+import datetime
+import errno
+import glob
+import os
+import shutil
+import stat
+import subprocess
+import sys
+import threading
+import time
+# to generate results database (json file)                                                  
+import json
+from collections import OrderedDict
+import string
+
+import testAngioTKPipeline
+
+def main():
+    
+    testAngioTK = os.path.expandvars('@CMAKE_INSTALL_PREFIX@/bin/testAngioTKPipeline.py')
+    asciidocSummarypy = os.path.expandvars('@CMAKE_INSTALL_PREFIX@/bin/createAsciidocSummary.py')
+    asciidocDBpy = os.path.expandvars('@CMAKE_INSTALL_PREFIX@/bin/createAsciidocDB.py')
+
+    initialTime = datetime.datetime.now()
+    # arguments management
+    parser = argparse.ArgumentParser()
+    #parser.add_argument('--inputpath', default=os.path.expandvars("/data/vivabrain"), help='path to all input files in .mha format')
+    #parser.add_argument('--outputpath', default=os.path.expandvars("$RESULTS"), help='path to write results to')
+    parser.add_argument('--inputpath', required=True, help='path to all input files in .mha format')
+    parser.add_argument('--outputpath', required=True, help='path to write results to')
+    parser.add_argument('-n', default=1, type=int, help='limit actual processing to n mha files')
+    parser.add_argument('--noscreenshots', dest='enablescreenshots', action='store_false', help='Disable screenshots.')
+    parser.set_defaults(enablescreenshots=True)
+    args = parser.parse_args()
+    
+    inputFile = args.inputpath
+    resultsPath = args.outputpath
+    mustSaveScreenshots = args.enablescreenshots
+    print 'Will save screenshots: ' + str(mustSaveScreenshots)
+
+    mhaFiles = []
+    osWalkInitTime = time.time()
+    for path, dirs, files in os.walk(inputFile):
+        for f in files:
+            if f.endswith("art.mha") or f.endswith("cor.mha") or f.endswith("pcp.mha"):
+                mhaFiles.append(os.path.join(path,f))
+    osWalkEndTime = time.time()
+    print "The following .mha files were found"
+    for f in mhaFiles:
+        print f
+        
+    print "os.walk total time: " + str(round(osWalkEndTime-osWalkInitTime,1))
+
+    # results database initialisation: resultsPath is the 'root' dir of all results ($RESULTS)
+    resultsDataBasePath = os.path.join(resultsPath, 'resultsDataBase') # ex: $RESULTS/resultsDataBase
+    global_json = os.path.join(resultsDataBasePath, 'summary.json') # ex: $RESULTS/resultsDataBase/global.json
+    # we group all runs in a directory
+    runsPath = os.path.join(resultsDataBasePath, 'runs') # ex: $RESULTS/resultsDataBase/runs
+    testAngioTKPipeline.makedir(runsPath)
+    # for a given run, we use its launch date and time as ID and directory name (YYYY-MM-DD_HH:MM:SS)
+    timeID = (datetime.datetime.today()).strftime("%Y-%m-%d_%H:%M:%S")
+    runID = "run-" + timeID
+    resultsDBPath = os.path.join(runsPath, runID) # ex: $RESULTS/resultsDataBase/runs/run-YYYY-MM-DD_HH:MM:SS
+    testAngioTKPipeline.makedir(resultsDBPath)
+    resultsDBName = "resultsDB.json"
+    results_json = os.path.join(resultsDBPath, resultsDBName) # ex: $RESULTS/resultsDataBase/runs/run-YYYY-MM-DD_HH:MM:SS/resultsDB.json
+    results_html_absolute = os.path.splitext(results_json)[0] + '.html' # ex: $RESULTS/resultsDataBase/runs/run-YYYY-MM-DD_HH:MM:SS/resultsDB.html
+    results_html_extra_slash = results_html_absolute.lstrip(resultsDataBasePath) # ex: /runs/run-YYYY-MM-DD_HH:MM:SS/resultsDB.html
+    results_html = os.path.join('runs', runID, os.path.splitext(resultsDBName)[0] + '.html') # ex: runs/run-YYYY-MM-DD_HH:MM:SS/resultsDB.html
+    
+    i = 0
+    limit = min(args.n, len(mhaFiles))
+    if limit > -1:
+        # initialize database by reading existing file or creating one if needed.
+        resultsDB = OrderedDict() # Data structure: ordered dictionary
+        try: # if .json already exists, read it
+            dbFile = open(results_json,'r')
+            resultsDB = json.load(dbFile, object_pairs_hook=OrderedDict)
+            dbFile.close()
+        except IOError, e:
+            print "master.py: The file " + results_json + " was not found, it will be created."
+        except Exception, e:
+            print "master.py: Error: ", e
+        # adds the configuration entry if needed
+        cfg = 'configuration'
+        resultsDB[cfg]=OrderedDict()
+        # fills the configuration entry
+        resultsDB[cfg]['date'] = timeID
+        resultsDB[cfg]['database'] = args.inputpath
+        out = subprocess.check_output(["uname", "-a"])
+        resultsDB[cfg]['system'] = string.rstrip(out, '\n') # uname's output ends with '\n', we strip this away
+        out = subprocess.check_output("whoami")
+        resultsDB[cfg]['user'] = string.rstrip(out, '\n') # whoami's output also ends with '\n', we strip this away
+        p = subprocess.Popen(["python", "-V"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = p.communicate()
+        resultsDB[cfg]['python'] = string.rstrip(err, '\n') # python version is printed in stderr, not in stdout !
+        p = subprocess.Popen(["pvpython", "-V"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = p.communicate()
+        resultsDB[cfg]['paraview'] = string.rstrip(err, '\n')
+        resultsDB[cfg]['found files'] = str(len(mhaFiles))
+        resultsDB[cfg]['processed files'] = '0'
+        resultsDB[cfg]['successful reconstructions'] = '0'
+        resultsDB[cfg]['incomplete reconstructions'] = '0'
+        resultsDB[cfg]['total failure'] = '0'
+        resultsDB[cfg]['total time'] = str(datetime.datetime.now()-initialTime) 
+        resultsDB[cfg]['link'] = results_html
+        print cfg + ": "
+        print json.dumps(resultsDB[cfg], indent=4)
+
+        dbFile = open(results_json, 'w')
+        json.dump(resultsDB, dbFile, indent=4)
+        dbFile.close()
+                
+        # loop for all datasets to process
+        for mhaFile in mhaFiles: # ex: /data/vivabrain/IRM/Base2/TOF/natives/MHA/GEO26/TOF_art.mha
+            if(i==limit):
+                break
+            # pathNoExt, ext = os.path.splitext(mhaFile) # ex: separate /data/vivabrain/IRM/Base2/TOF/natives/MHA/GEO26/TOF_art and .mha 
+            pathToMha = string.rstrip(string.lstrip(mhaFile, '/data/vivabrain/IRM/')) # only keep Base2/TOF/natives/MHA/GEO26/TOF_art.mha
+            fileIDNoSlash = pathToMha.replace('/','_').replace('.','_') # turn it into Base2_TOF_natives_MHA_GEO26_TOF_art_mha
+            inputPath = os.path.join(os.path.expandvars('@CMAKE_INSTALL_PREFIX@/share/AngioTK/Examples/MeshFromMRI'), fileIDNoSlash)
+            # we don't create this directory. If it does not exists, testAngioTKPipeline.py will use the generic cfg path. 
+            #testAngioTKPipeline.makedir(inputPath)
+            cmd = "python " + testAngioTK + ' --inputfile=' + mhaFile + ' --inputpath='+ inputPath  + ' --outputpath=' + os.path.join(resultsPath, fileIDNoSlash) + ' --dbpath=' + resultsDBPath
+            if not mustSaveScreenshots:
+                cmd = cmd + ' --noscreenshots'
+            print 'Processing file ' + str(i+1) + '/' + str(limit) + ': ' + mhaFile + '...'
+            print 'cmd: ' + cmd
+            print '----------------------------------------' + testAngioTK + '--------------------------------------------'
+            testAngioTKPipeline.executeCommand("", cmd, "")
+            i=i+1
+            # resultsDB update
+            try: # if .json already exists, read it                                                                                                                                                                    
+                dbFile = open(results_json,'r')
+                resultsDB = json.load(dbFile, object_pairs_hook=OrderedDict)
+                dbFile.close()
+            except Exception, e:
+                print "master.py: RESULTS DATABASE:"
+                print "Error: ", e
+            resultsDB[cfg]['processed files'] = str(i)
+            resultsDB[cfg]['total time'] = str(datetime.datetime.now()-initialTime) 
+            dbFile = open(results_json, 'w')
+            json.dump(resultsDB, dbFile, indent=4)
+            dbFile.close()
+    
+    nSuccess = 0
+    nIncomplete = 0
+    nFail = 0
+    for dataset in resultsDB['results'].keys(): # for each dataset
+        if resultsDB['results'][dataset]['1 - RORPO processing']['Success']==False: # total failure
+            nFailure += 1
+        else:
+            if resultsDB['results'][dataset]['6 - Volume mesh processing']['Success']==True: # reconstruction completed
+                nSuccess += 1
+            else:
+                nIncomplete += 1
+    resultsDB[cfg]['successful reconstructions'] = nSuccess
+    resultsDB[cfg]['incomplete reconstructions'] = nIncomplete
+    resultsDB[cfg]['total failure'] = nFail
+    dbFile = open(results_json, 'w')
+    json.dump(resultsDB, dbFile, indent=4)
+    dbFile.close()
+    
+    globalDB = OrderedDict() # Data structure: ordered dictionary                                                                                                                                                  
+    oldRuns = OrderedDict() # To store old runs and reverse order
+    try: # if global.json already exists, read it
+        globalFile = open(global_json,'r')
+        globalDB = json.load(globalFile, object_pairs_hook=OrderedDict)
+        globalFile.close()
+        oldRuns = OrderedDict(globalDB['runs'])
+    except Exception, e:
+        print "master.py: GLOBAL DATABASE:"
+        print "Error: ", e
+    
+    globalDB['runs']=OrderedDict()
+    globalDB['runs'][runID] = resultsDB[cfg]
+    while len(oldRuns.keys()) > 0:
+        k,v = oldRuns.popitem(last=False)
+        globalDB['runs'][k]=v
+    globalFile = open(global_json, 'w')
+    json.dump(globalDB, globalFile, indent=4)
+    globalFile.close()
+
+    
+    cmd = 'python ' + asciidocDBpy + ' -i ' + results_json
+    print '----------------------------------------' + asciidocDBpy + '--------------------------------------------'
+    testAngioTKPipeline.executeCommand("", cmd, "")
+    cmd = 'python ' + asciidocSummarypy + ' -i ' + global_json
+    print '----------------------------------------' + asciidocSummarypy + '--------------------------------------------'
+    testAngioTKPipeline.executeCommand("", cmd, "")
+
+    results_adoc = os.path.splitext(results_json)[0] + '.adoc'
+    cmd = 'asciidoctor ' + results_adoc
+    print '----------------------------------------' + 'asciidoctor' + '--------------------------------------------'
+    testAngioTKPipeline.executeCommand("", cmd, "")
+
+    global_adoc = os.path.splitext(global_json)[0] + '.adoc'
+    cmd = 'asciidoctor ' + global_adoc
+    testAngioTKPipeline.executeCommand("", cmd, "")
+        
+# Only do this, if we do not import as a module
+if __name__ == "__main__":
+    main()
