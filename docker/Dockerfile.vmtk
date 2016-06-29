@@ -18,7 +18,7 @@ RUN cd /tmp && git clone https://github.com/Kitware/ITK.git \
  && cd /tmp/ITK && git checkout refs/tags/v4.9.1 \
  && mkdir -p /tmp/ITK/build && cd /tmp/ITK/build \
  && cmake /tmp/ITK -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_EXAMPLES=OFF -DBUILD_TESTING=OFF -DITKV3_COMPATIBILITY=ON -DModule_ITKReview=ON -DBUILD_SHARED_LIBS=ON \
- && sudo make -j ${BUILD_JOBS} install
+ && sudo make -j ${BUILD_JOBS} install \
  && sudo rm -rf /tmp/ITK
    
 
