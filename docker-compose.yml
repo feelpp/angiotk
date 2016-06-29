@@ -1,0 +1,30 @@
+version: '2'
+
+services:
+    feelpp-dev-env-angiotk:
+        build:
+            context: ./docker/
+            dockerfile: Dockerfile.feelpp-env
+            args:
+                - BUILD_JOBS=32
+        image: feelpp/feelpp-env:angiotk
+
+    feelpp-vmtk:
+        build:
+            context: ./docker
+            dockerfile: Dockerfile.vmtk
+            args:
+                - BUILD_JOBS=32
+        image: feelpp/feelpp-env:vmtk
+        depends_on: 
+            - feelpp-dev-env-angiotk
+
+    feelpp-angiotk:
+        build:
+            context: .
+            dockerfile: ./docker/Dockerfile.angiotk
+            args:
+                - BUILD_JOBS=32
+        image: feelpp/angiotk:latest
+        depends_on: 
+            - feelpp-vmtk

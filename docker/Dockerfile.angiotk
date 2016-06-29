@@ -1,0 +1,24 @@
+FROM feelpp/feelpp-env:vmtk
+MAINTAINER Feel++ Support <support@feelpp.org>
+
+ARG BRANCH=develop
+ARG BUILD_JOBS=16
+ARG CMAKE_FLAGS=""
+
+ADD . /tmp/angiotk/
+
+USER feelpp
+ENV HOME /home/feelpp
+
+ENV FEELPP_DIR /usr/local
+
+RUN cd /tmp/angiotk \
+    && sudo mkdir build && cd build \
+    && sudo cmake /tmp/angiotk/ -DCMAKE_C_COMPILER=/usr/bin/clang-3.6 -DCMAKE_CXX_COMPILER=/usr/bin/clang++-3.6 -DBUILD_MODULE_Meshing=ON -DBUILD_MODULE_Filtering=ON -DBUILD_MODULE_CFD=ON \
+    && sudo make -j ${BUILD_JOBS} install \
+    && sudo rm -rf /tmp/angiotk
+ 
+# COPY WELCOME $HOME/WELCOME
+USER root
+ENTRYPOINT ["/sbin/my_init","--quiet","--","sudo","-u","feelpp","/bin/sh","-c"]
+CMD ["/bin/bash"]

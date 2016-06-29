@@ -1,0 +1,40 @@
+FROM feelpp/feelpp-env:angiotk
+MAINTAINER Feel++ Support <support@feelpp.org>
+
+ARG BRANCH=develop
+ARG BUILD_JOBS=16
+ARG CMAKE_FLAGS=""
+
+USER feelpp
+ENV HOME /home/feelpp
+
+RUN cd /tmp && git clone https://github.com/feelpp/feelpp && cd feelpp && echo "Cloned version: `git rev-parse HEAD`" \
+ && mkdir -p /tmp/feelpp/build && cd /tmp/feelpp/build \
+ && cmake /tmp/feelpp -DCMAKE_INSTALL_PREFIX=/usr/local \
+ && sudo make -j ${BUILD_JOBS} install-feelpp-lib \
+ && rm -rf /tmp/feelpp
+
+RUN cd /tmp && git clone https://github.com/Kitware/ITK.git \
+ && cd /tmp/ITK && git checkout refs/tags/v4.9.1 \
+ && mkdir -p /tmp/ITK/build && cd /tmp/ITK/build \
+ && cmake /tmp/ITK -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_EXAMPLES=OFF -DBUILD_TESTING=OFF -DITKV3_COMPATIBILITY=ON -DModule_ITKReview=ON -DBUILD_SHARED_LIBS=ON \
+ && sudo make -j ${BUILD_JOBS} install
+ && sudo rm -rf /tmp/ITK
+   
+
+# regroup commands with &&
+RUN cd /tmp && git clone https://github.com/vmtk/vmtk.git  \
+ && cd /tmp/vmtk && git checkout refs/tags/v1.2 \
+ && sed -i '139ifind_package(TCL REQUIRED)' CMakeLists.txt \ 
+ && sed -i '140iif(TCL_FOUND)' CMakeLists.txt \
+ && sed -i '141iinclude_directories(${TCL_INCLUDE_PATH})' CMakeLists.txt \
+ && sed -i '142iendif()\n' CMakeLists.txt \
+ && mkdir -p /tmp/vmtk/build && cd /tmp/vmtk/build \
+ && sudo cmake /tmp/vmtk -DUSE_SYSTEM_VTK=ON -DUSE_SYSTEM_ITK=ON -DITK_DIR=/usr/local -DSUPERBUILD_INSTALL_PREFIX=/usr/local \
+ && sudo make -j ${BUILD_JOBS} \
+ && sudo rm -rf /tmp/vmtk
+
+# COPY WELCOME $HOME/WELCOME
+USER root
+ENTRYPOINT ["/sbin/my_init","--quiet","--","sudo","-u","feelpp","/bin/sh","-c"]
+CMD ["/bin/bash"]
