@@ -7,7 +7,7 @@ ARG INSTALL_BOOST=1
 ARG INSTALL_PETSC=1
 ARG INSTALL_SLEPC=1
 ARG INSTALL_GMSH=1
-ARG INSTALL_PARAVIEW=0
+ARG INSTALL_PARAVIEW=1
 
 # Install build environment
 RUN add-apt-repository ppa:ubuntu-toolchain-r/test
@@ -45,6 +45,15 @@ RUN apt-get -qq update && \
 ENV CXX clang++-3.6
 ENV CC clang-3.6
 ENV FEELPP_DEP_INSTALL_PREFIX /usr/local
+
+# CMake (ParaView > 5.1.0 requires CMake > 3.5)
+RUN if [ x$INSTALL_PARAVIEW = x1 ]; then \
+    cd /tmp && wget https://cmake.org/files/v3.5/cmake-3.5.2.tar.gz && \
+    tar zxvf cmake-3.5.2.tar.gz && cd cmake-3.5.2 && \
+    ./configure --prefix=/usr/local && make -j ${BUILD_JOBS} install && \ 
+    rm -rf /tmp/cmake-3.5.2 \
+    ; fi
+ENV PATH /usr/local/bin:${PATH}
 
 # Openturns
 RUN if [ x$INSTALL_OPENTURNS = x1 ]; then \
@@ -154,12 +163,12 @@ RUN if [ x$INSTALL_GMSH = x1 ]; then \
     ; fi
 
 # ParaView
-ENV PARAVIEW_VERSION 5.0.1
+ENV PARAVIEW_VERSION 5.1.0
 RUN if [ x$INSTALL_PARAVIEW = x1 ]; then \
     cd /tmp \
-    && wget "http://www.paraview.org/paraview-downloads/download.php?submit=Download&version=v5.0&type=source&os=all&downloadFile=ParaView-v${PARAVIEW_VERSION}-source.tar.gz" -O ParaView-v${PARAVIEW_VERSION}-source.tar.gz \
-    && tar xvzf ParaView-v${PARAVIEW_VERSION}-source.tar.gz \
-    && cd ParaView-v${PARAVIEW_VERSION}-source \
+    && wget "http://www.paraview.org/paraview-downloads/download.php?submit=Download&version=v5.1&type=source&os=all&downloadFile=ParaView-v${PARAVIEW_VERSION}.tar.gz" -O ParaView-v${PARAVIEW_VERSION}.tar.gz \
+    && tar xvzf ParaView-v${PARAVIEW_VERSION}.tar.gz \
+    && cd ParaView-v${PARAVIEW_VERSION} \
     && mkdir build \
     && cd build \
     && cmake \
