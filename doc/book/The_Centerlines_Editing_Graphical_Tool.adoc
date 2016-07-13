@@ -1,0 +1,92 @@
+# The Centerline Editing Graphical Tool
+
+The Centerline Editing Graphical Tool's (CEGT) purpose is to assist the user in centerlines creation and edition. At this time (May 2016), it essentially remains a manual task, and a critical step in the pipeline (see the Center lines definition section in definitionlink:Meshing_Module_Description.adoc[the Meshing Module Description page].)
+
+## Overview
+
+Although the CEGT is started using command line (and outputs useful messages there too), all operations are performed in its GUI (graphical user interface.)
+
+The user is presented with the initial blood vessels mesh generated in the previous step. 
+
+The goal is to define centerlines for each vein/artery. To define a centerline, the user has to define key points along the desired centerline, and pair them along the way, in order to create a polygonal chain through the blood vessel. 
+
+During this process, the user also adjusts the radius of the inscribed sphere for each key point.
+
+When all the centerlines keypoints are well defined, the next pipeline module generates the centerlines and carries on automatically.
+
+## Starting command line
+
+The CEGT is located in `$INSTALL/Modules/Meshing/bin/meshing_centerlinesmanagergui`. An optional but helping first step is to export all environment variables using the appropriate supplied bash script located at `$INSTALL/bin/setupAngioTKEnvironment.sh.` 
+
+Here again,`INSTALL` refers to the path where AngioTK was installed (see link:Building.adoc[the building page])
+
+Simply run this command or put it in your `.bashrc` (which is more convenient for repeated use).
+
+`source $INSTALL/bin/setupAngioTKEnvironment.sh`
+
+Now, the exectutable `meshing_centerlinesmanagergui` can be launched directly. 
+
+The arguments to provide are:
+
+- `--input.surface.path` (mandatory) specifies the surface file to work on.
+- `--input.point-pair.path` (optional) specifies the point pairs file (typically: previously saved work)
+
+Thus, the typical command shoud be:
+
+`meshing_centerlinesmanagergui --input.surface.path model.stl --input.point-pair.path pointpair.data`
+
+for example, using the provided Phantom example:
+
+`meshing_centerlinesmanagergui --input.surface.path Phantom/angiotk/surfacefromimage/model.stl --input.point-pair.path pointpair.data`
+  
+IMPORTANT: when no point-pair file is specified, saving your progress will result is creation of two files: `<home>/feel/meshing_centerlinesmanagergui/np_1/<model-name>_pointpair.data`
+`<home>/feel/meshing_centerlinesmanagergui/np_1/<model-name>_pointset.data`
+
+## Recommended workflow
+
+At this time (May 2016), centerline generation is completely dependent and very sensitive to the provided pointsets. Therefore, a cautious stepwise workflow is strongly advised, and you should frequently check you progress with the centerline generator and ParaView:
+
+- (optional) Prepare 2 different terminals, one for the CEGT, one for the centerline generator.
+
+#### In the centerline editing graphical tool
+- Start the GUI in one terminal
+- (optional) Press the 'h' key to display help (this should toggle an on-screen list of commands)
+- Use click&drag to rotate the mesh around, identify a blood vessel to work on.
+- Press the '2' key to switch to _point insertion mode_ 
+	* Click on the mesh near the end of the chosen blood vessel. This should create a sphere which center is the key point.
+	* Adjust the position and size of the sphere using the following keys: left/right, up/down, o/l and p/m (all of which are also visible in the on-screen help)
+	* Press 'y' to validate the sphere parameters. To further modify these, simply click back on the sphere and proceed as if it was a newly created one.
+	* To connect or disconnect two points, click on both of them and press 'd'.
+- After adding/connecting a few points, you should save your work by pressing 's'. This will write two files: a point-pair file a point-set file. Now you can check centerline generation.
+
+#### In the centerline generator
+
+- Launch the centerline generator with the relevant options to test your centerline definition points:
+
+	`meshing_centerlines`
+
+	`--input.surface.filename=model.stl`
+	this is the model used in the CEGT.
+
+
+	`--input.pointpair.filename=pointpair.data`
+	use this option to use a point-pair file (recommended), or the next one to use a point-set file.
+	
+	`--input.pointset.filename=pointset.data`
+
+	`--output.directory=`
+	your desired output path
+
+- Pay attention to the following errors:
+	* During the `Computing centerlines `step:
+		`Warning: In /data/software/src/vmtk/vtkVmtk/ComputationalGeometry/`
+		`vtkvmtkSteepestDescentLineTracer.cxx, line 240`
+		`vtkvmtkSteepestDescentLineTracer (0x24ef850): `
+		`Degenerate descent detected. Target not reached.`
+	
+		This means the centerline is invalid and won't be used. Try changing the positions of the input points or adding more points in between.
+
+
+#### In ParaView
+
+- Check your results by opening the produced `model_centerlines.vtk` in ParaView. Go back to the CEGT to edit your points if necessary, or to create new ones.
