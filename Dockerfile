@@ -1,4 +1,4 @@
-FROM feelpp/develop:latest
+FROM feelpp/develop:novtk
 MAINTAINER Feel++ Support <support@feelpp.org>
 
 USER feelpp
@@ -25,7 +25,8 @@ RUN sudo chown -R feelpp /tmp/angiotk
 RUN mkdir -p /tmp/angiotk/build
 
 WORKDIR /tmp/angiotk/build
-#RUN cmake /tmp/angiotk/
+RUN cmake /tmp/angiotk/ -DBUILD_MODULE_Filtering=ON -DBUILD_MODULE_Meshing=ON -DBUILD_MODULE_CFD=ON
+RUN sudo make -j 24 install
 
 # COPY WELCOME $HOME/WELCOME
 USER root
