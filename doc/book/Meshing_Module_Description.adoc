@@ -8,6 +8,8 @@ Image segmentation is used to detect blood vessels in the MRIs. Blood vessels su
 ## Center lines definition (VTK)
 Blood vessels center lines are defined and can be corrected by hand using a graphical tool. For each center line point, the inscribed sphere is also stored.
 
+For more informations, refer to link:The_Centerlines_Editing_Graphical_Tool.adoc[The centerlines editing tool.]
+
 ## Center lines processing (VMTK,VTK)
 A 3D-mesh is created, defining the center lines. Smoothing of the mesh is performed using splines.
 
@@ -26,4 +28,4 @@ The mesh is prepared to be used in computer simulation:
 * Optionnally, the blood vessels thickness is taken into account by extruding de boundary layer according to a given percentage of the blood vessels radius.
 * The Mesh is partitioned for numerical simulation.
 
-[Go back to Overview](Overview.adoc)
+link:Overview.adoc[Go back to Overview]
