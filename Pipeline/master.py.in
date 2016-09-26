@@ -20,13 +20,17 @@ import string
 import testAngioTKPipeline
 
 def main():
-    
+
+    # define scripts paths (partially filled by cmake during install)
     testAngioTK = os.path.expandvars('@CMAKE_INSTALL_PREFIX@/bin/testAngioTKPipeline.py')
     asciidocSummarypy = os.path.expandvars('@CMAKE_INSTALL_PREFIX@/bin/createAsciidocSummary.py')
     asciidocDBpy = os.path.expandvars('@CMAKE_INSTALL_PREFIX@/bin/createAsciidocDB.py')
+    angioTKVersion = string.rstrip('@CMAKE_ANGIOTK_VERSION@', '\n')
 
+    # write down current time (useful to time the process)
     initialTime = datetime.datetime.now()
-    # arguments management
+
+    # arguments parsing and management
     parser = argparse.ArgumentParser()
     #parser.add_argument('--inputpath', default=os.path.expandvars("/data/vivabrain"), help='path to all input files in .mha format')
     #parser.add_argument('--outputpath', default=os.path.expandvars("$RESULTS"), help='path to write results to')
@@ -35,16 +39,16 @@ def main():
     parser.add_argument('-n', default=1, type=int, help='limit actual processing to n mha files')
     parser.add_argument('--noscreenshots', dest='enablescreenshots', action='store_false', help='Disable screenshots.')
     parser.set_defaults(enablescreenshots=True)
-    args = parser.parse_args()
-    
-    inputFile = args.inputpath
+    args = parser.parse_args() # parse arguments into objects and store them as attributes of a namespace
+    databaseRootDir = args.inputpath
     resultsPath = args.outputpath
     mustSaveScreenshots = args.enablescreenshots
     print 'Will save screenshots: ' + str(mustSaveScreenshots)
 
+    # find IRM files by exploring database root directory
     mhaFiles = []
     osWalkInitTime = time.time()
-    for path, dirs, files in os.walk(inputFile):
+    for path, dirs, files in os.walk(databaseRootDir):
         for f in files:
             if f.endswith("art.mha") or f.endswith("cor.mha") or f.endswith("pcp.mha"):
                 mhaFiles.append(os.path.join(path,f))
@@ -55,8 +59,9 @@ def main():
         
     print "os.walk total time: " + str(round(osWalkEndTime-osWalkInitTime,1))
 
-    # results database initialisation: resultsPath is the 'root' dir of all results ($RESULTS)
+    # results database initialisation: resultsPath is the root directory of all results ($RESULTS)
     resultsDataBasePath = os.path.join(resultsPath, 'resultsDataBase') # ex: $RESULTS/resultsDataBase
+    testAngioTKPipeline.makedir(resultsDataBasePath)
     global_json = os.path.join(resultsDataBasePath, 'summary.json') # ex: $RESULTS/resultsDataBase/global.json
     # we group all runs in a directory
     runsPath = os.path.join(resultsDataBasePath, 'runs') # ex: $RESULTS/resultsDataBase/runs
@@ -74,6 +79,7 @@ def main():
     
     i = 0
     limit = min(args.n, len(mhaFiles))
+    # if limit == 0, no IRM file is processed, but results database is created.
     if limit > -1:
         # initialize database by reading existing file or creating one if needed.
         resultsDB = OrderedDict() # Data structure: ordered dictionary
@@ -95,6 +101,7 @@ def main():
         resultsDB[cfg]['system'] = string.rstrip(out, '\n') # uname's output ends with '\n', we strip this away
         out = subprocess.check_output("whoami")
         resultsDB[cfg]['user'] = string.rstrip(out, '\n') # whoami's output also ends with '\n', we strip this away
+        resultsDB[cfg]['angiotk version'] = angioTKVersion # AngioTK version (git commit)
         p = subprocess.Popen(["python", "-V"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
         resultsDB[cfg]['python'] = string.rstrip(err, '\n') # python version is printed in stderr, not in stdout !
@@ -108,6 +115,8 @@ def main():
         resultsDB[cfg]['total failure'] = '0'
         resultsDB[cfg]['total time'] = str(datetime.datetime.now()-initialTime) 
         resultsDB[cfg]['link'] = results_html
+        resultsDB[cfg]['command lines'] = ""
+        commandLines = OrderedDict()
         print cfg + ": "
         print json.dumps(resultsDB[cfg], indent=4)
 
@@ -117,7 +126,7 @@ def main():
                 
         # loop for all datasets to process
         for mhaFile in mhaFiles: # ex: /data/vivabrain/IRM/Base2/TOF/natives/MHA/GEO26/TOF_art.mha
-            if(i==limit):
+            if(i==limit): # This is the limit set in the command line's arguments  
                 break
             # pathNoExt, ext = os.path.splitext(mhaFile) # ex: separate /data/vivabrain/IRM/Base2/TOF/natives/MHA/GEO26/TOF_art and .mha 
             pathToMha = string.rstrip(string.lstrip(mhaFile, '/data/vivabrain/IRM/')) # only keep Base2/TOF/natives/MHA/GEO26/TOF_art.mha
@@ -132,75 +141,91 @@ def main():
             print 'cmd: ' + cmd
             print '----------------------------------------' + testAngioTK + '--------------------------------------------'
             testAngioTKPipeline.executeCommand("", cmd, "")
+                        
             i=i+1
             # resultsDB update
-            try: # if .json already exists, read it                                                                                                                                                                    
+            try: # if .json already exists, read it
                 dbFile = open(results_json,'r')
                 resultsDB = json.load(dbFile, object_pairs_hook=OrderedDict)
                 dbFile.close()
             except Exception, e:
                 print "master.py: RESULTS DATABASE:"
                 print "Error: ", e
+            
+            # update results database
+            commandLines[fileIDNoSlash] = cmd
+            #resultsDB[cfg]['command lines'] = json.dumps(commandLines, indent=4)
+            resultsDB[cfg][fileIDNoSlash] = cmd
             resultsDB[cfg]['processed files'] = str(i)
             resultsDB[cfg]['total time'] = str(datetime.datetime.now()-initialTime) 
+            
+            # write to database file
             dbFile = open(results_json, 'w')
             json.dump(resultsDB, dbFile, indent=4)
             dbFile.close()
     
+    # database final update
     nSuccess = 0
     nIncomplete = 0
     nFail = 0
     for dataset in resultsDB['results'].keys(): # for each dataset
-        if resultsDB['results'][dataset]['1 - RORPO processing']['Success']==False: # total failure
-            nFailure += 1
+        if resultsDB['results'][dataset]['1 - RORPO processing']['Success']==False: 
+            nFailure += 1 # total failures
         else:
-            if resultsDB['results'][dataset]['6 - Volume mesh processing']['Success']==True: # reconstruction completed
-                nSuccess += 1
+            if resultsDB['results'][dataset]['6 - Volume mesh processing']['Success']==True:
+                nSuccess += 1 # completed reconstructions
             else:
-                nIncomplete += 1
+                nIncomplete += 1 # incomplete reconstructions
     resultsDB[cfg]['successful reconstructions'] = nSuccess
     resultsDB[cfg]['incomplete reconstructions'] = nIncomplete
     resultsDB[cfg]['total failure'] = nFail
+    # write to database file
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
     dbFile.close()
     
-    globalDB = OrderedDict() # Data structure: ordered dictionary                                                                                                                                                  
+    # Global database reading (including previous runs)
+    globalDB = OrderedDict() # Data structure: ordered dictionary                                                                                                        
     oldRuns = OrderedDict() # To store old runs and reverse order
     try: # if global.json already exists, read it
         globalFile = open(global_json,'r')
         globalDB = json.load(globalFile, object_pairs_hook=OrderedDict)
         globalFile.close()
+        # store previous runs
         oldRuns = OrderedDict(globalDB['runs'])
     except Exception, e:
         print "master.py: GLOBAL DATABASE:"
         print "Error: ", e
     
-    globalDB['runs']=OrderedDict()
-    globalDB['runs'][runID] = resultsDB[cfg]
-    while len(oldRuns.keys()) > 0:
+    # create/update runs history:
+    globalDB['runs']=OrderedDict() # start with a new runs database
+    globalDB['runs'][runID] = resultsDB[cfg] # add current run
+    while len(oldRuns.keys()) > 0: # copy previous runs back
         k,v = oldRuns.popitem(last=False)
         globalDB['runs'][k]=v
+    # write to global database file
     globalFile = open(global_json, 'w')
     json.dump(globalDB, globalFile, indent=4)
     globalFile.close()
 
-    
+    # external scripts execution
     cmd = 'python ' + asciidocDBpy + ' -i ' + results_json
     print '----------------------------------------' + asciidocDBpy + '--------------------------------------------'
-    testAngioTKPipeline.executeCommand("", cmd, "")
+    testAngioTKPipeline.executeCommand("", cmd, "") # output is a .adoc file named like input
     cmd = 'python ' + asciidocSummarypy + ' -i ' + global_json
     print '----------------------------------------' + asciidocSummarypy + '--------------------------------------------'
-    testAngioTKPipeline.executeCommand("", cmd, "")
+    testAngioTKPipeline.executeCommand("", cmd, "") # output is a .adoc file named like input
 
     results_adoc = os.path.splitext(results_json)[0] + '.adoc'
     cmd = 'asciidoctor ' + results_adoc
     print '----------------------------------------' + 'asciidoctor' + '--------------------------------------------'
-    testAngioTKPipeline.executeCommand("", cmd, "")
+    testAngioTKPipeline.executeCommand("", cmd, "") # output is a .html file named like input
 
     global_adoc = os.path.splitext(global_json)[0] + '.adoc'
     cmd = 'asciidoctor ' + global_adoc
-    testAngioTKPipeline.executeCommand("", cmd, "")
+    testAngioTKPipeline.executeCommand("", cmd, "") # output is a .html file named like input
+
+    print "Total wall-clock time in master.py: " + str(datetime.datetime.now()-initialTime) 
         
 # Only do this, if we do not import as a module
 if __name__ == "__main__":

@@ -28,7 +28,7 @@ def executeCommand(text, cmd, logPrefix=""):
     returnCode = 0
 
     if(debug > 0):
-        print cmd
+        print "executeCommand: " + cmd
 
     # if we specify an absolute command path
     # we check that the file exists
@@ -85,13 +85,13 @@ def sanityCheckFile(filepath, msg=""):
         exit(1)
 # add a new entry to the results database (an ordered dictionary)
 def addStepEntry(resDB, currentStepName, success, time, screenshotfile, comments, cmd):
-    manualCommentHint = "Users can edit and add comments here."
+    manualCommentHint = "[]"
     if(not resDB.has_key(currentStepName)):
         resDB[currentStepName] = OrderedDict()
+    resDB[currentStepName]['Comments']= comments
     resDB[currentStepName]['Success'] =  success
     resDB[currentStepName]['Time'] = round(time,3)
     resDB[currentStepName]['Screenshot'] = screenshotfile
-    resDB[currentStepName]['Comments']= comments
     if(not resDB[currentStepName].has_key('User comments')):
         resDB[currentStepName]['Users comments'] = manualCommentHint
     resDB[currentStepName]['Command']= cmd
@@ -102,10 +102,13 @@ def saveScreenshot(modelPath, screenshotPath):
     screenshotScriptPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "screenshot.py")
     screenshotCmd = "pvbatch --use-offscreen-rendering " + screenshotScriptPath + " " + modelPath + " " + screenshotPath
     print '--------------------------------------------------------------------------------'
-    executeCommand("", screenshotCmd, "")
-    
+    startTime = datetime.datetime.now()
+    executeCommand("", screenshotCmd)
+    print 'screenshot wall-clock time:' + str(datetime.datetime.now()-startTime)
     
 def main():
+    # ------------ 0 - Initialization ------------
+
     # Check that the meshing and filtering modules are enabled
     hasMeshingModule = "@BUILD_MODULE_Meshing@"
     hasFilteringModule = "@BUILD_MODULE_Filtering@"
@@ -118,6 +121,7 @@ def main():
         print "Aborting ..."
         exit(1)
 
+    # Define arguments and default values (argparse module)
     parser = argparse.ArgumentParser()
     parser.add_argument('--inputfile', required=True, help='Path to the original input file in .mha format')
     parser.add_argument('--inputpath', required=True, help='Path where the configuration files for the current pipeline are stored')
@@ -125,29 +129,28 @@ def main():
     parser.add_argument('--dbpath', required=True, help='Path where the run database (results.json) is written')
     parser.add_argument('--noscreenshots', dest='enablescreenshots', action='store_false', help='Disable screenshots.')
     parser.set_defaults(enablescreenshots=True)
+    # parse arguments out of sys.argv
     args = parser.parse_args()
-
-    #if len(sys.argv) != 3:
-        #print "usage: " + os.path.basename(sys.argv[0]) + " <path_to_config_files> <output_path;default=" + outpath + ">"
-        #exit(1)
-
-    # Stores useful paths
-    # cfgpath = "@CMAKE_INSTALL_PREFIX@/share/AngioTK/"
-    # outpath = os.path.expandvars("${HOME}/AngioTK/")
-
-    #cfgpath = os.path.abspath(sys.argv[1])
+    
+    # Define configuration files path
     cfgpath = args.inputpath
     # sanityCheckFile(cfgpath)
     cfgpathRoot, cfgpathDir = os.path.split(cfgpath)
+    # path to the 'generic' cfg directory:
+    # in case a cfg file does not exist, we use the corresponding generic cfg file.
     altcfgpath = os.path.join(cfgpathRoot, 'generic')
-    # in case cfg directory does not exist, we use the generic cfg files.
-    if not os.path.exists(cfgpath):
-        cfgpath = altcfgpath
-
-    #outpath = os.path.abspath(sys.argv[2])
+    
+    # Define output paths
     baseOutputPath = args.outputpath
     makedir(baseOutputPath)
+    AngioTKOutputPath = os.path.join(baseOutputPath, "angiotk")
+    makedir(os.path.join(AngioTKOutputPath, "data"))
 
+    print "Using configuration:"
+    print "- Location of configuration files: " + cfgpath
+    print "- Output path: " + AngioTKOutputPath
+
+    # save a script to relaunch the whole process
     script = open(baseOutputPath + "/relaunch-script.sh", "w")
     script.write("#!/bin/bash\n\n")
     script.write(' '.join(sys.argv) + "\n\n")
@@ -156,14 +159,7 @@ def main():
     # make script executable
     st = os.stat(baseOutputPath + "/relaunch-script.sh")
     os.chmod(baseOutputPath + "/relaunch-script.sh", st.st_mode | stat.S_IEXEC)
-
-    AngiotTKOutputPath = baseOutputPath + "/angiotk"
-    makedir(AngiotTKOutputPath + "/data")
-
-    print "Using configuration:"
-    print "- Location of configuration files: " + cfgpath
-    print "- Output path: " + AngiotTKOutputPath
-
+    
     # Setup environment to find the correct paths and set output paths
     my_env = os.environ
     my_env["PATH"] = "@CMAKE_INSTALL_PREFIX@/Modules/Meshing/bin:" + my_env["PATH"]
@@ -186,23 +182,31 @@ def main():
 
     # Start timing
     tinit = time.time()
-
+    
+    # Store input file name and extension separately
     inputFileNoExt, inputFileExt = os.path.splitext(os.path.basename(args.inputfile))
-
+    # Decide whether to skip 2 first steps, based on input file extension.
+    skiptocl=False
+    if(inputFileExt=='.stl'): # if input has stl extension
+        skiptocl=True # we will skip both RORPO and SFI steps
+    
+        
     # Check that input file exists
     sanityCheckFile(args.inputfile)
     
     # ------------ Results Database initialization -------------
-    # create results paths
+    
+    # Create results paths
     resultsRoot, datasetDir = os.path.split(baseOutputPath) # ex: $RESULTS/Phantom -> $RESULTS and Phantom
     if baseOutputPath.endswith('/'): # in case baseOutpuPath ends with a slash '/', split again
         resultsRoot, datasetDir = os.path.split(resultsRoot)
     resultsPath = args.dbpath # ex: $RESULTS/run-YYYY-MM-DD_HH:MM:SS
     resultsDBName = "resultsDB.json"
     results_json = os.path.join(resultsPath, resultsDBName) # ex: $RESULTS/resultsDB.json
-    # initialize database by reading existing file or creating one if needed.
+    
+    # Initialize database by reading existing file or creating one if needed.
     resultsDB = OrderedDict() # Data structure: ordered dictionary
-    try: # if .json already exists, read it 
+    try: # if .json already exists, read it
         dbFile = open(results_json,'r')
         resultsDB = json.load(dbFile, object_pairs_hook=OrderedDict)
         dbFile.close()
@@ -211,21 +215,24 @@ def main():
     except Exception, e:
         print "testAngioTKPipeline.py: Error: ", e
 
-    # adds an entry for the inputfile in the database if needed.
+    # Create results entry in the database if needed.
     if not resultsDB.has_key('results'):
         resultsDB['results']=OrderedDict()
-    # adds an entry for the inputfile in the database if needed.
+    # Add an entry for the input file in the database if needed.
     fileID = string.lstrip(args.inputfile, '/data/vivabrain/IRM/')
     if(not resultsDB['results'].has_key(fileID)):
         print "\t > Adding " + args.inputfile + " entry..."
         resultsDB['results'][fileID] = OrderedDict()
     resDBfileEntry = resultsDB['results'][fileID]
     
+    # Create a list of the pipeline steps names.
     stepsNames = ['1 - RORPO processing', '2 - Mesh extraction from image', '3 - Centerline computing', '4 - Image generation from centerlines', '5 - Second mesh extraction from image', '6 - Volume mesh processing']
+    # Add an entry for each step in the database if needed.
     for stepName in stepsNames:
         if(not resDBfileEntry.has_key(stepName)):
            addStepEntry(resDBfileEntry, stepName, False, 0.0, 'none yet', 'Step not reached.', '')
-    # write changes to the database file and closes it.                                                                                                                                                                                      
+    
+    # Write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
     dbFile.close()
@@ -233,9 +240,9 @@ def main():
     # ------------ Screenshots settings -----------
     mustSaveScreenshots = args.enablescreenshots
     print 'Will save screenshots: ' + str(mustSaveScreenshots)
-    # file extension to use
+    # File extension to use
     screenshotExtension = ".jpg"
-    # path to store important step images
+    # Path to store important step images
     fileIDNoSlash = fileID.replace('/','_') # ex: CEMRACS_2015/Phantom -> CEMRACS_2015_Phantom to keep dataset id and avoid deep directory trees
     screenshotPath = os.path.join("screenshots/", fileIDNoSlash) # relative link, for json/asciidoc/html generation
     resultsScreenshotPath = os.path.join(resultsPath, screenshotPath) # relative link, to write screenshot files 
@@ -243,175 +250,226 @@ def main():
     print 'screenshotPath: ' + screenshotPath
     print 'resultsScreenshotPath: ' + resultsScreenshotPath
     
-    # Ensure that the input data file has the correct format and copy it to the data directory
-    # otherwise convert it
-    print "Checking input file " + args.inputfile + " ... "
-    if(inputFileExt != ".mha"):
-        cmd = "vmtkimagereader -ifile " + args.inputfile + " " \
-            "--pipe vmtkimagewriter -ofile " + AngiotTKOutputPath + "/data/" + inputFileNoExt + ".mha"
-        retcode, _ = executeCommand("", cmd, logPath + "/Convert_format_mha")
+    # ---------------------------------------------
+    # ------------ PIPELINE STARTS HERE -----------
+    # ---------------------------------------------
+
+
+    # ------------ 1 Filtering and RORPO ------------ 
+
+    # Skip the whole step if required.
+    if(skiptocl):
+        tmpTime = time.time()
+        screenshotlink = 'none'
+        tmpComment = 'Using supplied stl file, step skipped.'
+        cmd = ''
     else:
-        shutil.copy(args.inputfile, AngiotTKOutputPath + "/data/")
-    sanityCheckFile(AngiotTKOutputPath + "/data/" + inputFileNoExt + ".mha")
-    print ""
+        # Ensure that the input data file has the correct format and copy it to the data directory
+        # otherwise convert it
+        print "Checking input file " + args.inputfile + " ... "
+        if(inputFileExt != ".mha"):
+            cmd = "vmtkimagereader -ifile " + args.inputfile + " " \
+                  "--pipe vmtkimagewriter -ofile " + AngioTKOutputPath + "/data/" + inputFileNoExt + ".mha"
+            retcode, _ = executeCommand("", cmd, logPath + "/Convert_format_mha")
+        else: # (conversion)
+            shutil.copy(args.inputfile, AngioTKOutputPath + "/data/")
+            sanityCheckFile(AngioTKOutputPath + "/data/" + inputFileNoExt + ".mha")
+            print ""
 
-    # Get element spacing from input dataset
-    # We need isotropic data for RORPO
-    print "Checking if input data is isotropic ... "
-    ps = subprocess.Popen(('head', '-n', '12', AngiotTKOutputPath + "/data/" + inputFileNoExt + ".mha"), stdout=subprocess.PIPE)
-    spacing = subprocess.check_output(('grep', 'ElementSpacing'), stdin=ps.stdout)
-    ps.wait()
-    
-    # clean up spacing line
-    spacing = spacing.translate(None, "\n")
-    lst = spacing.split()
-    # Check that spacing has been correctly read
-    if(len(lst) == 5):
-        # Ensure spacing for isotropic data
-        if(float(lst[2]) == float(lst[3]) and float(lst[3]) == float(lst[4])):
-            print "Current spacing OK (" + spacing + ")"
-            print AngiotTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha"
-            print (not os.path.exists(AngiotTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha"))
-            if(not os.path.exists(AngiotTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha")):
-                print AngiotTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha"
-                os.symlink(AngiotTKOutputPath + "/data/" + inputFileNoExt + ".mha", AngiotTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha")
-        else:
-            print "Incorrect spacing (" + spacing + ")"
-            print "Attempting to correct spacing"
-            cmd = "ResampleVolumesToBeIsotropic " + AngiotTKOutputPath + "/data/" + inputFileNoExt + ".mha " + \
-                  AngiotTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha 0 255"
-            if(not os.path.exists(AngiotTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha")):
-                retcode, _ = executeCommand("", cmd, logPath + "/Convert_iso")
-            sanityCheckFile(AngiotTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha")
-            #print "Aborting ..."
-            #exit(1)
-    else:
-        print "Unable to get spacing"
-        exit(1)
-    print ""
-    
-    # Convert mha data to nii for RORPO
-    # Print "Converting input file to .nii ... "
-    cmd = "vmtkimagereader -ifile " + AngiotTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha" + " " \
-        "--pipe vmtkimagewriter -ofile " + AngiotTKOutputPath + "/data/" + inputFileNoExt + ".nii"
-    if(not os.path.exists(AngiotTKOutputPath + "/data/" + inputFileNoExt + ".nii")):
-        retcode, _ = executeCommand("", cmd, logPath + "/Convert_mha_nii")
-    sanityCheckFile(AngiotTKOutputPath + "/data/" + inputFileNoExt + ".nii")
-    print ""
-
-    # Filter data with RORPO
-    scaleMin = 25
-    factor = 1.34
-    nbScales = 7
-    nbCores = 7
-
-    # Parses the rorpo.cfg file if it exists
-    tmpTime = time.time()
-    print "Process data with RORPO ... "
-    if(os.path.exists(cfgpath + "/rorpo.cfg")):
-        Config = ConfigParser.ConfigParser()
-        Config.read(cfgpath + "/rorpo.cfg")
-        try: scaleMin = int(Config.get("rorpo", "scaleMin"))
-        except: print("Option scaleMin not found in " + cfgpath + "/rorpo.cfg")
-        try: factor = float(Config.get("rorpo", "factor"))
-        except: print("Option factor not found in " + cfgpath + "/rorpo.cfg")
-        try: nbScales = int(Config.get("rorpo", "nbScales"))
-        except: print("Option nbScales not found in " + cfgpath + "/rorpo.cfg")
+        # Get element spacing from input dataset
+        # We need isotropic data for RORPO
+        print "Checking if input data is isotropic ... "
+        ps = subprocess.Popen(('head', '-n', '12', AngioTKOutputPath + "/data/" + inputFileNoExt + ".mha"), stdout=subprocess.PIPE)
+        spacing = subprocess.check_output(('grep', 'ElementSpacing'), stdin=ps.stdout)
+        ps.wait()
         
-    makedir(AngiotTKOutputPath + "/RORPO/")
-    RORPOOutputPrefix = inputFileNoExt + "_RORPO_" + str(scaleMin) + "_" + str(factor) + "_" + str(nbScales)
-    cmd = "RORPO_multiscale_usage " + AngiotTKOutputPath + "/data/" + inputFileNoExt + ".nii " + \
-        AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii " + \
-        str(scaleMin) + " " + str(factor) + " " + str(nbScales) + " --core " + str(nbCores) + " --verbose"
-    if(not os.path.exists(AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii")):
-        retcode, _ = executeCommand("", cmd, logPath + "/RORPO")
-        tmpComment = 'RORPO launched.'
-    else:
-        tmpComment = "RORPO not launched, target file already exists."
-    sanityCheckFile(AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii")
-    print ""
+        # clean up spacing line
+        spacing = spacing.translate(None, "\n")
+        lst = spacing.split()
+        # Check that spacing has been correctly read
+        if(len(lst) == 5):
+            # Ensure spacing for isotropic data
+            if(float(lst[2]) == float(lst[3]) and float(lst[3]) == float(lst[4])):
+                print "Current spacing OK (" + spacing + ")"
+                print AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha"
+                print (not os.path.exists(AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha"))
+                if(not os.path.exists(AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha")):
+                    print AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha"
+                    os.symlink(AngioTKOutputPath + "/data/" + inputFileNoExt + ".mha", AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha")
+            else:
+                print "Incorrect spacing (" + spacing + ")"
+                print "Attempting to correct spacing"
+                cmd = "ResampleVolumesToBeIsotropic " + AngioTKOutputPath + "/data/" + inputFileNoExt + ".mha " + \
+                      AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha 0 255"
+                if(not os.path.exists(AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha")):
+                    retcode, _ = executeCommand("", cmd, logPath + "/Convert_iso")
+                sanityCheckFile(AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha")
+                #print "Aborting ..."
+                #exit(1)
+        else:
+            print "Unable to get spacing"
+            exit(1)
+        print ""
     
-    # Convert filtered data back to mha
-    cmd = "vmtkimagereader -ifile " + AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii " + \
-        "--pipe vmtkimagewriter -ofile " + AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha"
-    if(not os.path.exists(AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha")):
-        retcode, _ = executeCommand("", cmd, logPath + "/Convert_nii_mha")
-    sanityCheckFile(AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha")
+        # Convert mha data to nii for RORPO
+        # Print "Converting input file to .nii ... "
+        cmd = "vmtkimagereader -ifile " + AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha" + " " \
+              "--pipe vmtkimagewriter -ofile " + AngioTKOutputPath + "/data/" + inputFileNoExt + ".nii"
+        if(not os.path.exists(AngioTKOutputPath + "/data/" + inputFileNoExt + ".nii")):
+            retcode, _ = executeCommand("", cmd, logPath + "/Convert_mha_nii")
+        sanityCheckFile(AngioTKOutputPath + "/data/" + inputFileNoExt + ".nii")
+        print ""
 
-    # Print timing
-    print "Total time elapsed in script after 1_RORPO: " + str(time.time() - tinit)
+        # Filter data with RORPO
+        scaleMin = 25
+        factor = 1.34
+        nbScales = 7
+        nbCores = 7
+        
+        # Parses the rorpo.cfg file if it exists
+        tmpTime = time.time()
+        print "Process data with RORPO ... "
+        # check if rorpo.cfg exists
+        rorpo_cfg = ""
+        if(os.path.exists(cfgpath + "/rorpo.cfg")):
+            rorpo_cfg = cfgpath + "/rorpo.cfg"
+        elif(os.path.exists(altcfgpath + "/rorpo.cfg")): 
+            rorpo_cfg = altcfgpath + "/rorpo.cfg"
+        # parse rorpo.cfg if it was found
+        if not(rorpo_cfg==""):
+            Config = ConfigParser.ConfigParser()
+            Config.read(rorpo_cfg)
+            try: 
+                scaleMin = int(Config.get("rorpo", "scaleMin"))
+            except: print("Option scaleMin not found in " + rorpo_cfg)
+            try: 
+                factor = float(Config.get("rorpo", "factor"))
+            except: print("Option factor not found in " + rorpo_cfg)
+            try: 
+                nbScales = int(Config.get("rorpo", "nbScales"))
+            except: print("Option nbScales not found in " + rorpo_cfg)
 
+        # Create a RORPO output directory if needed.
+        makedir(AngioTKOutputPath + "/RORPO/")
+        # Command line string assembly
+        RORPOOutputPrefix = inputFileNoExt + "_RORPO_" + str(scaleMin) + "_" + str(factor) + "_" + str(nbScales)
+        cmd = "RORPO_multiscale_usage " + AngioTKOutputPath + "/data/" + inputFileNoExt + ".nii " + \
+              AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii " + \
+              str(scaleMin) + " " + str(factor) + " " + str(nbScales) + " --core " + str(nbCores) + " --verbose"
+        # If no existing output file is found, create one with RORPO
+        if(not os.path.exists(AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii")):
+            retcode, _ = executeCommand("", cmd, logPath + "/RORPO")
+            tmpComment = 'RORPO launched.'
+        else:
+            tmpComment = "RORPO not launched, target file already exists."
+        sanityCheckFile(AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii")
+        print ""
+    
+        # Convert filtered data back to mha
+        cmd = "vmtkimagereader -ifile " + AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii " + \
+              "--pipe vmtkimagewriter -ofile " + AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha"
+        if(not os.path.exists(AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha")):
+            retcode, _ = executeCommand("", cmd, logPath + "/Convert_nii_mha")
+        sanityCheckFile(AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha")
 
-    # ++++++ Save a screenshot of the converted  mha
-    model = AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha"
-    screenshotFile = "/1_RORPO" + screenshotExtension
-    if mustSaveScreenshots==True:
-        saveScreenshot(model, resultsScreenshotPath + screenshotFile)
+        # Print timing
+        print "Total time elapsed in script after 1_RORPO: " + str(time.time() - tinit)
+
+        # ++++++ Save a screenshot of the converted mha
+        model = AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha"
+        screenshotFile = "/1_RORPO" + screenshotExtension
+        if mustSaveScreenshots==True:
+            saveScreenshot(model, resultsScreenshotPath + screenshotFile)
+        screenshotlink = screenshotPath + screenshotFile
 
     # ------ Add Step Entry
-    addStepEntry(resDBfileEntry, '1 - RORPO processing', True, time.time() - tmpTime, screenshotPath + screenshotFile, tmpComment, cmd)
+    addStepEntry(resDBfileEntry, '1 - RORPO processing', True, time.time() - tmpTime, screenshotlink, tmpComment, cmd)
     # write changes to the database file and closes it.                                                                                                                                                                                      
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
     dbFile.close()
 
-    # Extract mesh from images
-    tmpTime = time.time()
-    print "Extracting surface from image ... "
-    sfi_cfg = os.path.join(cfgpath, "surfacefromimage.cfg")
-    sanityCheckFile(sfi_cfg)
-    cmd = "meshing_surfacefromimage --config-file " + sfi_cfg + " " + \
-        "--input.image.filename " + AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha " + \
-        "--pre-process.resize-from-reference-image.path " + AngiotTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha" + " " \
-        "--output.path " + AngiotTKOutputPath + "/surfacefromimage/model.stl"
-    #cmd = "meshing_surfacefromimage --config-file " + cfgpath + "/surfacefromimage.cfg " + \
-    #"--input.image.filename=" + baseOutputPath + "/data/TOF_art_FOA42_RORPO_30_1.34_7.mha " + \
-    #"--pre-process.resize-from-reference-image.path " + baseOutputPath + "/data/TOF_art.mha"
-    retcode, _ = executeCommand("", cmd, logPath + "/meshing_surfacefromimage")
-    sanityCheckFile(AngiotTKOutputPath + "/surfacefromimage/model.stl")
 
-    # Print timing
-    print "Total time elapsed in script after 3_Surface from image: " + str(time.time() - tinit)
+    # ------------ 2 Surface from image  ------------ 
 
+    # Skip the whole step if required.
+    if(skiptocl):
+        tmpTime = time.time()
+        screenshotlink = 'none'
+        tmpComment = 'Using supplied stl file, step skipped.'
+        cmd = ''
+        stlModel = args.inputfile
+    else:
+        # Extract mesh from images
+        tmpTime = time.time()
+        print "Extracting surface from image ... "
+        sfi_cfg = os.path.join(cfgpath, "surfacefromimage.cfg")
+        # if surfacefromimage.cfg was not found, use generic version
+        if not os.path.exists(sfi_cfg):
+            sfi_cfg = os.path.join(altcfgpath, "surfacefromimage.cfg")
+        sanityCheckFile(sfi_cfg)
+        cmd = "meshing_surfacefromimage --config-file " + sfi_cfg + " " + \
+              "--input.image.filename " + AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha " + \
+              "--pre-process.resize-from-reference-image.path " + AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha" + " " \
+              "--output.path " + AngioTKOutputPath + "/surfacefromimage/model.stl"
+        retcode, _ = executeCommand("", cmd, logPath + "/meshing_surfacefromimage")
+        sanityCheckFile(AngioTKOutputPath + "/surfacefromimage/model.stl")
 
-    # ++++++ Save a screenshot of the extracted  mesh
-    model = AngiotTKOutputPath + "/surfacefromimage/model.stl"
-    screenshotFile = "/2_SurfaceFromImage" + screenshotExtension
-    if mustSaveScreenshots:
-        saveScreenshot(model, resultsScreenshotPath + screenshotFile)
+        # Print timing
+        print "Total time elapsed in script after 2_Surface from image: " + str(time.time() - tinit)
+
+        # ++++++ Save a screenshot of the extracted  mesh
+        model = AngioTKOutputPath + "/surfacefromimage/model.stl"
+        screenshotFile = "/2_SurfaceFromImage" + screenshotExtension
+        if mustSaveScreenshots:
+            saveScreenshot(model, resultsScreenshotPath + screenshotFile)
+        screenshotlink = screenshotPath + screenshotFile
+        tmpComment =  'Mesh extracted.'
+        stlModel = AngioTKOutputPath + "/surfacefromimage/model.stl "
 
     # ------ Add Step Entry
-    addStepEntry(resDBfileEntry, '2 - Mesh extraction from image', True, time.time() - tmpTime, screenshotPath + screenshotFile, 'Mesh extracted.', cmd)
+    addStepEntry(resDBfileEntry, '2 - Mesh extraction from image', True, time.time() - tmpTime, screenshotlink, tmpComment, cmd)
     # write changes to the database file and closes it.                                                                                                                                                                                      
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
     dbFile.close()
+
+
+    # ------------ 3 - Centerline computing ------------
 
     # Compute centerlines
     # Iterate over pointpair data
     tmpTime = time.time()
     print "Computing centerlines ... "
 
-    cl_cfg = os.path.join(cfgpath, "centerlines.cfg")
+    cl_cfg = os.path.join(cfgpath, "centerlines.cfg")    
+    # if centerlines.cfg was not found, use generic version
+    if not os.path.exists(cl_cfg):
+        cl_cfg = os.path.join(altcfgpath, "centerlines.cfg")
     sanityCheckFile(cl_cfg)
     clid = 0
     cltpool = []
 
-    #cmd = "meshing_centerlines --config-file " + cfgpath + "/centerlines1.cfg " \
-        #"--input.surface.filename=$repository/angiotk/surfacefromimage/model.stl " \
-        #"--output.directory=angiotk/centerlines/part" + str(clid)
-    #t = threading.Thread(target=executeCommand, args=("", cmd, logPath + "/meshing_centerlines9999"))
-    #clid = clid + 1
-    #t.start()
-    #cltpool.append(t)
+    # we look for centerline files
+    cldataPointSet = glob.glob(cfgpath + "/data/pointset*.data")
+    cldataPointPair = glob.glob(cfgpath + "/data/pointpair*.data")
+    cldataGeo = glob.glob(cfgpath + "/data/geocenterlines*.data")
+    tmpComment = "specific pointset/pointpair used"
+    # If no centerline file is found, we use generic ones
+    if (len(cldataPointSet) == 0) and (len(cldataPointPair) == 0) and (len(cldataGeo) == 0):
+            cldataPointSet = glob.glob(altcfgpath + "/data/pointset*.data")
+            cldataPointPair = glob.glob(altcfgpath + "/data/pointpair*.data")
+            cldataGeo = glob.glob(altcfgpath + "/data/geocenterlines*.data")
+            tmpComment = "generic pointset/pointpair used"
 
-    cldata = glob.glob(cfgpath + "/data/pointset*.data")
-    for cl in cldata:
+    #cldata = glob.glob(cfgpath + "/data/pointset*.data")
+    for cl in cldataPointSet:
+        print "found pointpair file: " + str(clid)
         cmd = "meshing_centerlines --config-file " + cl_cfg + " "\
-            "--input.surface.filename " + AngiotTKOutputPath + "/surfacefromimage/model.stl " \
+            "--input.surface.filename " + stlModel + " " \
             "--input.pointset.filename " + cl + " " \
-            "--output.directory " + AngiotTKOutputPath + "/centerlines/part" + str(clid) + " " \
-            "--delaunay-tessellation.output.directory " + AngiotTKOutputPath + "/centerlines/part" + str(clid) + " " \
+            "--output.directory " + AngioTKOutputPath + "/centerlines/part" + str(clid) + " " \
+            "--delaunay-tessellation.output.directory " + AngioTKOutputPath + "/centerlines/part" + str(clid) + " " \
             "--source-ids 0 --target-ids 1"
 
         # Create a new thread
@@ -422,14 +480,14 @@ def main():
         clid = clid + 1
 
 
-    cldata = glob.glob(cfgpath + "/data/pointpair*.data")
-    for cl in cldata:
+    #cldata = glob.glob(cfgpath + "/data/pointpair*.data")
+    for cl in cldataPointPair:
         cmd = "meshing_centerlines --config-file " + cl_cfg + " "\
-            "--input.surface.filename " + AngiotTKOutputPath + "/surfacefromimage/model.stl " \
+            "--input.surface.filename " + stlModel + " " \
             "--input.pointpair.filename " + cl + " " \
-            "--output.directory " + AngiotTKOutputPath + "/centerlines/part" + str(clid) + " " \
+            "--output.directory " + AngioTKOutputPath + "/centerlines/part" + str(clid) + " " \
             "--delaunay-tessellation.force-rebuild 0 " \
-            "--delaunay-tessellation.output.directory " + AngiotTKOutputPath + "/centerlines/part" + str(clid) + "/delaunay-tessellation" 
+            "--delaunay-tessellation.output.directory " + AngioTKOutputPath + "/centerlines/part" + str(clid) + "/delaunay-tessellation" 
         # Create a new thread
         t = threading.Thread(target=executeCommand, args=("", cmd, logPath + "/meshing_centerlines" + str(clid)))
         t.start()
@@ -438,13 +496,13 @@ def main():
         clid = clid + 1
 
     # Iterate over geocenterline data
-    cldata = glob.glob(cfgpath + "/data/geocenterlines*.data")
-    for cl in cldata:
+    #cldata = glob.glob(cfgpath + "/data/geocenterlines*.data")
+    for cl in cldataGeo:
         cmd = "meshing_centerlines --config-file " + cl_cfg + " "\
-            "--input.surface.filename " + AngiotTKOutputPath + "/surfacefromimage/model.stl " \
+            "--input.surface.filename " + stlModel + " " \
             "--input.geo-centerlines.filename " + cl + " " \
-            "--output.directory " + AngiotTKOutputPath + "/centerlines/part" + str(clid) + " " \
-            "--delaunay-tessellation.output.directory " + AngiotTKOutputPath + "/centerlines/part" + str(clid)
+            "--output.directory " + AngioTKOutputPath + "/centerlines/part" + str(clid) + " " \
+            "--delaunay-tessellation.output.directory " + AngioTKOutputPath + "/centerlines/part" + str(clid)
         # Create a new thread
         t = threading.Thread(target=executeCommand, args=("", cmd, logPath + "/meshing_centerlines" + str(clid)))
         t.start()
@@ -459,43 +517,62 @@ def main():
     # Merge centerlines
     print "Merging centerlines ... "
     clm_cfg = os.path.join(cfgpath, "centerlinesmanager.cfg")
+    # if centerlinesmanager.cfg was not found, use generic version
+    if not os.path.exists(clm_cfg):
+            clm_cfg = os.path.join(altcfgpath, "centerlinesmanager.cfg")
+    sanityCheckFile(clm_cfg)
     cmd = "meshing_centerlinesmanager --config-file " + clm_cfg + " "
-    cmd = cmd + "--input.surface.filename " + AngiotTKOutputPath + "/surfacefromimage/model.stl "
-    cmd = cmd + "--output.directory " + AngiotTKOutputPath + "/centerlinesmanager "
+    cmd = cmd + "--input.surface.filename " + stlModel + " "
+    cmd = cmd + "--output.directory " + AngioTKOutputPath + "/centerlinesmanager "
     for i in range(len(cltpool)):
-        cmd = cmd + "--input.centerlines.filename " + AngiotTKOutputPath + "/centerlines/part" + str(i) + "/model_centerlines.vtk "
+        cmd = cmd + "--input.centerlines.filename " + AngioTKOutputPath + "/centerlines/part" + str(i) + "/model_centerlines.vtk "
     executeCommand("", cmd, logPath + "/meshing_centerlinesmanager")
 
     # Print timing
     print "Total time elapsed in script after 3_Centerlines: " + str(time.time() - tinit)
     
     # ++++++ Save a screenshot of the centerlines
-    model = AngiotTKOutputPath + "/centerlinesmanager/model_centerlines_up.vtk"
+    model = AngioTKOutputPath + "/centerlinesmanager/model_centerlines_up.vtk"
     screenshotFile = "/3_Centerlines" + screenshotExtension
     if mustSaveScreenshots:
         saveScreenshot(model, resultsScreenshotPath + screenshotFile)
 
 
     # ------ Add Step Entry
-    addStepEntry(resDBfileEntry, '3 - Centerline computing', True, time.time() - tmpTime, screenshotPath + screenshotFile, 'Centerlines computed.', cmd)
+    addStepEntry(resDBfileEntry, '3 - Centerline computing', True, time.time() - tmpTime, screenshotPath + screenshotFile, tmpComment, cmd)
     # write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
     dbFile.close()
-    
+
+
+    # ------------ 4 - Image generation from centerlines ------------
+
     # Regenerate image from centerlines
     tmpTime = time.time()
     print "Generating image from centerlines ... "
-    sanityCheckFile(cfgpath + "/imagefromcenterlines.cfg")
-    cmd = "meshing_imagefromcenterlines --config-file " + cfgpath + "/imagefromcenterlines.cfg " \
-        "--input.centerlines.filename " + AngiotTKOutputPath + "/centerlinesmanager/model_centerlines_up.vtk " \
-        "--output.directory " +  AngiotTKOutputPath + "/imagefromcenterlines"
+
+    ifcl_cfg = os.path.join(cfgpath, "imagefromcenterlines.cfg")
+    # if imagefromcenterlines.cfg was not found, use generic version
+    if not os.path.exists(ifcl_cfg):
+        ifcl_cfg = os.path.join(altcfgpath, "imagefromcenterlines.cfg")
+    sanityCheckFile(ifcl_cfg)
+    cmd = "meshing_imagefromcenterlines --config-file " + ifcl_cfg + " " \
+        "--input.centerlines.filename " + AngioTKOutputPath + "/centerlinesmanager/model_centerlines_up.vtk " \
+        "--output.directory " +  AngioTKOutputPath + "/imagefromcenterlines"
     executeCommand("", cmd, logPath + "/meshing_imagefromcenterlines")
     
     # Get the output of the imagefromcenterlines algorithm
-    imgGlob = glob.glob(AngiotTKOutputPath + "/imagefromcenterlines/*.mha")
+    imgGlob = glob.glob(AngioTKOutputPath + "/imagefromcenterlines/*.mha")
     if(len(imgGlob) == 0):
-        print "Cannot find output of imagefromcenterlines. Aborting."
+        msg = "Cannot find output of imagefromcenterlines. Aborting."
+        print msg
+        # ------ Add Step Entry
+        addStepEntry(resDBfileEntry, '4 - Image generation from centerlines', False, time.time() - tmpTime, screenshotPath + screenshotFile, msg, cmd)
+        # write changes to the database file and closes it.
+        dbFile = open(results_json, 'w')
+        json.dump(resultsDB, dbFile, indent=4)
+        dbFile.close()
         exit(1)
     newImage = max(imgGlob, key=os.path.getctime)
 
@@ -515,16 +592,23 @@ def main():
     json.dump(resultsDB, dbFile, indent=4)
     dbFile.close()
 
+
+    # ------------ 5 - Second mesh extraction from image ------------
+
     # Extract the mesh
     tmpTime = time.time()
     print "Extracting surface from image ... "
-    sanityCheckFile(cfgpath + "/surfacefromimage2.cfg")
-    cmd = "meshing_surfacefromimage --config-file " + cfgpath + "/surfacefromimage2.cfg " \
+    sfi2_cfg = os.path.join(cfgpath, "surfacefromimage2.cfg")
+    # if surfacefromimage2.jpg was not found, use generic version
+    if not os.path.exists(sfi2_cfg):
+        sfi2_cfg = os.path.join(altcfgpath, "surfacefromimage2.cfg")
+    sanityCheckFile(sfi2_cfg)
+    cmd = "meshing_surfacefromimage --config-file " + sfi2_cfg + " " \
         "--input.image.filename " + newImage + " " + \
-        "--output.directory " +  AngiotTKOutputPath + "/surfacefromimage2"
+        "--output.directory " +  AngioTKOutputPath + "/surfacefromimage2"
     executeCommand("", cmd, logPath + "/meshing_surfacefromimage2")
 
-    newSTL = max(glob.iglob(AngiotTKOutputPath + "/surfacefromimage2/*.stl"), key=os.path.getctime)
+    newSTL = max(glob.iglob(AngioTKOutputPath + "/surfacefromimage2/*.stl"), key=os.path.getctime)
 
     # Print timing
     print "Total time elapsed in script after 5_Surface from image 2: " + str(time.time() - tinit)
@@ -542,32 +626,43 @@ def main():
     json.dump(resultsDB, dbFile, indent=4)
     dbFile.close()
 
+
+    # ------------ 6 - Volume mesh processing ------------
+
     # Process surface
     tmpTime = time.time()
     print "Processing mesh ... "
-    sanityCheckFile(cfgpath + "/remeshstlgmsh.cfg")
-    cmd = "meshing_remeshstl --config-file " + cfgpath + "/remeshstlgmsh.cfg " \
+    gmsh_cfg = os.path.join(cfgpath, "remeshstlgmsh.cfg")
+    # if remeshstlgmsh.cfg was not found, use generic version
+    if not os.path.exists(gmsh_cfg):
+        gmsh_cfg = os.path.join(altcfgpath, "remeshstlgmsh.cfg")
+    sanityCheckFile(gmsh_cfg)
+    cmd = "meshing_remeshstl --config-file " + gmsh_cfg + " " \
         "--input.surface.filename " + newSTL + " "  \
-        "--gmsh.centerlines.filename " + AngiotTKOutputPath + "/centerlinesmanager/model_centerlines_up.vtk " \
-        "--output.directory " +  AngiotTKOutputPath + "/remeshgmsh"
+        "--gmsh.centerlines.filename " + AngioTKOutputPath + "/centerlinesmanager/model_centerlines_up.vtk " \
+        "--output.directory " +  AngioTKOutputPath + "/remeshgmsh"
     executeCommand("", cmd, logPath + "/meshing_remeshstlgmsh")
 
-    newSTL = max(glob.iglob(AngiotTKOutputPath + "/remeshgmsh/*"), key=os.path.getctime)
+    newSTL = max(glob.iglob(AngioTKOutputPath + "/remeshgmsh/*"), key=os.path.getctime)
 
     # Prepare volume data for simulation
     print "Generating volume mesh ... "
-    sanityCheckFile(cfgpath + "/volumefromstlandcenterlines.cfg")
-    cmd = "meshing_volumefromstlandcenterlines --config-file " + cfgpath + "/volumefromstlandcenterlines.cfg " \
+    vfcl_cfg = os.path.join(cfgpath, "volumefromstlandcenterlines.cfg")
+    # if volumefromstlandcenterlines.cfg was not found, use generic version
+    if not os.path.exists(vfcl_cfg):
+        vfcl_cfg = os.path.join(altcfgpath, "volumefromstlandcenterlines.cfg")
+    sanityCheckFile(vfcl_cfg)
+    cmd = "meshing_volumefromstlandcenterlines --config-file " + vfcl_cfg + " " \
         "--input.surface.filename " + newSTL + " " \
-        "--input.centerlines.filename " + AngiotTKOutputPath + "/centerlinesmanager/model_centerlines_up.vtk " \
-        "--output.directory " + AngiotTKOutputPath + "/volumefromstlandcenterlines"
+        "--input.centerlines.filename " + AngioTKOutputPath + "/centerlinesmanager/model_centerlines_up.vtk " \
+        "--output.directory " + AngioTKOutputPath + "/volumefromstlandcenterlines"
     executeCommand("", cmd, logPath + "/meshing_volumefromstlandcenterlines")
 
     # Print timing
     print "Total time elapsed in script after 6_Volume mesh processing: " + str(time.time() - tinit)
 
     # ++++++ Save a screenshot of the stl model.
-    model = max(glob.iglob(AngiotTKOutputPath + "/remeshgmsh/*.stl"), key=os.path.getctime)
+    model = max(glob.iglob(AngioTKOutputPath + "/remeshgmsh/*.stl"), key=os.path.getctime)
     screenshotFile = "/6_VolumeMesh" + screenshotExtension
     if mustSaveScreenshots:
         saveScreenshot(model, resultsScreenshotPath + screenshotFile)
