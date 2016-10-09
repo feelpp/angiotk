@@ -782,7 +782,9 @@ CenterlinesManager::CenterlinesManager( std::string const& prefix )
     M_avoidTubularColisionInputPointPairPath( AngioTkEnvironment::expand( soption(_name="avoid-tubular-colision.point-pair.filename",_prefix=this->prefix() ) ) ),
     M_smoothResample( boption(_name="smooth-resample.apply",_prefix=this->prefix() ) ),
     M_smoothResampleMeshSize( doption(_name="smooth-resample.mesh-size",_prefix=this->prefix() ) ),
-    M_smoothResampleGeoPointSpacing( doption(_name="smooth-resample.geo-points-spacing",_prefix=this->prefix() ) )
+    M_smoothResampleGeoPointSpacing( doption(_name="smooth-resample.geo-points-spacing",_prefix=this->prefix() ) ),
+    M_cleanBranches( boption(_name="clean-branches.apply",_prefix=this->prefix() ) ),
+    M_cleanBranchesUseRadiusField( soption(_name="clean-branches.use-radius-field",_prefix=this->prefix() ) )
 {
     if ( Environment::vm().count(prefixvm(this->prefix(),"input.centerlines.filename").c_str()) )
         M_inputCenterlinesPath = Environment::vm()[prefixvm(this->prefix(),"input.centerlines.filename").c_str()].as<std::vector<std::string> >();
@@ -944,7 +946,14 @@ CenterlinesManager::run()
             centerlinesTool->importFile( this->inputCenterlinesPath(k) );
         }
         centerlinesTool->removeBranchIds( M_removeBranchIds );
-        centerlinesTool->cleanBranch();
+
+        if ( M_cleanBranches )
+        {
+            if ( M_cleanBranchesUseRadiusField.empty() )
+                centerlinesTool->cleanBranch();
+            else
+                centerlinesTool->cleanBranchFromRadiusField( M_cleanBranchesUseRadiusField );
+        }
 
         centerlinesTool->addFieldBranchIds();
         if ( !centerlinesTool->hasField("RadiusMin") )
@@ -1039,6 +1048,8 @@ CenterlinesManager::options( std::string const& prefix )
         (prefixvm(prefix,"smooth-resample.apply").c_str(), po::value<bool>()->default_value( false ), "(bool) smooth-resample.apply" )
         (prefixvm(prefix,"smooth-resample.mesh-size").c_str(), po::value<double>()->default_value( 1.0 ), "(double) mesh size" )
         (prefixvm(prefix,"smooth-resample.geo-points-spacing").c_str(), po::value<double>()->default_value( 4.0 ), "(double) geo-points-spacing" )
+        (prefixvm(prefix,"clean-branches.apply").c_str(), po::value<bool>()->default_value( true ), "(bool) apply clean-branches" )
+        (prefixvm(prefix,"clean-branches.use-radius-field").c_str(), po::value<std::string>()->default_value( "" ), "(string) radius field name to use" )
         ;
     return myCenterlinesManagerOptions.add( super_type::options( prefix ) );
 }
@@ -1185,7 +1196,7 @@ ImageFromCenterlines::run()
             if ( M_dimZ == 0 )
                 M_dimZ = static_cast<int>( std::floor( (bounds[5] - bounds[4] + 2*maxDist )/M_dimSpacing) ) + 1;
         }
-        CHECK( M_dimX > 0 && M_dimY > 0 && M_dimZ > 2 ) << "M_dimX,M_dimY,M_dimZ must be > 0";
+        CHECK( M_dimX > 0 && M_dimY > 0 && M_dimZ > 0 ) << "M_dimX,M_dimY,M_dimZ must be > 0";
         int sampleDimensions[3] = { M_dimX,M_dimY,M_dimZ };
         modeller->SetSampleDimensions( sampleDimensions );
         modeller->SetNegateFunction(1);
@@ -2400,6 +2411,10 @@ RemeshSurface::runVMTK()
     __str << "-ofile " << this->outputPath() << " ";
     __str << "-area " << this->area() << " ";
     __str << "-iterations " << M_vmtkNumberOfIteration << " ";
+
+    std::cout << "---------------------------------------\n"
+              << "run in system : \n" << __str.str() << "\n"
+              << "---------------------------------------\n";
     auto err = ::system( __str.str().c_str() );
 
     //std::cout << "hola\n"<< __str.str() <<"\n";

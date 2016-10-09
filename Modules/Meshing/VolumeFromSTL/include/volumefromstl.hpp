@@ -261,6 +261,8 @@ private :
     std::string M_avoidTubularColisionInputPointPairPath;
     bool M_smoothResample;
     double M_smoothResampleMeshSize, M_smoothResampleGeoPointSpacing;
+    bool M_cleanBranches;
+    std::string M_cleanBranchesUseRadiusField;
 };
 
 class ImageFromCenterlines : public AngioTkFilterBase
