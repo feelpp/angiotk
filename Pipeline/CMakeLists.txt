@@ -24,11 +24,15 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/master.py DESTINATION bin)
 configure_file(testAngioTKPipeline.py.in ${CMAKE_CURRENT_BINARY_DIR}/testAngioTKPipeline.py)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/testAngioTKPipeline.py DESTINATION bin)
 
-configure_file(createAsciidocDB.py.in ${CMAKE_CURRENT_BINARY_DIR}/createAsciidocDB.py)
+configure_file(createAsciidocDB.py.in ${CMAKE_CURRENT_BINARY_DIR}/createAsciidocDBy)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/createAsciidocDB.py DESTINATION bin)
-
-configure_file(createAsciidocSummary.py.in ${CMAKE_CURRENT_BINARY_DIR}/createAsciidocSummary.py)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/createAsciidocSummary.py DESTINATION bin)
 
 configure_file(screenshot.py.in ${CMAKE_CURRENT_BINARY_DIR}/screenshot.py)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/screenshot.py DESTINATION bin)
+
+configure_file(summary.html ${CMAKE_CURRENT_BINARY_DIR}/summary.html)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/summary.html DESTINATION bin)
+
+# copy the javascript directory
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/js
+  DESTINATION bin)

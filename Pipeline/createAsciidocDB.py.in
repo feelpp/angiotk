@@ -98,19 +98,20 @@ def main():
         wasRed=False
         for stepName, step in pipelineSteps.items():
             adocFile.write('|')
+            adocFile.write('Time: ' + str(step['Time']) + ' +\n')
+            picLink = step['Screenshot']
+            adocFile.write('image:' + str(picLink) + '[\"screenshot\",width=100,link=\"' + str(picLink) + '\"] +\n')
             for metadataName, metadata in step.items():
-                if metadataName=='Success':
-                    if metadata==False: # step failure
+                if metadataName == 'Success':
+                    if metadata == False: # step failure
                         if not wasRed:
                             adocFile.write('{set:cellbgcolor:red}\n')
-                            wasRed=True
+                            wasRed = True
                     else: # step success
                         if wasRed:
                             adocFile.write('{set:cellbgcolor!}\n')
-                            wasRed=False
-                elif metadataName=='Screenshot':
-                    adocFile.write('image:' + str(metadata) + '[\"screenshot\",width=100,link=\"' + str(metadata) + '\"] +\n')
-                else:
+                            wasRed = False
+                elif (metadataName != 'Command') and (metadataName != 'Screenshot') and (metadataName != 'Time') :
                     adocFile.write( metadataName + ': ' + str(metadata) + ' +\n')
         adocFile.write("\n")
     adocFile.write("|===\n")

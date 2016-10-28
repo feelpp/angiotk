@@ -8,6 +8,7 @@ import glob
 import os
 import shutil
 import stat
+import multiprocessing as mp
 import subprocess
 import sys
 import threading
@@ -97,13 +98,13 @@ def addStepEntry(resDB, currentStepName, success, time, screenshotfile, comments
     resDB[currentStepName]['Command']= cmd
 
 # make a screenshot of model and save it to screenshotPath
-def saveScreenshot(modelPath, screenshotPath):
+def saveScreenshot(modelPath, screenshotPath, logPrefix):
     # path to screenshot script:
     screenshotScriptPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "screenshot.py")
     screenshotCmd = "pvbatch --use-offscreen-rendering " + screenshotScriptPath + " " + modelPath + " " + screenshotPath
     print '--------------------------------------------------------------------------------'
     startTime = datetime.datetime.now()
-    executeCommand("", screenshotCmd)
+    executeCommand("", screenshotCmd, logPrefix)
     print 'screenshot wall-clock time:' + str(datetime.datetime.now()-startTime)
     
 def main():
@@ -126,9 +127,11 @@ def main():
     parser.add_argument('--inputfile', required=True, help='Path to the original input file in .mha format')
     parser.add_argument('--inputpath', required=True, help='Path where the configuration files for the current pipeline are stored')
     parser.add_argument('--outputpath', default=os.path.expandvars("${HOME}/AngioTK/ProcessedData"), help='Path where intermediary data is written')
-    parser.add_argument('--dbpath', required=True, help='Path where the run database (results.json) is written')
+    parser.add_argument('--resultspath', required=True, help='Path where the screenshot directory is created')
+    parser.add_argument('--dbpath', required=True, help='Path where the run database (json file) is written')
     parser.add_argument('--noscreenshots', dest='enablescreenshots', action='store_false', help='Disable screenshots.')
     parser.set_defaults(enablescreenshots=True)
+    parser.add_argument('--screenshot_processes', default=4, type=int, help='Number of screenshot processes')
     # parse arguments out of sys.argv
     args = parser.parse_args()
     
@@ -201,8 +204,12 @@ def main():
     if baseOutputPath.endswith('/'): # in case baseOutpuPath ends with a slash '/', split again
         resultsRoot, datasetDir = os.path.split(resultsRoot)
     resultsPath = args.dbpath # ex: $RESULTS/run-YYYY-MM-DD_HH:MM:SS
-    resultsDBName = "resultsDB.json"
-    results_json = os.path.join(resultsPath, resultsDBName) # ex: $RESULTS/resultsDB.json
+    
+    if os.path.isdir(resultsPath):
+        resultsDBName = "resultsDB.json"
+        results_json = os.path.join(resultsPath, resultsDBName) # ex: $RESULTS/resultsDB.json
+    else:
+        results_json = resultsPath
     
     # Initialize database by reading existing file or creating one if needed.
     resultsDB = OrderedDict() # Data structure: ordered dictionary
@@ -230,7 +237,7 @@ def main():
     # Add an entry for each step in the database if needed.
     for stepName in stepsNames:
         if(not resDBfileEntry.has_key(stepName)):
-           addStepEntry(resDBfileEntry, stepName, False, 0.0, 'none yet', 'Step not reached.', '')
+           addStepEntry(resDBfileEntry, stepName, False, 0.0, '', 'Step not reached.', '')
     
     # Write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
@@ -245,13 +252,19 @@ def main():
     # Path to store important step images
     fileIDNoSlash = fileID.replace('/','_') # ex: CEMRACS_2015/Phantom -> CEMRACS_2015_Phantom to keep dataset id and avoid deep directory trees
     screenshotPath = os.path.join("screenshots/", fileIDNoSlash) # relative link, for json/asciidoc/html generation
-    resultsScreenshotPath = os.path.join(resultsPath, screenshotPath) # relative link, to write screenshot files 
+    resultsScreenshotPath = os.path.join(args.resultspath, screenshotPath) # relative link, to write screenshot files
+    screenshotLogPath = os.path.join(logPath, 'screenshots')
     makedir(resultsScreenshotPath) # ex: create $RESULTS/resultsDataBase/screenshots if needed
+    makedir(screenshotLogPath) # ex: create logPath/screenshots if needed
     print 'screenshotPath: ' + screenshotPath
     print 'resultsScreenshotPath: ' + resultsScreenshotPath
     
+    # ------------ Screenshots processes spawning -----------
+    
+    screenshotPool = mp.Pool(processes=args.screenshot_processes)
+    
     # ---------------------------------------------
-    # ------------ PIPELINE STARTS HERE -----------
+    # ------------ Pipeline STARTS HERE -----------
     # ---------------------------------------------
 
 
@@ -379,9 +392,10 @@ def main():
         model = AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha"
         screenshotFile = "/1_RORPO" + screenshotExtension
         if mustSaveScreenshots==True:
-            saveScreenshot(model, resultsScreenshotPath + screenshotFile)
+            #saveScreenshot(model, resultsScreenshotPath + screenshotFile)
+            screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
         screenshotlink = screenshotPath + screenshotFile
-
+    
     # ------ Add Step Entry
     addStepEntry(resDBfileEntry, '1 - RORPO processing', True, time.time() - tmpTime, screenshotlink, tmpComment, cmd)
     # write changes to the database file and closes it.                                                                                                                                                                                      
@@ -422,7 +436,8 @@ def main():
         model = AngioTKOutputPath + "/surfacefromimage/model.stl"
         screenshotFile = "/2_SurfaceFromImage" + screenshotExtension
         if mustSaveScreenshots:
-            saveScreenshot(model, resultsScreenshotPath + screenshotFile)
+            #saveScreenshot(model, resultsScreenshotPath + screenshotFile)
+            screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
         screenshotlink = screenshotPath + screenshotFile
         tmpComment =  'Mesh extracted.'
         stlModel = AngioTKOutputPath + "/surfacefromimage/model.stl "
@@ -535,7 +550,8 @@ def main():
     model = AngioTKOutputPath + "/centerlinesmanager/model_centerlines_up.vtk"
     screenshotFile = "/3_Centerlines" + screenshotExtension
     if mustSaveScreenshots:
-        saveScreenshot(model, resultsScreenshotPath + screenshotFile)
+        #saveScreenshot(model, resultsScreenshotPath + screenshotFile)
+        screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
 
 
     # ------ Add Step Entry
@@ -583,7 +599,8 @@ def main():
     model = newImage
     screenshotFile = "/4_ImageFromCenterlines" + screenshotExtension
     if mustSaveScreenshots:
-        saveScreenshot(model, resultsScreenshotPath + screenshotFile)
+        #saveScreenshot(model, resultsScreenshotPath + screenshotFile)
+        screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
 
     # ------ Add Step Entry
     addStepEntry(resDBfileEntry, '4 - Image generation from centerlines', True, time.time() - tmpTime, screenshotPath + screenshotFile, 'Image generated.', cmd)
@@ -617,7 +634,8 @@ def main():
     model = newSTL
     screenshotFile = "/5_SurfaceFromImage2" + screenshotExtension
     if mustSaveScreenshots:
-        saveScreenshot(model, resultsScreenshotPath + screenshotFile)
+        #saveScreenshot(model, resultsScreenshotPath + screenshotFile)
+        screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
 
     # ------ Add Step Entry
     addStepEntry(resDBfileEntry, '5 - Second mesh extraction from image', True, time.time() - tmpTime, screenshotPath + screenshotFile, 'Mesh extracted.', cmd)
@@ -665,7 +683,8 @@ def main():
     model = max(glob.iglob(AngioTKOutputPath + "/remeshgmsh/*.stl"), key=os.path.getctime)
     screenshotFile = "/6_VolumeMesh" + screenshotExtension
     if mustSaveScreenshots:
-        saveScreenshot(model, resultsScreenshotPath + screenshotFile)
+        #saveScreenshot(model, resultsScreenshotPath + screenshotFile)
+        screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
 
     # ------ Add Step Entry
     addStepEntry(resDBfileEntry, '6 - Volume mesh processing', True, time.time() - tmpTime, screenshotPath + screenshotFile, 'Volume mesh generated.', cmd)
@@ -673,7 +692,13 @@ def main():
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
     dbFile.close()
-
+    
+    sys.stdout.flush()
+    print "closing screenshot processes pool..."
+    screenshotPool.close()
+    print "waiting for screenshots processes to finish..."
+    screenshotPool.join()
+    
     # Print timing
     print "Total time elapsed in script: " + str(time.time() - tinit)
 
