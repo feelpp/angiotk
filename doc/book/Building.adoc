@@ -22,14 +22,14 @@ Angiotk requires at least:
 
 ### Feel++
 
-Regarding to building Feel++, please refer to the Feel++ documentation.
+To build Feel++, please refer to the Feel++ documentation.
 You will have to install Feel++, so you might want to set up an installation path with `-DCMAKE_INSTALL_PREFIX="..."` (if you don't want to install Feel++ in your system), then build and install Feel++ with `make install-feelpp`.
 
-Once Feel++ is installed, you need to export the `FEELPP_DIR` variable in your shell (e.g. put it in your .bashrc file). Set it to the installation directory of Feel++ (that you previously set at the cmake step).
+Once Feel++ is installed, you need to export the `FEELPP_DIR` variable in your shell (e.g. put it in your .bashrc file). Set it to the installation directory of Feel++ (to one you previously set at the cmake step).
 
 ### VMTK
 
-If you can install vmtk through your package system, you can do it this way, it will be easier. 
+If you can install vmtk through your package system, you should do it this way, it would be easier. 
 
 <!--
 If you need to build vmtk, pay attention to the library versions you will use.

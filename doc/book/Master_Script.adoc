@@ -1,0 +1,108 @@
+# The master script
+
+The features discussed in this page are currently only available in the feature/matrix branch.
+
+The master script's purpose is to provide a easy way to process multiple MRI files, collect the results and present them in a convenient way. 
+
+## Features
+
+### Parallel execution
+
+It is possible to process multiple MRI images in parallel using AngioTK. This is especially useful when processing a lot of MRI files with multicore processors.
+
+The files will be processed in parallel and asynchronously.
+
+
+### Results matrix and history
+
+We store results and metadata of all runs. They can be analysed easily and comfortably using a web browser.
+
+Details and a screenshot of each major pipeline step are available for each MRI file processed.
+
+## Requirements
+
+### Input files common location
+
+All the MRI files must share a common path, which means they should all be located in one directory tree.
+
+This directory tree will be recursively walked through and all the files having the `.mha` extension will be processed.
+
+TIP: Because the whole directory tree will be walked through, having a directory tree containing only the target files is advised to speed up this step.
+
+### Web server execution
+
+The master script provides an easy and comfortable way to access and analyse AngioTK results through a web browser. Thus, a web server with access to the results is necessary.
+
+## Running the master script
+
+### Arguments
+
+The master script is a python script taking at least these two arguments:
+
+- _--inputpath_ : (string) the common path to all input files.
+- _--outputpath_ : (string) the path to write results.
+
+The following arguments are optional:
+
+- _-n_ : (default:-1) limit the maximum number of files to process. Usefull for quick tests. Negative values disable this limit.
+- _-p_ : (default:1) the number of worker processes (i.e. the maximum number of files to process simultaneously).
+- _--noscreenshots_ : a switch to disable screenshots rendering.
+
+### Example
+
+Let's assume we have a directory `/data/MRI` containing MRI files `MRI001.mha`, `MRI002.mha`
+
+We choose a directory to store results: `/data/angiotk_results`
+
+All we need now is to launch the master script:
+
+	python  $INSTALL/master.py --inputpath /data/MRI --outputpath /data/angiotk_results
+	
+`INSTALL` is the path where AngioTK was installed (which means `master.py ` should be there).
+
+After the script's execution, `/data/angiotk_results` will contain:
+
+- two directories `MRI001_mha` and `MRI002_mha`, each corresponding to an AngioTK pipeline normal output (when using the normal script `runAngioTKPipeline.py`, this is what `--outputpath` refers to)
+- an additionnal directory called `resultsDataBase`. This directory will contain all the metadata about angiotk run(s), including the screenshots.
+
+### Centerlines edition
+
+Because the centerline creation still relies on a manual step, the pipeline can not be executed entirely without human intervention.
+
+For any set of MRI, We suggest running it once to create adequate directories, then creating centerline files and running the pipeline again:
+
+1. On the first run, the pipeline creates a directory in `$INSTALL/share/AngioTK/Examples/MeshFromMRI/` for each MRI (named after its file path). This directory can now be filled with configuration files (see link:Runnning.adoc[Running AngioTK]) and already includes a `data` sudirectory to contain centerline files.
+
+2. But, these directories being empty, the pipeline will use generic centerline files and try to perform reconstruction. The pipeline may or may not fail thereafter, but all the subsequent output should be considered invalid anyway.
+
+3. You can now use the link:The_Centerlines_Editing_Graphical_Tool.adoc[centerline graphical tool] to create centerline files for each MRI model. Don't forget to place them in the corresponding `$INSTALL/share/AngioTK/Examples/MeshFromMRI/<MRI_directory>/data` subdirectory.
+
+4. The pipeline can now be launched again. This time, the supplied centerline files (and possibly any other custom configuration file) will be used instead of the generic ones.
+
+## Accessing the results
+
+The `<outputpath>/resultsDataBase` directory contains an web page named `summary.html` and its related files, as well as a `runs/` directory.
+
+The resultsDataBase directory should be used as the root of a web (HTTP) server to access the web page and all its content.
+
+### A summarized view of all runs
+
+The `summary.html` page presents a list of angiotk runs. It is supposed to be served by a web server and accessed by a web browser. 
+
+Each run is listed with a few metadata, and a link to its own full page.
+
+### A detailed matrix for each run
+
+Each time the master script is executed, a new directory is created inside de `runs` directory, named using the date and time of execution. It contains a web page and its related files.
+
+The web page first presents the run's configuration (software versions, target database) and some statistics (successful and incomplete reconstructions, failures).
+
+The web page also includes a matrix which gives details about each major pipeline step, for each MRI file. This allows to check whether or not the pipeline failed, and where it stopped for a particular MRI file. In case of failure, the cell is colored in red. We also included short comments, execution time, and a screenshot of the output.
+
+### Storage policy
+
+In terms of storage, MRI and 3D models are huge compared to metadata and screenshots. This is why we keep metadata and screenshots for each and every run, but overwrite all of the pipeline output.
+
+If you need to keep the files, you can either manually copy them elsewhere, or change the whole output path of future pipeline runs.
+
+This behaviour could also easily be modified in the code.
