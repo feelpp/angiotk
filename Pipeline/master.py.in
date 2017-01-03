@@ -21,11 +21,6 @@ import string
 
 import testAngioTKPipeline
 
-# a prefixed print function to improve visual identification of input
-def prefixedprint(str):
-    prefix = os.path.basename(__file__)
-    print prefix + ": " + str
-
 def main():
 
     # define scripts paths (partially filled by cmake during install)
@@ -51,7 +46,7 @@ def main():
     mustSaveScreenshots = args.enablescreenshots
     print 'Will save screenshots: ' + str(mustSaveScreenshots)
 
-    # find IRM files by exploring database root directory
+    # find MRI files by exploring database root directory
     mhaFiles = []
     osWalkInitTime = time.time()
     for path, dirs, files in os.walk(databaseRootDir):
@@ -92,7 +87,7 @@ def main():
 
     i = 0
     limit = min(args.n, len(mhaFiles))
-    # if limit == 0, no IRM file is processed, but results database is created.
+    # if limit == 0, no MRI file is processed, but results database is created.
     if limit > -1:
         # initialize database by reading existing file or creating one if needed.
         resultsDB = OrderedDict() # Data structure: ordered dictionary
@@ -101,9 +96,9 @@ def main():
             resultsDB = json.load(dbFile, object_pairs_hook=OrderedDict)
             dbFile.close()
         except IOError, e:
-            prefixedprint("The file " + results_json + " was not found, it will be created.")
+            print("The file " + results_json + " was not found, it will be created.")
         except Exception, e:
-            prefixedprint("Error: " + e)
+            print(e)
         # adds the configuration entry if needed
         cfg = 'configuration'
         resultsDB[cfg]=OrderedDict()
@@ -140,7 +135,7 @@ def main():
         
         processingPool = mp.Pool(processes=args.p)
         
-        # loop for all datasets to process
+        # loop for all MRI files to process
         for mhaFile in mhaFiles: # ex: /data/vivabrain/IRM/Base2/TOF/natives/MHA/GEO26/TOF_art.mha
             if(i==limit): # This is the limit set in the command line's arguments  
                 break
@@ -150,7 +145,7 @@ def main():
             # assemble the configuration files path 
             # (We don't create this directory. If it does not exists, testAngioTKPipeline.py will use the generic cfg path.)
             inputPath = os.path.join(os.path.expandvars('/ssd/derhovsepian/angiotk/install/share/AngioTK/Examples/MeshFromMRI'), fileIDNoSlash)
-            # path to this file's results database (pipeline metadata for this dataset)
+            # path to this file's results database (pipeline metadata for this MRI file)
             fileResultsDBPath = os.path.join(partialResultsDBPath, (fileIDNoSlash + '.json'))
             partialResultsToMerge.append(fileResultsDBPath)
             # pipeline command assembly
@@ -162,13 +157,12 @@ def main():
             print '----------------------------------------' + testAngioTK + '--------------------------------------------'
 
             # resultsDB update
-            try: # if .json already exists, read it
+            try: # read json file
                 dbFile = open(results_json,'r')
                 resultsDB = json.load(dbFile, object_pairs_hook=OrderedDict)
                 dbFile.close()
             except Exception, e:
-                prefixedprint("RESULTS DATABASE:")
-                prefixedprint("Error: " + e)
+                print(e)
             
             # increase the number of processed files: 
             # this is done before launching the pipeline
@@ -187,15 +181,14 @@ def main():
                         
             
             # resultsDB update
-            try: # if .json already exists, read it
+            try: # read json file
                 dbFile = open(results_json,'r')
                 resultsDB = json.load(dbFile, object_pairs_hook=OrderedDict)
                 dbFile.close()
             except Exception, e:
-                prefixedprint("RESULTS DATABASE:")
-                prefixedprint("Error: " + e)
+                print(e)
             
-            # update results database
+            # Update results database
             #commandLines[fileIDNoSlash] = cmd
             #resultsDB[cfg]['command lines'] = json.dumps(commandLines, indent=4)
             resultsDB[cfg]['total time'] = str(datetime.datetime.now()-initialTime) 
@@ -210,26 +203,24 @@ def main():
     
     # pool closing
     sys.stdout.flush()
-    prefixedprint("Closing processing pool...")
+    print("Closing processing pool...")
     processingPool.close()
-    prefixedprint("waitin for processes to finish...")
+    print("waitin for processes to finish...")
     processingPool.join()                                    
-    prefixedprint("all processes are done. Merging results...")
+    print("all processes are done. Merging results...")
     sys.stdout.flush()
 
     # results merging
-    
     print "partial jsons:"
     resultsDB['results'] = OrderedDict()
     for partial_json in partialResultsToMerge:
         print partial_json
-        try: # if .json already exists, read it                                                                                                                             
+        try: # read json file
             dbFile = open(partial_json,'r')
             partialDB = json.load(dbFile, object_pairs_hook=OrderedDict)
             dbFile.close()
         except Exception, e:
-            prefixedprint("Results merging:")
-            prefixedprint("Error: " + e)
+            print(e)
 
         if not partialDB.has_key('results'):
             break
@@ -240,11 +231,11 @@ def main():
     nSuccess = 0
     nIncomplete = 0
     nFail = 0
-    for dataset in resultsDB['results'].keys(): # for each dataset
-        if resultsDB['results'][dataset]['1 - RORPO processing']['Success']==False: 
+    for mriFile in resultsDB['results'].keys(): # For each mriFile
+        if resultsDB['results'][mriFile]['1 - RORPO processing']['Success']==False: 
             nFailure += 1 # total failures
         else:
-            if resultsDB['results'][dataset]['6 - Volume mesh processing']['Success']==True:
+            if resultsDB['results'][mriFile]['6 - Volume mesh processing']['Success']==True:
                 nSuccess += 1 # completed reconstructions
             else:
                 nIncomplete += 1 # incomplete reconstructions
@@ -266,9 +257,10 @@ def main():
         summaryFile.close()
         # store previous runs
         oldRuns = OrderedDict(summaryDB['runs'])
+    except IOError, e:
+        print("The file " + summary_json + " was not found, it will be created.")
     except Exception, e:
-        prefixedprint("SUMMARY DATABASE:")
-        prefixedprint("Error: " + e)
+        print(e)
     
     # create/update runs history:
     summaryDB['runs']=OrderedDict() # start with a new runs database

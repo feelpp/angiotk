@@ -218,9 +218,9 @@ def main():
         resultsDB = json.load(dbFile, object_pairs_hook=OrderedDict)
         dbFile.close()
     except IOError, e:
-        print "testAngioTKPipeline.py: The file " + results_json  + " was not found, it will be created."
+        print("The file " + results_json  + " was not found, it will be created.")
     except Exception, e:
-        print "testAngioTKPipeline.py: Error: ", e
+        print(e)
 
     # Create results entry in the database if needed.
     if not resultsDB.has_key('results'):
