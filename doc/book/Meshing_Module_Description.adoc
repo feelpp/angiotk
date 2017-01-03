@@ -1,6 +1,6 @@
 # The Meshing Module
 
-The goal here is to generate a 3D mesh of the blood vessels visible in the MRI. In order to reach this goal, the data must undergo several processing steps which are detailed below.
+The goal here is to generate a 3D mesh of the blood vessels visible in the MRI. In order to reach this goal, the MRI must undergo several processing steps which are detailed below.
 
 ## Segmentation & Surface extraction (VMTK)
 Image segmentation is used to detect blood vessels in the MRIs. Blood vessels surfaces are extracted (using a level-set method).
@@ -26,4 +26,4 @@ The mesh is prepared to be used in computer simulation:
 * Optionnally, the blood vessels thickness is taken into account by extruding de boundary layer according to a given percentage of the blood vessels radius.
 * The Mesh is partitioned for numerical simulation.
 
-[Go back to Overview](Overview.adoc)
+link:Overview.adoc[Go back to Overview]
