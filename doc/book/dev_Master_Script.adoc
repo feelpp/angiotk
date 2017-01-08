@@ -1,0 +1,68 @@
+# The master script
+
+The features discussed here are currently only available in the feature/matrix branch.
+
+The master script's purpose is to provide a easy way to process multiple MRI files, collect the results and present them in a convenient way.
+
+## Requirements
+
+All the MRI files must share a common path, which means they should all be located in one directory tree.
+
+This directory tree will be recursively walked through and all the files matching the `.mha` extension will be added to a list of files to process.
+
+TIP: Because the whole directory tree will be walked through, having a directory tree containing only the target files is advised to speed up this process.
+
+
+## Parallel execution
+
+It is possible to process multiple MRI images in parallel using AngioTK. This is especially useful when processing a lot of MRI files. 
+
+- This is achieved by creating a pool of worker processes and a list of files to process. 
+- Each worker process then picks a file and executes the pipeline script asynchronously.
+- Whenever a worker has finished running the script, it picks an other file and start over, until all the files of the list have been processed.
+
+## Results Matrix
+
+
+
+## Running the master script
+
+The master script is a python script taking at least these two arguments:
+
+- _--inputpath_ : (string) the common path to all input files.
+- _--outputpath_ : (string) the path to write results.
+
+The following arguments are optional:
+
+- _-n_ : (default:-1) limit the maximum number of files to process. Usefull for quick tests. Negative values disable this limit.
+- _-p_ : (default:1) the number of worker processes (i.e. the maximum number of files to process simultaneously).
+- _--noscreenshots_ : a switch to disable screenshots rendering.
+
+## Example
+
+Let's assume we have a directory `/data/IRM` containing IRM files `IRM001.mha`, `IRM002.mha`
+
+We choose a directory to store results: `/data/angiotk_results`
+
+All we need now is to launch the master script:
+
+	python  $INSTALL/master.py --inputpath /data/IRM --outputpath /data/angiotk_results
+	
+`INSTALL` is the path where AngioTK was installed.
+
+After the script's execution, `/data/angiotk_results` will contain:
+
+- two directories `IRM001_mha` and `IRM002_mha`, each corresponding to an AngioTK pipeline normal output (when using the normal script `runAngioTKPipeline.py`, this is what `--outputpath` refers to)
+- an additionnal directory called `resultsDataBase`. This directory will contain all the metadata about angiotk run(s), including the screenshots.
+
+## Results Database
+
+The `resultsDataBase` directory contains an web page file named `summary.html` and a few related files as well as a `runs` directory.
+
+### summary web page
+
+This page presents a list of angiotk runs. It is populated dynamically with the metadata stored in `summary.json`.
+
+### runs directory
+
+Each time the master script is executed, a new directory is created inside de `runs` directory. Its name is composed of a prefix (`run`) followed by the date and time of execution. 

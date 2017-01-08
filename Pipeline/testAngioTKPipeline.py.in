@@ -106,7 +106,7 @@ def saveScreenshot(modelPath, screenshotPath, logPrefix):
     startTime = datetime.datetime.now()
     executeCommand("", screenshotCmd, logPrefix)
     print 'screenshot wall-clock time:' + str(datetime.datetime.now()-startTime)
-    
+
 def main():
     # ------------ 0 - Initialization ------------
 
@@ -134,7 +134,7 @@ def main():
     parser.add_argument('--screenshot_processes', default=4, type=int, help='Number of screenshot processes')
     # parse arguments out of sys.argv
     args = parser.parse_args()
-    
+
     # Define configuration files path
     cfgpath = args.inputpath
     # sanityCheckFile(cfgpath)
@@ -142,7 +142,7 @@ def main():
     # path to the 'generic' cfg directory:
     # in case a cfg file does not exist, we use the corresponding generic cfg file.
     altcfgpath = os.path.join(cfgpathRoot, 'generic')
-    
+
     # Define output paths
     baseOutputPath = args.outputpath
     makedir(baseOutputPath)
@@ -162,7 +162,7 @@ def main():
     # make script executable
     st = os.stat(baseOutputPath + "/relaunch-script.sh")
     os.chmod(baseOutputPath + "/relaunch-script.sh", st.st_mode | stat.S_IEXEC)
-    
+
     # Setup environment to find the correct paths and set output paths
     my_env = os.environ
     my_env["PATH"] = "@CMAKE_INSTALL_PREFIX@/Modules/Meshing/bin:" + my_env["PATH"]
@@ -185,32 +185,32 @@ def main():
 
     # Start timing
     tinit = time.time()
-    
+
     # Store input file name and extension separately
     inputFileNoExt, inputFileExt = os.path.splitext(os.path.basename(args.inputfile))
     # Decide whether to skip 2 first steps, based on input file extension.
     skiptocl=False
     if(inputFileExt=='.stl'): # if input has stl extension
         skiptocl=True # we will skip both RORPO and SFI steps
-    
-        
+
+
     # Check that input file exists
     sanityCheckFile(args.inputfile)
-    
+
     # ------------ Results Database initialization -------------
-    
+
     # Create results paths
     resultsRoot, datasetDir = os.path.split(baseOutputPath) # ex: $RESULTS/Phantom -> $RESULTS and Phantom
     if baseOutputPath.endswith('/'): # in case baseOutpuPath ends with a slash '/', split again
         resultsRoot, datasetDir = os.path.split(resultsRoot)
     resultsPath = args.dbpath # ex: $RESULTS/run-YYYY-MM-DD_HH:MM:SS
-    
+
     if os.path.isdir(resultsPath):
         resultsDBName = "resultsDB.json"
         results_json = os.path.join(resultsPath, resultsDBName) # ex: $RESULTS/resultsDB.json
     else:
         results_json = resultsPath
-    
+
     # Initialize database by reading existing file or creating one if needed.
     resultsDB = OrderedDict() # Data structure: ordered dictionary
     try: # if .json already exists, read it
@@ -231,14 +231,14 @@ def main():
         print "\t > Adding " + args.inputfile + " entry..."
         resultsDB['results'][fileID] = OrderedDict()
     resDBfileEntry = resultsDB['results'][fileID]
-    
+
     # Create a list of the pipeline steps names.
     stepsNames = ['1 - RORPO processing', '2 - Mesh extraction from image', '3 - Centerline computing', '4 - Image generation from centerlines', '5 - Second mesh extraction from image', '6 - Volume mesh processing']
     # Add an entry for each step in the database if needed.
     for stepName in stepsNames:
         if(not resDBfileEntry.has_key(stepName)):
            addStepEntry(resDBfileEntry, stepName, False, 0.0, '', 'Step not reached.', '')
-    
+
     # Write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
@@ -258,17 +258,17 @@ def main():
     makedir(screenshotLogPath) # ex: create logPath/screenshots if needed
     print 'screenshotPath: ' + screenshotPath
     print 'resultsScreenshotPath: ' + resultsScreenshotPath
-    
+
     # ------------ Screenshots processes spawning -----------
-    
+
     screenshotPool = mp.Pool(processes=args.screenshot_processes)
-    
+
     # ---------------------------------------------
     # ------------ Pipeline STARTS HERE -----------
     # ---------------------------------------------
 
 
-    # ------------ 1 Filtering and RORPO ------------ 
+    # ------------ 1 Filtering and RORPO ------------
 
     # Skip the whole step if required.
     if(skiptocl):
@@ -295,7 +295,7 @@ def main():
         ps = subprocess.Popen(('head', '-n', '12', AngioTKOutputPath + "/data/" + inputFileNoExt + ".mha"), stdout=subprocess.PIPE)
         spacing = subprocess.check_output(('grep', 'ElementSpacing'), stdin=ps.stdout)
         ps.wait()
-        
+
         # clean up spacing line
         spacing = spacing.translate(None, "\n")
         lst = spacing.split()
@@ -323,7 +323,7 @@ def main():
             print "Unable to get spacing"
             exit(1)
         print ""
-    
+
         # Convert mha data to nii for RORPO
         # Print "Converting input file to .nii ... "
         cmd = "vmtkimagereader -ifile " + AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha" + " " \
@@ -338,7 +338,7 @@ def main():
         factor = 1.34
         nbScales = 7
         nbCores = 7
-        
+
         # Parses the rorpo.cfg file if it exists
         tmpTime = time.time()
         print "Process data with RORPO ... "
@@ -346,19 +346,19 @@ def main():
         rorpo_cfg = ""
         if(os.path.exists(cfgpath + "/rorpo.cfg")):
             rorpo_cfg = cfgpath + "/rorpo.cfg"
-        elif(os.path.exists(altcfgpath + "/rorpo.cfg")): 
+        elif(os.path.exists(altcfgpath + "/rorpo.cfg")):
             rorpo_cfg = altcfgpath + "/rorpo.cfg"
         # parse rorpo.cfg if it was found
         if not(rorpo_cfg==""):
             Config = ConfigParser.ConfigParser()
             Config.read(rorpo_cfg)
-            try: 
+            try:
                 scaleMin = int(Config.get("rorpo", "scaleMin"))
             except: print("Option scaleMin not found in " + rorpo_cfg)
-            try: 
+            try:
                 factor = float(Config.get("rorpo", "factor"))
             except: print("Option factor not found in " + rorpo_cfg)
-            try: 
+            try:
                 nbScales = int(Config.get("rorpo", "nbScales"))
             except: print("Option nbScales not found in " + rorpo_cfg)
 
@@ -377,7 +377,7 @@ def main():
             tmpComment = "RORPO not launched, target file already exists."
         sanityCheckFile(AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii")
         print ""
-    
+
         # Convert filtered data back to mha
         cmd = "vmtkimagereader -ifile " + AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii " + \
               "--pipe vmtkimagewriter -ofile " + AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha"
@@ -395,16 +395,16 @@ def main():
             #saveScreenshot(model, resultsScreenshotPath + screenshotFile)
             screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
         screenshotlink = screenshotPath + screenshotFile
-    
+
     # ------ Add Step Entry
     addStepEntry(resDBfileEntry, '1 - RORPO processing', True, time.time() - tmpTime, screenshotlink, tmpComment, cmd)
-    # write changes to the database file and closes it.                                                                                                                                                                                      
+    # write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
     dbFile.close()
 
 
-    # ------------ 2 Surface from image  ------------ 
+    # ------------ 2 Surface from image  ------------
 
     # Skip the whole step if required.
     if(skiptocl):
@@ -444,7 +444,7 @@ def main():
 
     # ------ Add Step Entry
     addStepEntry(resDBfileEntry, '2 - Mesh extraction from image', True, time.time() - tmpTime, screenshotlink, tmpComment, cmd)
-    # write changes to the database file and closes it.                                                                                                                                                                                      
+    # write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
     dbFile.close()
@@ -457,7 +457,7 @@ def main():
     tmpTime = time.time()
     print "Computing centerlines ... "
 
-    cl_cfg = os.path.join(cfgpath, "centerlines.cfg")    
+    cl_cfg = os.path.join(cfgpath, "centerlines.cfg")
     # if centerlines.cfg was not found, use generic version
     if not os.path.exists(cl_cfg):
         cl_cfg = os.path.join(altcfgpath, "centerlines.cfg")
@@ -502,7 +502,7 @@ def main():
             "--input.pointpair.filename " + cl + " " \
             "--output.directory " + AngioTKOutputPath + "/centerlines/part" + str(clid) + " " \
             "--delaunay-tessellation.force-rebuild 0 " \
-            "--delaunay-tessellation.output.directory " + AngioTKOutputPath + "/centerlines/part" + str(clid) + "/delaunay-tessellation" 
+            "--delaunay-tessellation.output.directory " + AngioTKOutputPath + "/centerlines/part" + str(clid) + "/delaunay-tessellation"
         # Create a new thread
         t = threading.Thread(target=executeCommand, args=("", cmd, logPath + "/meshing_centerlines" + str(clid)))
         t.start()
@@ -527,7 +527,7 @@ def main():
 
     # wait for threads to finish
     for t in cltpool:
-        t.join()    
+        t.join()
 
     # Merge centerlines
     print "Merging centerlines ... "
@@ -545,7 +545,7 @@ def main():
 
     # Print timing
     print "Total time elapsed in script after 3_Centerlines: " + str(time.time() - tinit)
-    
+
     # ++++++ Save a screenshot of the centerlines
     model = AngioTKOutputPath + "/centerlinesmanager/model_centerlines_up.vtk"
     screenshotFile = "/3_Centerlines" + screenshotExtension
@@ -577,7 +577,7 @@ def main():
         "--input.centerlines.filename " + AngioTKOutputPath + "/centerlinesmanager/model_centerlines_up.vtk " \
         "--output.directory " +  AngioTKOutputPath + "/imagefromcenterlines"
     executeCommand("", cmd, logPath + "/meshing_imagefromcenterlines")
-    
+
     # Get the output of the imagefromcenterlines algorithm
     imgGlob = glob.glob(AngioTKOutputPath + "/imagefromcenterlines/*.mha")
     if(len(imgGlob) == 0):
@@ -645,7 +645,7 @@ def main():
     dbFile.close()
 
 
-    # ------------ 6 - Volume mesh processing ------------
+    # ------------ 6 - Surface processing ------------
 
     # Process surface
     tmpTime = time.time()
@@ -663,6 +663,27 @@ def main():
 
     newSTL = max(glob.iglob(AngioTKOutputPath + "/remeshgmsh/*"), key=os.path.getctime)
 
+
+    # Print timing
+    print "Total time elapsed in script after 6_Volume mesh processing: " + str(time.time() - tinit)
+
+    # ++++++ Save a screenshot of the stl model.
+    model = newSTL
+    screenshotFile = "/6_SurfaceProcessing" + screenshotExtension
+    if mustSaveScreenshots:
+        #saveScreenshot(model, resultsScreenshotPath + screenshotFile)
+        screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
+
+    # ------ Add Step Entry
+    addStepEntry(resDBfileEntry, '6 - Surface processing', True, time.time() - tmpTime, screenshotPath + screenshotFile, 'Surface Processed.', cmd)
+    # write changes to the database file and closes it.
+    dbFile = open(results_json, 'w')
+    json.dump(resultsDB, dbFile, indent=4)
+    dbFile.close()
+
+
+    # ------------ 7 - Volume mesh processing ------------
+
     # Prepare volume data for simulation
     print "Generating volume mesh ... "
     vfcl_cfg = os.path.join(cfgpath, "volumefromstlandcenterlines.cfg")
@@ -677,28 +698,28 @@ def main():
     executeCommand("", cmd, logPath + "/meshing_volumefromstlandcenterlines")
 
     # Print timing
-    print "Total time elapsed in script after 6_Volume mesh processing: " + str(time.time() - tinit)
+    print "Total time elapsed in script after 7_Volume mesh processing: " + str(time.time() - tinit)
 
     # ++++++ Save a screenshot of the stl model.
     model = max(glob.iglob(AngioTKOutputPath + "/remeshgmsh/*.stl"), key=os.path.getctime)
-    screenshotFile = "/6_VolumeMesh" + screenshotExtension
+    screenshotFile = "/7_VolumeProcessing" + screenshotExtension
     if mustSaveScreenshots:
         #saveScreenshot(model, resultsScreenshotPath + screenshotFile)
         screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
 
     # ------ Add Step Entry
-    addStepEntry(resDBfileEntry, '6 - Volume mesh processing', True, time.time() - tmpTime, screenshotPath + screenshotFile, 'Volume mesh generated.', cmd)
+    addStepEntry(resDBfileEntry, '7 - Volume mesh processing', True, time.time() - tmpTime, screenshotPath + screenshotFile, 'Volume mesh generated.', cmd)
     # write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
     dbFile.close()
-    
+
     sys.stdout.flush()
     print "closing screenshot processes pool..."
     screenshotPool.close()
     print "waiting for screenshots processes to finish..."
     screenshotPool.join()
-    
+
     # Print timing
     print "Total time elapsed in script: " + str(time.time() - tinit)
 
