@@ -28,6 +28,7 @@
 #include <vtkUnstructuredGridWriter.h>
 #include <vtkUnstructuredGridReader.h>
 
+#include <vtkvmtkBoundaryReferenceSystems.h>
 
 Feel::fs::path AngioTkEnvironment::S_pathInitial;
 boost::shared_ptr<Feel::Environment> AngioTkEnvironment::S_feelEnvironment;
@@ -111,6 +112,7 @@ InletOutletDesc::loadFromSTL( std::string inputPath )
 
     std::string outputPath = (fs::path(inputPath).parent_path()/fs::path(nameWithoutExt+".dat")).string();
 
+#if 0
     std::ostringstream __str;
     __str << pythonExecutable << " ";
     //vmtkboundaryreferencesystems -ifile myinput.stl -ofile myoutput.dat
@@ -153,6 +155,41 @@ InletOutletDesc::loadFromSTL( std::string inputPath )
 
     fileDat.close();
     //std::cout << "number of inlet-outlet " << this->size() << "\n";
+
+#else
+
+    vtkSmartPointer<vtkSTLReader> readerSTL = vtkSmartPointer<vtkSTLReader>::New();
+    readerSTL->SetFileName( inputPath.c_str());
+    readerSTL->Update();
+
+    vtkSmartPointer<vtkvmtkBoundaryReferenceSystems> boundaryReferenceSystems = vtkvmtkBoundaryReferenceSystems::New();
+#if VTK_MAJOR_VERSION <= 5
+    boundaryReferenceSystems->SetInput( readerSTL->GetOutput() );
+#else
+    boundaryReferenceSystems->SetInputData( readerSTL->GetOutput() );
+#endif
+    boundaryReferenceSystems->SetBoundaryRadiusArrayName("BoundaryRadius");
+    boundaryReferenceSystems->SetBoundaryNormalsArrayName("BoundaryNormals");
+    boundaryReferenceSystems->SetPoint1ArrayName("Point1");
+    boundaryReferenceSystems->SetPoint2ArrayName("Point2");
+    boundaryReferenceSystems->Update();
+    vtkPolyData* outputBRS = boundaryReferenceSystems->GetOutput();
+    //boundaryReferenceSystems->GetOutput()->Print(std::cout);
+    //std::cout << " boundaryReferenceSystems->GetOutput()->GetNumberOfVerts(); " << boundaryReferenceSystems->GetOutput()->GetNumberOfVerts() << "\n";
+    int nPoint = outputBRS->GetNumberOfPoints();
+    for (int k=0;k<nPoint;++k )
+        {
+            double mynode[3];
+            outputBRS->GetPoint(k,mynode);
+
+            int descId = this->size();
+            InletOutletData thedat( BCType::BC_INLET,
+                                    (boost::format("markerLumen%1%")%descId).str(),
+                                    (boost::format("markerArterialWall%1%")%descId).str(),
+                                    mynode[0],mynode[1],mynode[2] );
+            this->add( thedat );
+        }
+#endif
 
     return 0;
 }
