@@ -26,6 +26,7 @@ def main():
     # define scripts paths (partially filled by cmake during install)
     testAngioTK = os.path.expandvars('@CMAKE_INSTALL_PREFIX@/bin/testAngioTKPipeline.py')
     asciidocDBpy = os.path.expandvars('@CMAKE_INSTALL_PREFIX@/bin/createAsciidocDB.py')
+    summaryHtml = os.path.expandvars('@CMAKE_INSTALL_PREFIX@/bin/summary.html')
     angioTKVersion = string.rstrip('@CMAKE_ANGIOTK_VERSION@', '\n')
 
     # write down current time (useful to time the process)
@@ -71,7 +72,7 @@ def main():
     runsPath = os.path.join(resultsDataBasePath, 'runs') # ex: $RESULTS/resultsDataBase/runs
     testAngioTKPipeline.makedir(runsPath)
     # for a given run, we use its launch date and time as ID and directory name (YYYY-MM-DD_HH:MM:SS)
-    timeID = (datetime.datetime.today()).strftime("%Y-%m-%d_%H:%M:%S")
+    timeID = (datetime.datetime.today()).strftime("%Y-%m-%d_%H-%M-%S")
     runID = "run-" + timeID
     resultsDBPath = os.path.join(runsPath, runID) # ex: $RESULTS/resultsDataBase/runs/run-YYYY-MM-DD_HH:MM:SS
     testAngioTKPipeline.makedir(resultsDBPath)
@@ -148,6 +149,7 @@ def main():
             # path to this file's results database (pipeline metadata for this MRI file)
             fileResultsDBPath = os.path.join(partialResultsDBPath, (fileIDNoSlash + '.json'))
             partialResultsToMerge.append(fileResultsDBPath)
+                        
             # pipeline command assembly
             cmd = "python " + testAngioTK + ' --inputfile=' + mhaFile + ' --inputpath='+ inputPath  + ' --outputpath=' + os.path.join(resultsPath, fileIDNoSlash) + ' --resultspath=' + resultsDBPath + ' --dbpath=' + fileResultsDBPath
             if not mustSaveScreenshots:
@@ -155,6 +157,7 @@ def main():
             print 'Processing file ' + str(i+1) + '/' + str(limit) + ': ' + mhaFile + '...'
             print 'cmd: ' + cmd
             print '----------------------------------------' + testAngioTK + '--------------------------------------------'
+            sys.stdout.flush()
 
             # resultsDB update
             try: # read json file
@@ -174,9 +177,12 @@ def main():
             json.dump(resultsDB, dbFile, indent=4)
             dbFile.close()
 
+            # path to this file's pipeline logs
+            fileLogsDir = os.path.join(resultsLogPath, fileIDNoSlash)
+            testAngioTKPipeline.makedir(fileLogsDir)
+            fileLog = os.path.join(fileLogsDir, timeID)
             # Actual pipeline execution
-            
-            processingPool.apply_async( testAngioTKPipeline.executeCommand, ("", cmd, resultsLogPath) )
+            processingPool.apply_async( testAngioTKPipeline.executeCommand, ("", cmd, fileLog) )
             #testAngioTKPipeline.executeCommand("", cmd, resultsLogPath)
                         
             
@@ -187,6 +193,7 @@ def main():
                 dbFile.close()
             except Exception, e:
                 print(e)
+                sys.stdout.flush()
             
             # Update results database
             #commandLines[fileIDNoSlash] = cmd
@@ -275,7 +282,6 @@ def main():
 
 
     # copy html summary page to results directory
-    summaryHtml = 'summary.html'
     shutil.copy(summaryHtml, resultsDataBasePath)
     
     # copy js directory to results directory

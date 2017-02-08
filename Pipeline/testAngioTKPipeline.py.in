@@ -85,12 +85,13 @@ def sanityCheckFile(filepath, msg=""):
             print "The file " + filepath + " was not found\nAborting ..."
         exit(1)
 # add a new entry to the results database (an ordered dictionary)
-def addStepEntry(resDB, currentStepName, success, time, screenshotfile, comments, cmd):
+def addStepEntry(resDB, currentStepName, success, output, time, screenshotfile, comments, cmd):
     manualCommentHint = "[]"
     if(not resDB.has_key(currentStepName)):
         resDB[currentStepName] = OrderedDict()
     resDB[currentStepName]['Comments']= comments
     resDB[currentStepName]['Success'] =  success
+    resDB[currentStepName]['Output'] =  output
     resDB[currentStepName]['Time'] = round(time,3)
     resDB[currentStepName]['Screenshot'] = screenshotfile
     if(not resDB[currentStepName].has_key('User comments')):
@@ -229,6 +230,8 @@ def main():
         resultsDB['results']=OrderedDict()
     # Add an entry for the input file in the database if needed.
     fileID = string.lstrip(args.inputfile, '/data/vivabrain/IRM/')
+    fileIDNoSlash = fileID.replace('/','_').replace('.','_') # ex: CEMRACS_2015/Phantom -> CEMRACS_2015_Phantom to keep dataset id and avoid deep directory trees 
+    globalOutputPath, fileIDNoSlash = os.path.split(baseOutputPath) # ex: /../results/Base2_IMAGE_mha -> /../results and Base2_IMAGE_mha
     if(not resultsDB['results'].has_key(fileID)):
         print "\t > Adding " + args.inputfile + " entry..."
         resultsDB['results'][fileID] = OrderedDict()
@@ -239,7 +242,7 @@ def main():
     # Add an entry for each step in the database if needed.
     for stepName in stepsNames:
         if(not resDBfileEntry.has_key(stepName)):
-           addStepEntry(resDBfileEntry, stepName, False, 0.0, '', 'Step not reached.', '')
+           addStepEntry(resDBfileEntry, stepName, False, 'none',  0.0, '', 'Step not reached.', '')
     
     # Write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
@@ -252,7 +255,6 @@ def main():
     # File extension to use
     screenshotExtension = ".jpg"
     # Path to store important step images
-    fileIDNoSlash = fileID.replace('/','_') # ex: CEMRACS_2015/Phantom -> CEMRACS_2015_Phantom to keep dataset id and avoid deep directory trees
     screenshotPath = os.path.join("screenshots/", fileIDNoSlash) # relative link, for json/asciidoc/html generation
     resultsScreenshotPath = os.path.join(args.resultspath, screenshotPath) # relative link, to write screenshot files
     screenshotLogPath = os.path.join(logPath, 'screenshots')
@@ -282,6 +284,7 @@ def main():
         # Ensure that the input data file has the correct format and copy it to the data directory
         # otherwise convert it
         print "Checking input file " + args.inputfile + " ... "
+        sys.stdout.flush()
         if(inputFileExt != ".mha"):
             cmd = "vmtkimagereader -ifile " + args.inputfile + " " \
                   "--pipe vmtkimagewriter -ofile " + AngioTKOutputPath + "/data/" + inputFileNoExt + ".mha"
@@ -294,6 +297,7 @@ def main():
         # Get element spacing from input dataset
         # We need isotropic data for RORPO
         print "Checking if input data is isotropic ... "
+        sys.stdout.flush()
         ps = subprocess.Popen(('head', '-n', '12', AngioTKOutputPath + "/data/" + inputFileNoExt + ".mha"), stdout=subprocess.PIPE)
         spacing = subprocess.check_output(('grep', 'ElementSpacing'), stdin=ps.stdout)
         ps.wait()
@@ -308,26 +312,28 @@ def main():
                 print "Current spacing OK (" + spacing + ")"
                 print AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha"
                 print (not os.path.exists(AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha"))
+                sys.stdout.flush()
                 if(not os.path.exists(AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha")):
                     print AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha"
+                    sys.stdout.flush()
                     os.symlink(AngioTKOutputPath + "/data/" + inputFileNoExt + ".mha", AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha")
             else:
                 print "Incorrect spacing (" + spacing + ")"
                 print "Attempting to correct spacing"
+                sys.stdout.flush()
                 cmd = "ResampleVolumesToBeIsotropic " + AngioTKOutputPath + "/data/" + inputFileNoExt + ".mha " + \
                       AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha 0 255"
                 if(not os.path.exists(AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha")):
                     retcode, _ = executeCommand("", cmd, logPath + "/Convert_iso")
                 sanityCheckFile(AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha")
-                #print "Aborting ..."
-                #exit(1)
         else:
             print "Unable to get spacing"
             exit(1)
         print ""
     
         # Convert mha data to nii for RORPO
-        # Print "Converting input file to .nii ... "
+        print "Converting input file to .nii ... "
+        sys.stdout.flush()
         cmd = "vmtkimagereader -ifile " + AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha" + " " \
               "--pipe vmtkimagewriter -ofile " + AngioTKOutputPath + "/data/" + inputFileNoExt + ".nii"
         if(not os.path.exists(AngioTKOutputPath + "/data/" + inputFileNoExt + ".nii")):
@@ -344,6 +350,7 @@ def main():
         # Parses the rorpo.cfg file if it exists
         tmpTime = time.time()
         print "Process data with RORPO ... "
+        sys.stdout.flush()
         # check if rorpo.cfg exists
         rorpo_cfg = ""
         if(os.path.exists(cfgpath + "/rorpo.cfg")):
@@ -368,8 +375,9 @@ def main():
         makedir(AngioTKOutputPath + "/RORPO/")
         # Command line string assembly
         RORPOOutputPrefix = inputFileNoExt + "_RORPO_" + str(scaleMin) + "_" + str(factor) + "_" + str(nbScales)
+        filteredImageNii = AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii"
         cmd = "RORPO_multiscale_usage " + AngioTKOutputPath + "/data/" + inputFileNoExt + ".nii " + \
-              AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii " + \
+              filteredImageNii + " " +\
               str(scaleMin) + " " + str(factor) + " " + str(nbScales) + " --core " + str(nbCores) + " --verbose"
         # If no existing output file is found, create one with RORPO
         if(not os.path.exists(AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii")):
@@ -379,19 +387,23 @@ def main():
             tmpComment = "RORPO not launched, target file already exists."
         sanityCheckFile(AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii")
         print ""
-    
+        
+        cmdToSave = cmd
+        
         # Convert filtered data back to mha
-        cmd = "vmtkimagereader -ifile " + AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii " + \
-              "--pipe vmtkimagewriter -ofile " + AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha"
+        filteredImageMha = os.path.splitext(filteredImageNii)[0] + ".mha"
+        cmd = "vmtkimagereader -ifile " + filteredImageNii + " " + \
+              "--pipe vmtkimagewriter -ofile " + filteredImageMha
         if(not os.path.exists(AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha")):
             retcode, _ = executeCommand("", cmd, logPath + "/Convert_nii_mha")
         sanityCheckFile(AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha")
 
         # Print timing
         print "Total time elapsed in script after 1_RORPO: " + str(time.time() - tinit)
+        sys.stdout.flush()
 
         # ++++++ Save a screenshot of the converted mha
-        model = AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha"
+        model = filteredImageMha
         screenshotFile = "/1_RORPO" + screenshotExtension
         if mustSaveScreenshots==True:
             #saveScreenshot(model, resultsScreenshotPath + screenshotFile)
@@ -399,7 +411,8 @@ def main():
         screenshotlink = screenshotPath + screenshotFile
     
     # ------ Add Step Entry
-    addStepEntry(resDBfileEntry, '1 - RORPO processing', True, time.time() - tmpTime, screenshotlink, tmpComment, cmd)
+    relativeLinkToModel = os.path.join('/', os.path.relpath(model, globalOutputPath)) # here the root '/' is the server's
+    addStepEntry(resDBfileEntry, '1 - RORPO processing', True, relativeLinkToModel, time.time() - tmpTime, screenshotlink, tmpComment, cmdToSave)
     # write changes to the database file and closes it.                                                                                                                                                                                      
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
@@ -415,21 +428,22 @@ def main():
         cmd = ''
     else:
         # keep track of the image RORPO just produced.
-        RORPO_image = model
+        filteredImage = filteredImageNii
 
         # Create a CT_segmentation output directory if needed.
         CTS_dir = os.path.join( AngioTKOutputPath, "CT_Segmentation" ) 
         makedir(CTS_dir)
 
         # A) RORPO
-        
-        # RORPO parameters:                                                                                                                                                                                                                                                                                           
+        # RORPO parameters:
         scaleMin = 25
         factor = 2.2
         nbScales = 3
-        #nbCores = 7 already defined in step 1 for RORPO
+        nbCores = 7
         
         # /!\ TODO:  ensure file format is correct in the first place !
+        # inputImagePath must be an isotropic image. We take the one created in the first step, 
+        # right after isotropic resampling and nifti conversion, and just before calling RORPO
         inputImagePath = os.path.join( AngioTKOutputPath, "data", (inputFileNoExt + ".nii") )
         RORPOPath = os.path.join( CTS_dir, "RORPO_%i_%.2f_%i.nii"%(scaleMin, factor, nbScales) ) 
         
@@ -446,18 +460,32 @@ def main():
             tmpComment = "RORPO not needed (target already exists), "
 
         # B) CTS
-
         # CTS parameters
         alpha = 0.5
         threshold = 90
         
         segmentedImagePath = os.path.join( CTS_dir, "CTS_%i_%.2f_%i_CT_alpha_%.2f_threshold_%i.nii"%(scaleMin, factor, nbScales, alpha, threshold) )
 
+        # CTS loop for multiple thresholds /!\ This should only remain temporary
+        doThisThresholdLoop = False # replace by 'true' if needed
+        if ( doThisThresholdLoop ):
+            for threshold in range(10,100,10):
+                segmentedImagePath = os.path.join( CTS_dir, "CTS_%i_%.2f_%i_CT_alpha_%.2f_threshold_%i.nii"%(scaleMin, factor, nbScales, alpha, threshold) )
+                cmd = 'component_tree_segmentation ' + inputImagePath + ' ' +  RORPOPath + ' ' + segmentedImagePath + ' ' + str(alpha) + ' ' + str(threshold)
+                if not os.path.exists(segmentedImagePath):
+                    print "We run cts with parameters: alpha = " + str(alpha) + ", threshold = " + str(threshold)
+                    sys.stdout.flush()
+                    retcode, _ = executeCommand("", cmd, logPath + "/CTS")
+                else:
+                    print "No need for component tree segmentation, target already exists (parameters: alpha = " + str(alpha) + ", threshold = " + str(threshold) + ")"
+                    sys.stdout.flush()
+
         # Compute CTS
+        cmd = 'component_tree_segmentation ' + inputImagePath + ' ' +  RORPOPath + ' ' + segmentedImagePath + ' ' + str(alpha) + ' ' + str(threshold)
+        cmdToSave = cmd
         if not os.path.exists(segmentedImagePath):
             print "WE NEED TO RUN CTS !"
             sys.stdout.flush()
-            cmd = 'component_tree_segmentation ' + inputImagePath + ' ' +  RORPOPath + ' ' + segmentedImagePath + ' ' + str(alpha) + ' ' + str(threshold)
             retcode, _ = executeCommand("", cmd, logPath + "/CTS")
             tmpComment = tmpComment + "CTS launched."
         else:   
@@ -466,22 +494,26 @@ def main():
             tmpComment = tmpComment + "CTS not needed (target already exists)."
         
         sanityCheckFile(segmentedImagePath)
-        
+
         # Convert resulting nifti to mha
-        print "Converting segmented nifti image to mha..."
-        Image, ext = os.path.splitext(segmentedImagePath)
-        mhaImage = Image + ".mha"
+        print "Converting segmented nifti image to mha to allow paraview rendering..."
+        imageName, ext = os.path.splitext(segmentedImagePath)
+        mhaImage = imageName + ".mha"
         cmd = "vmtkimagereader -ifile " + segmentedImagePath + \
               " --pipe vmtkimagewriter -ofile " + mhaImage 
         if not os.path.exists( mhaImage ):
             print "Commande VMTK: \n" + cmd + "\n"
             sys.stdout.flush()
             retcode, _ = executeCommand("", cmd, logPath + "/Convert_nii_mha_after_cts")
+        else:
+            print "No need to convert back to mha, target already exists. \n" + cmd + "\n"
+            sys.stdout.flush()
         sanityCheckFile( mhaImage )
 
         # Print timing
         print "Total time elapsed in script after 1b_Component tree segmentation: " + str(time.time() - tinit)
-        
+        sys.stdout.flush()
+
         # ++++++ Save a screenshot of the converted mha
         model = mhaImage
         screenshotFile = "/1b_cts" + screenshotExtension
@@ -491,7 +523,8 @@ def main():
         screenshotlink = screenshotPath + screenshotFile
     
     # ------ Add Step Entry
-    addStepEntry(resDBfileEntry, '1b - Component Tree Segmentation', True, time.time() - tmpTime, screenshotlink, tmpComment, cmd)
+    relativeLinkToModel = os.path.join('/', os.path.relpath(model, globalOutputPath))
+    addStepEntry(resDBfileEntry, '1b - Component Tree Segmentation', True, relativeLinkToModel, time.time() - tmpTime, screenshotlink, tmpComment, cmdToSave)
     # write changes to the database file and closes it.                                                                                                                                                                                      
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
@@ -511,6 +544,7 @@ def main():
         # Extract mesh from images
         tmpTime = time.time()
         print "Extracting surface from image ... "
+        sys.stdout.flush()
         sfi_cfg = os.path.join(cfgpath, "surfacefromimage.cfg")
         # if surfacefromimage.cfg was not found, use generic version
         if not os.path.exists(sfi_cfg):
@@ -521,23 +555,31 @@ def main():
               "--pre-process.resize-from-reference-image.path " + AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha" + " " \
               "--output.path " + AngioTKOutputPath + "/surfacefromimage/model.stl"
         retcode, _ = executeCommand("", cmd, logPath + "/meshing_surfacefromimage")
+        print "End of meshing_surfacefromimage."
+        sys.stdout.flush()
         sanityCheckFile(AngioTKOutputPath + "/surfacefromimage/model.stl")
 
         # Print timing
         print "Total time elapsed in script after 2_Surface from image: " + str(time.time() - tinit)
 
         # ++++++ Save a screenshot of the extracted  mesh
-        model = AngioTKOutputPath + "/surfacefromimage/model.stl"
+        model = os.path.join(AngioTKOutputPath, "surfacefromimage/model.stl")
         screenshotFile = "/2_SurfaceFromImage" + screenshotExtension
         if mustSaveScreenshots:
             #saveScreenshot(model, resultsScreenshotPath + screenshotFile)
             screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
         screenshotlink = screenshotPath + screenshotFile
-        tmpComment =  'Mesh extracted.'
-        stlModel = AngioTKOutputPath + "/surfacefromimage/model.stl "
+
+        if os.path.exists(model):
+            tmpComment =  'Mesh extracted.'
+            success = True
+        else:
+            tmpComment = 'Extracted mesh not found.'
+            success = False
 
     # ------ Add Step Entry
-    addStepEntry(resDBfileEntry, '2 - Mesh extraction from image', True, time.time() - tmpTime, screenshotlink, tmpComment, cmd)
+    relativeLinkToModel = os.path.join('/', os.path.relpath(model, globalOutputPath))
+    addStepEntry(resDBfileEntry, '2 - Mesh extraction from image', success, relativeLinkToModel, time.time() - tmpTime, screenshotlink, tmpComment, cmd)
     # write changes to the database file and closes it.                                                                                                                                                                                      
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
@@ -575,7 +617,7 @@ def main():
     for cl in cldataPointSet:
         print "found pointpair file: " + str(clid)
         cmd = "meshing_centerlines --config-file " + cl_cfg + " "\
-            "--input.surface.filename " + stlModel + " " \
+            "--input.surface.filename " + model + " " \
             "--input.pointset.filename " + cl + " " \
             "--output.directory " + AngioTKOutputPath + "/centerlines/part" + str(clid) + " " \
             "--delaunay-tessellation.output.directory " + AngioTKOutputPath + "/centerlines/part" + str(clid) + " " \
@@ -592,7 +634,7 @@ def main():
     #cldata = glob.glob(cfgpath + "/data/pointpair*.data")
     for cl in cldataPointPair:
         cmd = "meshing_centerlines --config-file " + cl_cfg + " "\
-            "--input.surface.filename " + stlModel + " " \
+            "--input.surface.filename " + model + " " \
             "--input.pointpair.filename " + cl + " " \
             "--output.directory " + AngioTKOutputPath + "/centerlines/part" + str(clid) + " " \
             "--delaunay-tessellation.force-rebuild 0 " \
@@ -608,7 +650,7 @@ def main():
     #cldata = glob.glob(cfgpath + "/data/geocenterlines*.data")
     for cl in cldataGeo:
         cmd = "meshing_centerlines --config-file " + cl_cfg + " "\
-            "--input.surface.filename " + stlModel + " " \
+            "--input.surface.filename " + model + " " \
             "--input.geo-centerlines.filename " + cl + " " \
             "--output.directory " + AngioTKOutputPath + "/centerlines/part" + str(clid) + " " \
             "--delaunay-tessellation.output.directory " + AngioTKOutputPath + "/centerlines/part" + str(clid)
@@ -631,7 +673,7 @@ def main():
             clm_cfg = os.path.join(altcfgpath, "centerlinesmanager.cfg")
     sanityCheckFile(clm_cfg)
     cmd = "meshing_centerlinesmanager --config-file " + clm_cfg + " "
-    cmd = cmd + "--input.surface.filename " + stlModel + " "
+    cmd = cmd + "--input.surface.filename " + model + " "
     cmd = cmd + "--output.directory " + AngioTKOutputPath + "/centerlinesmanager "
     for i in range(len(cltpool)):
         cmd = cmd + "--input.centerlines.filename " + AngioTKOutputPath + "/centerlines/part" + str(i) + "/model_centerlines.vtk "
@@ -649,7 +691,8 @@ def main():
 
 
     # ------ Add Step Entry
-    addStepEntry(resDBfileEntry, '3 - Centerline computing', True, time.time() - tmpTime, screenshotPath + screenshotFile, tmpComment, cmd)
+    relativeLinkToModel = os.path.join('/', os.path.relpath(model, globalOutputPath))
+    addStepEntry(resDBfileEntry, '3 - Centerline computing', True, relativeLinkToModel, time.time() - tmpTime, screenshotPath + screenshotFile, tmpComment, cmd)
     # write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
@@ -678,7 +721,7 @@ def main():
         msg = "Cannot find output of imagefromcenterlines. Aborting."
         print msg
         # ------ Add Step Entry
-        addStepEntry(resDBfileEntry, '4 - Image generation from centerlines', False, time.time() - tmpTime, screenshotPath + screenshotFile, msg, cmd)
+        addStepEntry(resDBfileEntry, '4 - Image generation from centerlines', False, 'none', time.time() - tmpTime, screenshotPath + screenshotFile, msg, cmd)
         # write changes to the database file and closes it.
         dbFile = open(results_json, 'w')
         json.dump(resultsDB, dbFile, indent=4)
@@ -697,7 +740,8 @@ def main():
         screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
 
     # ------ Add Step Entry
-    addStepEntry(resDBfileEntry, '4 - Image generation from centerlines', True, time.time() - tmpTime, screenshotPath + screenshotFile, 'Image generated.', cmd)
+    relativeLinkToModel = os.path.join('/', os.path.relpath(model, globalOutputPath))
+    addStepEntry(resDBfileEntry, '4 - Image generation from centerlines', True, relativeLinkToModel, time.time() - tmpTime, screenshotPath + screenshotFile, 'Image generated.', cmd)
     # write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
@@ -732,7 +776,8 @@ def main():
         screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
 
     # ------ Add Step Entry
-    addStepEntry(resDBfileEntry, '5 - Second mesh extraction from image', True, time.time() - tmpTime, screenshotPath + screenshotFile, 'Mesh extracted.', cmd)
+    relativeLinkToModel = os.path.join('/', os.path.relpath(model, globalOutputPath))
+    addStepEntry(resDBfileEntry, '5 - Second mesh extraction from image', True, relativeLinkToModel, time.time() - tmpTime, screenshotPath + screenshotFile, 'Mesh extracted.', cmd)
     # write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
@@ -781,7 +826,8 @@ def main():
         screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
 
     # ------ Add Step Entry
-    addStepEntry(resDBfileEntry, '6 - Volume mesh processing', True, time.time() - tmpTime, screenshotPath + screenshotFile, 'Volume mesh generated.', cmd)
+    relativeLinkToModel = os.path.join('/', os.path.relpath(model, globalOutputPath)) 
+    addStepEntry(resDBfileEntry, '6 - Volume mesh processing', True, relativeLinkToModel, time.time() - tmpTime, screenshotPath + screenshotFile, 'Volume mesh generated.', cmd)
     # write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)

@@ -112,7 +112,10 @@ def main():
                             adocFile.write('{set:cellbgcolor!}\n')
                             wasRed = False
                 elif (metadataName != 'Command') and (metadataName != 'Screenshot') and (metadataName != 'Time') and (metadataName != 'Users comments') :
-                    adocFile.write( metadataName + ': ' + str(metadata) + ' +\n')
+                    if (metadataName == 'Output') and (metadata != 'void'):
+                        adocFile.write( 'link:' +  str(metadata) + '[Output file] +\n')
+                    else:
+                        adocFile.write( metadataName + ': ' + str(metadata) + ' +\n')
         adocFile.write("\n")
     adocFile.write("|===\n")
     

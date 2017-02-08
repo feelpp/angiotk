@@ -32,3 +32,5 @@ install(TARGETS cts_nifti
 
 angiotk_add_component( ${PROJECT_NAME} main.cpp )
 target_link_libraries( ${PROJECT_NAME} cts_nifti )
+
+angiotk_add_component( stloff stloff_main.cpp )
