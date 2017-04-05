@@ -133,9 +133,25 @@ endif()
 
 #=========================================================
 # Find Python
-FIND_PACKAGE(PythonLibs)
-FIND_PACKAGE(PythonInterp)
+#FIND_PACKAGE(PythonLibs)
+#FIND_PACKAGE(PythonInterp)
 
+# The following changes were made because VMTK requires Python 2
+FIND_PACKAGE(PythonLibs 2 EXACT REQUIRED)
+FIND_PACKAGE(PythonInterp 2 EXACT REQUIRED)
+if(${PYTHONLIBS_FOUND})
+  message(WARNING "Python libraries found:")
+  message(WARNING "PYTHON_LIBRARIES: ${PYTHON_LIBRARIES}")
+  message(WARNING "PYTHON_INCLUDE_DIR: ${PYTHON_INCLUDE_DIR}")
+  message(WARNING "PYTHON_VERSION_STRING: ${PYTHON_VERSION_STRING}")
+else()
+  message(WARNING "Python not found...")
+endif()
+if(${PYTHONINTERP_FOUND})
+  message(WARNING "Python interpreter found:")
+else()
+  message(WARNING "Python not found...")
+endif()
 #=========================================================
 # Find VMTK
 

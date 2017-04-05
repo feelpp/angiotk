@@ -1,4 +1,4 @@
-#!/usr/bin/env python                                                                       
+#!/usr/bin/env python
 
 import argparse
 import ConfigParser
@@ -14,7 +14,7 @@ import subprocess
 import sys
 import threading
 import time
-# to generate results database (json file)                                                  
+# to generate results database (json file)
 import json
 from collections import OrderedDict
 import string
@@ -26,6 +26,7 @@ def main():
     # define scripts paths (partially filled by cmake during install)
     testAngioTK = os.path.expandvars('@CMAKE_INSTALL_PREFIX@/bin/testAngioTKPipeline.py')
     asciidocDBpy = os.path.expandvars('@CMAKE_INSTALL_PREFIX@/bin/createAsciidocDB.py')
+    summaryHtml = os.path.expandvars('@CMAKE_INSTALL_PREFIX@/bin/summary.html')
     angioTKVersion = string.rstrip('@CMAKE_ANGIOTK_VERSION@', '\n')
 
     # write down current time (useful to time the process)
@@ -57,7 +58,7 @@ def main():
     print "The following .mha files were found"
     for f in mhaFiles:
         print f
-        
+
     print "os.walk total time: " + str(round(osWalkEndTime-osWalkInitTime,1))
 
     # results database initialisation: resultsPath is the root directory of all results ($RESULTS)
@@ -71,7 +72,7 @@ def main():
     runsPath = os.path.join(resultsDataBasePath, 'runs') # ex: $RESULTS/resultsDataBase/runs
     testAngioTKPipeline.makedir(runsPath)
     # for a given run, we use its launch date and time as ID and directory name (YYYY-MM-DD_HH:MM:SS)
-    timeID = (datetime.datetime.today()).strftime("%Y-%m-%d_%H:%M:%S")
+    timeID = (datetime.datetime.today()).strftime("%Y-%m-%d_%H-%M-%S")
     runID = "run-" + timeID
     resultsDBPath = os.path.join(runsPath, runID) # ex: $RESULTS/resultsDataBase/runs/run-YYYY-MM-DD_HH:MM:SS
     testAngioTKPipeline.makedir(resultsDBPath)
@@ -132,22 +133,23 @@ def main():
         dbFile = open(results_json, 'w')
         json.dump(resultsDB, dbFile, indent=4)
         dbFile.close()
-        
+
         processingPool = mp.Pool(processes=args.p)
-        
+
         # loop for all MRI files to process
         for mhaFile in mhaFiles: # ex: /data/vivabrain/IRM/Base2/TOF/natives/MHA/GEO26/TOF_art.mha
-            if(i==limit): # This is the limit set in the command line's arguments  
+            if(i==limit): # This is the limit set in the command line's arguments
                 break
-            # pathNoExt, ext = os.path.splitext(mhaFile) # ex: separate /data/vivabrain/IRM/Base2/TOF/natives/MHA/GEO26/TOF_art and .mha 
+            # pathNoExt, ext = os.path.splitext(mhaFile) # ex: separate /data/vivabrain/IRM/Base2/TOF/natives/MHA/GEO26/TOF_art and .mha
             pathToMha = string.rstrip(string.lstrip(mhaFile, '/data/vivabrain/IRM/')) # only keep Base2/TOF/natives/MHA/GEO26/TOF_art.mha
             fileIDNoSlash = pathToMha.replace('/','_').replace('.','_') # turn it into Base2_TOF_natives_MHA_GEO26_TOF_art_mha
-            # assemble the configuration files path 
+            # assemble the configuration files path
             # (We don't create this directory. If it does not exists, testAngioTKPipeline.py will use the generic cfg path.)
-            inputPath = os.path.join(os.path.expandvars('/ssd/derhovsepian/angiotk/install/share/AngioTK/Examples/MeshFromMRI'), fileIDNoSlash)
+            inputPath = os.path.join(os.path.expandvars('@CMAKE_INSTALL_PREFIX@/share/AngioTK/Examples/MeshFromMRI'), fileIDNoSlash)
             # path to this file's results database (pipeline metadata for this MRI file)
             fileResultsDBPath = os.path.join(partialResultsDBPath, (fileIDNoSlash + '.json'))
             partialResultsToMerge.append(fileResultsDBPath)
+
             # pipeline command assembly
             cmd = "python " + testAngioTK + ' --inputfile=' + mhaFile + ' --inputpath='+ inputPath  + ' --outputpath=' + os.path.join(resultsPath, fileIDNoSlash) + ' --resultspath=' + resultsDBPath + ' --dbpath=' + fileResultsDBPath
             if not mustSaveScreenshots:
@@ -155,6 +157,7 @@ def main():
             print 'Processing file ' + str(i+1) + '/' + str(limit) + ': ' + mhaFile + '...'
             print 'cmd: ' + cmd
             print '----------------------------------------' + testAngioTK + '--------------------------------------------'
+            sys.stdout.flush()
 
             # resultsDB update
             try: # read json file
@@ -163,23 +166,26 @@ def main():
                 dbFile.close()
             except Exception, e:
                 print(e)
-            
-            # increase the number of processed files: 
+
+            # increase the number of processed files:
             # this is done before launching the pipeline
             # to correctly count aborted runs
             resultsDB[cfg]['processed files'] = i+1 # i=0 initially
-            
+
             # write to database file
             dbFile = open(results_json, 'w')
             json.dump(resultsDB, dbFile, indent=4)
             dbFile.close()
 
+            # path to this file's pipeline logs
+            fileLogsDir = os.path.join(resultsLogPath, fileIDNoSlash)
+            testAngioTKPipeline.makedir(fileLogsDir)
+            fileLog = os.path.join(fileLogsDir, timeID)
             # Actual pipeline execution
-            
-            processingPool.apply_async( testAngioTKPipeline.executeCommand, ("", cmd, resultsLogPath) )
+            processingPool.apply_async( testAngioTKPipeline.executeCommand, ("", cmd, fileLog) )
             #testAngioTKPipeline.executeCommand("", cmd, resultsLogPath)
-                        
-            
+
+
             # resultsDB update
             try: # read json file
                 dbFile = open(results_json,'r')
@@ -187,26 +193,27 @@ def main():
                 dbFile.close()
             except Exception, e:
                 print(e)
-            
+                sys.stdout.flush()
+
             # Update results database
             #commandLines[fileIDNoSlash] = cmd
             #resultsDB[cfg]['command lines'] = json.dumps(commandLines, indent=4)
-            resultsDB[cfg]['total time'] = str(datetime.datetime.now()-initialTime) 
-            
+            resultsDB[cfg]['total time'] = str(datetime.datetime.now()-initialTime)
+
             # write to database file
             dbFile = open(results_json, 'w')
             json.dump(resultsDB, dbFile, indent=4)
             dbFile.close()
-            
+
             i=i+1
-    
-    
+
+
     # pool closing
     sys.stdout.flush()
     print("Closing processing pool...")
     processingPool.close()
     print("waitin for processes to finish...")
-    processingPool.join()                                    
+    processingPool.join()
     print("all processes are done. Merging results...")
     sys.stdout.flush()
 
@@ -226,13 +233,13 @@ def main():
             break
         for fileKey, fileValues in partialDB['results'].items():
             resultsDB['results'][fileKey] = fileValues
-    
+
     # Database final update
     nSuccess = 0
     nIncomplete = 0
     nFail = 0
     for mriFile in resultsDB['results'].keys(): # For each mriFile
-        if resultsDB['results'][mriFile]['1 - RORPO processing']['Success']==False: 
+        if resultsDB['results'][mriFile]['1 - RORPO processing']['Success']==False:
             nFailure += 1 # total failures
         else:
             if resultsDB['results'][mriFile]['6 - Volume mesh processing']['Success']==True:
@@ -247,9 +254,9 @@ def main():
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
     dbFile.close()
-    
+
     # Summary database reading (including previous runs)
-    summaryDB = OrderedDict() # Data structure: ordered dictionary                                                                                                        
+    summaryDB = OrderedDict() # Data structure: ordered dictionary
     oldRuns = OrderedDict() # To store old runs and reverse order
     try: # if summary.json already exists, read it
         summaryFile = open(summary_json,'r')
@@ -261,7 +268,7 @@ def main():
         print("The file " + summary_json + " was not found, it will be created.")
     except Exception, e:
         print(e)
-    
+
     # create/update runs history:
     summaryDB['runs']=OrderedDict() # start with a new runs database
     summaryDB['runs'][runID] = resultsDB[cfg] # add current run
@@ -275,25 +282,24 @@ def main():
 
 
     # copy html summary page to results directory
-    summaryHtml = 'summary.html'
     shutil.copy(summaryHtml, resultsDataBasePath)
-    
+
     # copy js directory to results directory
     jsDir = 'js'
     distutils.dir_util.copy_tree(jsDir, os.path.join(resultsDataBasePath, jsDir))
-    
+
     # external scripts execution
     cmd = 'python ' + asciidocDBpy + ' -i ' + results_json
     print '----------------------------------------' + asciidocDBpy + '--------------------------------------------'
     testAngioTKPipeline.executeCommand("", cmd, resultsLogPath) # output is a .adoc file named like input
-    
+
     results_adoc = os.path.splitext(results_json)[0] + '.adoc'
     cmd = 'asciidoctor ' + results_adoc
     print '----------------------------------------' + 'asciidoctor' + '--------------------------------------------'
     testAngioTKPipeline.executeCommand("", cmd, resultsLogPath) # output is a .html file named like input
 
-    print "Total wall-clock time in " + __file__ + ": " + str(datetime.datetime.now()-initialTime) 
-        
+    print "Total wall-clock time in " + __file__ + ": " + str(datetime.datetime.now()-initialTime)
+
 # Only do this, if we do not import as a module
 if __name__ == "__main__":
     main()
