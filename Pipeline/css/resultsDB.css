@@ -1,0 +1,123 @@
+div#pageTitle {
+  font-size: 2em;
+  text-align: center;
+}
+div#statsSection, div#configSection {
+  width: 50%;
+  float: left;
+}
+p#statsTitle, p#configTitle {
+  font-size: 1.5em;
+  padding: .1em;
+  margin: 0;
+}
+p#statsDetails, p#configDetails {
+  padding: .1em;
+  margin: 0;
+}
+
+
+table {
+  border: 0;
+  padding: 0;
+  border-collapse: collapse;
+}
+
+table thead, table tfoot {
+  background-color: #B0D0FF;
+  font-weight: bold;
+}
+
+tr {
+  padding: 0;
+}
+
+tr.failureRow {
+  background-color: rgba(255,0,0,0.1);
+}
+
+tr.successRow {
+  background-color: rgba(0,255,0,0.1);
+}
+
+tr.even, tr.alt, tr:nth-of-type(even) {
+  background-color: #F7F9F7;
+}
+
+tbody tr.accordionHead:hover {
+  background-color: #A3A3A9;
+}
+
+tbody tr.accordionBody td:hover {
+  background-color: #A3A3A9;
+}
+
+tbody tr.accordionBody {
+  padding: 0;
+  margin: 0;
+  min-height: 0;
+}
+
+table, th, td {
+  border: 1px solid #DFDFDF;
+}
+
+th {
+  vertical-align: middle;
+  text-align: center;
+  padding: .75em;
+}
+
+td {
+  vertical-align: top;
+  background-color: transparent;
+  text-align: left;
+  max-width: 10em;
+}
+
+div.container {
+  padding: .75em;
+}
+
+td.accordionTD {
+  padding: 0;
+  min-height: 0;
+}
+
+td.titleCell {
+  word-wrap: break-word;
+  vertical-align: middle;
+  text-align: center;
+  padding-top: .1em;
+  padding-bottom: .1em;
+}
+
+img.thumbnail {
+  width: 128px;
+  display: block;
+  padding: 0;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: .3em;
+  margin-bottom: .3em;
+}
+
+img.thumbnail:hover {
+  -webkit-box-shadow: 0 0 20px #A3F9A3;
+  box-shadow: 0 0 10px 3px #FFFFFF; /*#83D983;*/
+}
+
+tr.accordionHead {
+}
+
+button.rowButton, button.w3-button.w3-bar-item.rowButton {
+  font-size: 20px;
+  border: 1px solid #D9D9D9;
+  float: left;
+}
+
+div.rowButtonGroup {
+}
+
+div.rowButtonGroupContainer {
+}

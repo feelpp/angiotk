@@ -99,10 +99,10 @@ def addStepEntry(resDB, currentStepName, success, output, time, screenshotfile, 
     resDB[currentStepName]['Command']= cmd
 
 # make a screenshot of model and save it to screenshotPath
-def saveScreenshot(modelPath, screenshotPath, logPrefix):
+def saveScreenshot(modelPath, screenshotPath, logPrefix, width, height):
     # path to screenshot script:
     screenshotScriptPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "screenshot.py")
-    screenshotCmd = "pvbatch --use-offscreen-rendering " + screenshotScriptPath + " " + modelPath + " " + screenshotPath
+    screenshotCmd = "pvbatch --use-offscreen-rendering " + screenshotScriptPath + " " + modelPath + " " + screenshotPath + " " + width + " " + height
     print '--------------------------------------------------------------------------------'
     startTime = datetime.datetime.now()
     executeCommand("", screenshotCmd, logPrefix)
@@ -230,7 +230,7 @@ def main():
         resultsDB['results']=OrderedDict()
     # Add an entry for the input file in the database if needed.
     fileID = string.lstrip(args.inputfile, '/data/vivabrain/IRM/')
-    fileIDNoSlash = fileID.replace('/','_').replace('.','_') # ex: CEMRACS_2015/Phantom -> CEMRACS_2015_Phantom to keep dataset id and avoid deep directory trees 
+    fileIDNoSlash = fileID.replace('/','_').replace('.','_') # ex: CEMRACS_2015/Phantom -> CEMRACS_2015_Phantom to keep dataset id and avoid deep directory trees
     globalOutputPath, fileIDNoSlash = os.path.split(baseOutputPath) # ex: /../results/Base2_IMAGE_mha -> /../results and Base2_IMAGE_mha
     if(not resultsDB['results'].has_key(fileID)):
         print "\t > Adding " + args.inputfile + " entry..."
@@ -243,7 +243,7 @@ def main():
     for stepName in stepsNames:
         if(not resDBfileEntry.has_key(stepName)):
            addStepEntry(resDBfileEntry, stepName, False, 'none',  0.0, '', 'Step not reached.', '')
-    
+
     # Write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
@@ -254,6 +254,10 @@ def main():
     print 'Will save screenshots: ' + str(mustSaveScreenshots)
     # File extension to use
     screenshotExtension = ".jpg"
+    screenshotWidth = 3840
+    screenshotHeight = 2160
+    thumbnailWidth = 160
+    thumbnailHeight = 90
     # Path to store important step images
     fileIDNoSlash = fileID.replace('/','_') # ex: CEMRACS_2015/Phantom -> CEMRACS_2015_Phantom to keep dataset id and avoid deep directory trees
     screenshotPath = os.path.join("screenshots/", fileIDNoSlash) # relative link, for json/asciidoc/html generation
@@ -310,7 +314,7 @@ def main():
         if(len(lst) == 5):
             # Ensure spacing for isotropic data
             #if(float(lst[2]) == float(lst[3]) and float(lst[3]) == float(lst[4])): # If image is alreay isotropic, we simply create and use a symbolic link to it.
-            if(false): # This branch is temporarily bypassed because even if the image is already isotropic, we force this conversion as it gives us a uchar image, which is mandatory for the CTS step. 
+            if(false): # This branch is temporarily bypassed because even if the image is already isotropic, we force this conversion as it gives us a uchar image, which is mandatory for the CTS step.
                 print "Current spacing OK (" + spacing + ")"
                 print AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha"
                 print (not os.path.exists(AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha"))
@@ -391,9 +395,9 @@ def main():
             tmpComment = "RORPO not launched, target file already exists."
         sanityCheckFile(AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii")
         print ""
-        
+
         cmdToSave = cmd
-        
+
         # Convert filtered data back to mha
         filteredImageMha = os.path.splitext(filteredImageNii)[0] + ".mha"
         cmd = "vmtkimagereader -ifile " + filteredImageNii + " " + \
@@ -408,22 +412,24 @@ def main():
 
         # ++++++ Save a screenshot of the converted mha
         model = filteredImageMha
-        screenshotFile = "/1_RORPO" + screenshotExtension
-        if mustSaveScreenshots==True:
-            #saveScreenshot(model, resultsScreenshotPath + screenshotFile)
-            screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
-        screenshotlink = screenshotPath + screenshotFile
+        screenshotFile = "1_RORPO" + screenshotExtension
+        screenshotFullPath = os.path.join(resultsScreenshotPath, screenshotFile)
+        thumbnailFullPath = os.path.join(resultsScreenshotPath, "tn_" + screenshotFile)
+        if mustSaveScreenshots:
+            screenshotPool.apply_async(saveScreenshot, (model, screenshotFullPath, screenshotLogPath, screenshotWidth, screenshotHeight))
+            screenshotPool.apply_async(saveScreenshot, (model, thumbnailFullPath, screenshotLogPath, thumbnailWidth, thumbnailHeight))
+        screenshotlink = os.path.join(screenshotPath, screenshotFile)
 
     # ------ Add Step Entry
     relativeLinkToModel = os.path.join('/', os.path.relpath(model, globalOutputPath)) # here the root '/' is the server's
     addStepEntry(resDBfileEntry, '1 - RORPO processing', True, relativeLinkToModel, time.time() - tmpTime, screenshotlink, tmpComment, cmdToSave)
-    # write changes to the database file and closes it.                                                                                                                                                                                      
+    # write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
     dbFile.close()
 
 
-    # ------------ 1b - Component tree segmentation  ------------ 
+    # ------------ 1b - Component tree segmentation  ------------
 
     if(skiptocl):
         tmpTime = time.time()
@@ -435,7 +441,7 @@ def main():
         filteredImage = filteredImageNii
 
         # Create a CT_segmentation output directory if needed.
-        CTS_dir = os.path.join( AngioTKOutputPath, "CT_Segmentation" ) 
+        CTS_dir = os.path.join( AngioTKOutputPath, "CT_Segmentation" )
         makedir(CTS_dir)
 
         # A) RORPO
@@ -444,18 +450,18 @@ def main():
         factor = 2.2
         nbScales = 3
         nbCores = 7
-        
+
         # /!\ TODO:  ensure file format is correct in the first place !
-        # inputImagePath must be an isotropic image. We take the one created in the first step, 
+        # inputImagePath must be an isotropic image. We take the one created in the first step,
         # right after isotropic resampling and nifti conversion, and just before calling RORPO
         inputImagePath = os.path.join( AngioTKOutputPath, "data", (inputFileNoExt + ".nii") )
-        RORPOPath = os.path.join( CTS_dir, "RORPO_%i_%.2f_%i.nii"%(scaleMin, factor, nbScales) ) 
-        
+        RORPOPath = os.path.join( CTS_dir, "RORPO_%i_%.2f_%i.nii"%(scaleMin, factor, nbScales) )
+
         # Compute with RORPO
         if not os.path.exists(RORPOPath):
             print "WE NEED TO RUN RORPO !"
             sys.stdout.flush()
-            cmd = 'RORPO_multiscale_usage ' + inputImagePath + ' ' +  RORPOPath + ' ' + str(scaleMin) + ' ' + str(factor) + ' ' + str(nbScales) + ' ' + '--core=' + str(nbCores)     
+            cmd = 'RORPO_multiscale_usage ' + inputImagePath + ' ' +  RORPOPath + ' ' + str(scaleMin) + ' ' + str(factor) + ' ' + str(nbScales) + ' ' + '--core=' + str(nbCores)
             retcode, _ = executeCommand("", cmd, logPath + "/CTS")
             tmpComment = "RORPO launched, "
         else:
@@ -467,7 +473,7 @@ def main():
         # CTS parameters
         alpha = 0.5
         threshold = 90
-        
+
         segmentedImagePath = os.path.join( CTS_dir, "CTS_%i_%.2f_%i_CT_alpha_%.2f_threshold_%i.nii"%(scaleMin, factor, nbScales, alpha, threshold) )
 
         # CTS loop for multiple thresholds /!\ This should only remain temporary
@@ -492,11 +498,11 @@ def main():
             sys.stdout.flush()
             retcode, _ = executeCommand("", cmd, logPath + "/CTS")
             tmpComment = tmpComment + "CTS launched."
-        else:   
+        else:
             print "No need for component tree segmentation, target already exists."
             sys.stdout.flush()
             tmpComment = tmpComment + "CTS not needed (target already exists)."
-        
+
         sanityCheckFile(segmentedImagePath)
 
         # Convert resulting nifti to mha
@@ -504,7 +510,7 @@ def main():
         imageName, ext = os.path.splitext(segmentedImagePath)
         mhaImage = imageName + ".mha"
         cmd = "vmtkimagereader -ifile " + segmentedImagePath + \
-              " --pipe vmtkimagewriter -ofile " + mhaImage 
+              " --pipe vmtkimagewriter -ofile " + mhaImage
         if not os.path.exists( mhaImage ):
             print "Commande VMTK: \n" + cmd + "\n"
             sys.stdout.flush()
@@ -520,22 +526,24 @@ def main():
 
         # ++++++ Save a screenshot of the converted mha
         model = mhaImage
-        screenshotFile = "/1b_cts" + screenshotExtension
-        if mustSaveScreenshots==True:
-            #saveScreenshot(model, resultsScreenshotPath + screenshotFile)
-            screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
-        screenshotlink = screenshotPath + screenshotFile
-    
+        screenshotFile = "1b_cts" + screenshotExtension
+        screenshotFullPath = os.path.join(resultsScreenshotPath, screenshotFile)
+        thumbnailFullPath = os.path.join(resultsScreenshotPath, "tn_" + screenshotFile)
+        if mustSaveScreenshots:
+            screenshotPool.apply_async(saveScreenshot, (model, screenshotFullPath, screenshotLogPath, screenshotWidth, screenshotHeight))
+            screenshotPool.apply_async(saveScreenshot, (model, thumbnailFullPath, screenshotLogPath, thumbnailWidth, thumbnailHeight))
+        screenshotlink = os.path.join(screenshotPath, screenshotFile)
+
     # ------ Add Step Entry
     relativeLinkToModel = os.path.join('/', os.path.relpath(model, globalOutputPath))
     addStepEntry(resDBfileEntry, '1b - Component Tree Segmentation', True, relativeLinkToModel, time.time() - tmpTime, screenshotlink, tmpComment, cmdToSave)
-    # write changes to the database file and closes it.                                                                                                                                                                                      
+    # write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
     dbFile.close()
 
 
-    # ------------ 2 - Surface from image  ------------ 
+    # ------------ 2 - Surface from image  ------------
 
     # Skip the whole step if required.
     if(skiptocl):
@@ -568,11 +576,13 @@ def main():
 
         # ++++++ Save a screenshot of the extracted  mesh
         model = os.path.join(AngioTKOutputPath, "surfacefromimage/model.stl")
-        screenshotFile = "/2_SurfaceFromImage" + screenshotExtension
+        screenshotFile = "2_SurfaceFromImage" + screenshotExtension
+        screenshotFullPath = os.path.join(resultsScreenshotPath, screenshotFile)
+        thumbnailFullPath = os.path.join(resultsScreenshotPath, "tn_" + screenshotFile)
         if mustSaveScreenshots:
-            #saveScreenshot(model, resultsScreenshotPath + screenshotFile)
-            screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
-        screenshotlink = screenshotPath + screenshotFile
+            screenshotPool.apply_async(saveScreenshot, (model, screenshotFullPath, screenshotLogPath, screenshotWidth, screenshotHeight))
+            screenshotPool.apply_async(saveScreenshot, (model, thumbnailFullPath, screenshotLogPath, thumbnailWidth, thumbnailHeight))
+        screenshotlink = os.path.join(screenshotPath, screenshotFile)
 
         if os.path.exists(model):
             tmpComment =  'Mesh extracted.'
@@ -584,7 +594,7 @@ def main():
     # ------ Add Step Entry
     relativeLinkToModel = os.path.join('/', os.path.relpath(model, globalOutputPath))
     addStepEntry(resDBfileEntry, '2 - Mesh extraction from image', success, relativeLinkToModel, time.time() - tmpTime, screenshotlink, tmpComment, cmd)
-    # write changes to the database file and closes it.                                                                                                                                                                                      
+    # write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
     dbFile.close()
@@ -688,15 +698,16 @@ def main():
 
     # ++++++ Save a screenshot of the centerlines
     model = AngioTKOutputPath + "/centerlinesmanager/model_centerlines_up.vtk"
-    screenshotFile = "/3_Centerlines" + screenshotExtension
+    screenshotFile = "3_Centerlines" + screenshotExtension
+    screenshotFullPath = os.path.join(resultsScreenshotPath, screenshotFile)
+    thumbnailFullPath = os.path.join(resultsScreenshotPath, "tn_" + screenshotFile)
     if mustSaveScreenshots:
-        #saveScreenshot(model, resultsScreenshotPath + screenshotFile)
-        screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
-
+        screenshotPool.apply_async(saveScreenshot, (model, screenshotFullPath, screenshotLogPath, screenshotWidth, screenshotHeight))
+    screenshotlink = os.path.join(screenshotPath, screenshotFile)
 
     # ------ Add Step Entry
     relativeLinkToModel = os.path.join('/', os.path.relpath(model, globalOutputPath))
-    addStepEntry(resDBfileEntry, '3 - Centerlines computing', True, relativeLinkToModel, time.time() - tmpTime, screenshotPath + screenshotFile, tmpComment, cmd)
+    addStepEntry(resDBfileEntry, '3 - Centerlines computing', True, relativeLinkToModel, time.time() - tmpTime, screenshotlink, tmpComment, cmd)
     # write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
@@ -725,7 +736,8 @@ def main():
         msg = "Cannot find output of imagefromcenterlines. Aborting."
         print msg
         # ------ Add Step Entry
-        addStepEntry(resDBfileEntry, '4 - Image generation from centerlines', False, 'none', time.time() - tmpTime, screenshotPath + screenshotFile, msg, cmd)
+        screenshotlink = ""
+        addStepEntry(resDBfileEntry, '4 - Image generation from centerlines', False, 'none', time.time() - tmpTime, screenshotlink, msg, cmd)
         # write changes to the database file and closes it.
         dbFile = open(results_json, 'w')
         json.dump(resultsDB, dbFile, indent=4)
@@ -738,14 +750,16 @@ def main():
 
     # ++++++ Save a screenshot of the output
     model = newImage
-    screenshotFile = "/4_ImageFromCenterlines" + screenshotExtension
+    screenshotFile = "4_ImageFromCenterlines" + screenshotExtension
+    screenshotFullPath = os.path.join(resultsScreenshotPath, screenshotFile)
+    thumbnailFullPath = os.path.join(resultsScreenshotPath, "tn_" + screenshotFile)
     if mustSaveScreenshots:
-        #saveScreenshot(model, resultsScreenshotPath + screenshotFile)
-        screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
+        screenshotPool.apply_async(saveScreenshot, (model, screenshotFullPath, screenshotLogPath, screenshotWidth, screenshotHeight))
+    screenshotlink = os.path.join(screenshotPath, screenshotFile)
 
     # ------ Add Step Entry
     relativeLinkToModel = os.path.join('/', os.path.relpath(model, globalOutputPath))
-    addStepEntry(resDBfileEntry, '4 - Image generation from centerlines', True, relativeLinkToModel, time.time() - tmpTime, screenshotPath + screenshotFile, 'Image generated.', cmd)
+    addStepEntry(resDBfileEntry, '4 - Image generation from centerlines', True, relativeLinkToModel, time.time() - tmpTime, screenshotlink, 'Image generated.', cmd)
     # write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
@@ -774,14 +788,16 @@ def main():
 
     # ++++++ Save a screenshot of the extracted surface
     model = newSTL
-    screenshotFile = "/5_SurfaceFromImage2" + screenshotExtension
+    screenshotFile = "5_SurfaceFromImage2" + screenshotExtension
+    screenshotFullPath = os.path.join(resultsScreenshotPath, screenshotFile)
+    thumbnailFullPath = os.path.join(resultsScreenshotPath, "tn_" + screenshotFile)
     if mustSaveScreenshots:
-        #saveScreenshot(model, resultsScreenshotPath + screenshotFile)
-        screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
+        screenshotPool.apply_async(saveScreenshot, (model, screenshotFullPath, screenshotLogPath, screenshotWidth, screenshotHeight))
+    screenshotlink = os.path.join(screenshotPath, screenshotFile)
 
     # ------ Add Step Entry
     relativeLinkToModel = os.path.join('/', os.path.relpath(model, globalOutputPath))
-    addStepEntry(resDBfileEntry, '5 - Second mesh extraction from image', True, relativeLinkToModel, time.time() - tmpTime, screenshotPath + screenshotFile, 'Mesh extracted.', cmd)
+    addStepEntry(resDBfileEntry, '5 - Second mesh extraction from image', True, relativeLinkToModel, time.time() - tmpTime, screenshotlink, 'Mesh extracted.', cmd)
     # write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
@@ -812,13 +828,15 @@ def main():
 
     # ++++++ Save a screenshot of the stl model.
     model = newSTL
-    screenshotFile = "/6_SurfaceProcessing" + screenshotExtension
+    screenshotFile = "6_SurfaceProcessing" + screenshotExtension
+    screenshotFullPath = os.path.join(resultsScreenshotPath, screenshotFile)
+    thumbnailFullPath = os.path.join(resultsScreenshotPath, "tn_" + screenshotFile)
     if mustSaveScreenshots:
-        #saveScreenshot(model, resultsScreenshotPath + screenshotFile)
-        screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
+        screenshotPool.apply_async(saveScreenshot, (model, screenshotFullPath, screenshotLogPath, screenshotWidth, screenshotHeight))
+    screenshotlink = os.path.join(screenshotPath, screenshotFile)
 
     # ------ Add Step Entry
-    addStepEntry(resDBfileEntry, '6 - Surface processing', True, time.time() - tmpTime, screenshotPath + screenshotFile, 'Surface Processed.', cmd)
+    addStepEntry(resDBfileEntry, '6 - Surface processing', True, time.time() - tmpTime, screenshotlink, 'Surface Processed.', cmd)
     # write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
@@ -845,14 +863,16 @@ def main():
 
     # ++++++ Save a screenshot of the stl model.
     model = max(glob.iglob(AngioTKOutputPath + "/remeshgmsh/*.stl"), key=os.path.getctime)
-    screenshotFile = "/7_VolumeProcessing" + screenshotExtension
+    screenshotFile = "7_VolumeProcessing" + screenshotExtension
+    screenshotFullPath = os.path.join(resultsScreenshotPath, screenshotFile)
+    thumbnailFullPath = os.path.join(resultsScreenshotPath, "tn_" + screenshotFile)
     if mustSaveScreenshots:
-        #saveScreenshot(model, resultsScreenshotPath + screenshotFile)
-        screenshotPool.apply_async(saveScreenshot, (model, resultsScreenshotPath + screenshotFile, screenshotLogPath))
+        screenshotPool.apply_async(saveScreenshot, (model, screenshotFullPath, screenshotLogPath, screenshotWidth, screenshotHeight))
+    screenshotlink = os.path.join(screenshotPath, screenshotFile)
 
     # ------ Add Step Entry
-    relativeLinkToModel = os.path.join('/', os.path.relpath(model, globalOutputPath)) 
-    addStepEntry(resDBfileEntry, '7 - Volume mesh processing', True, relativeLinkToModel, time.time() - tmpTime, screenshotPath + screenshotFile, 'Volume mesh generated.', cmd)
+    relativeLinkToModel = os.path.join('/', os.path.relpath(model, globalOutputPath))
+    addStepEntry(resDBfileEntry, '7 - Volume mesh processing', True, relativeLinkToModel, time.time() - tmpTime, screenshotlink, 'Volume mesh generated.', cmd)
     # write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
