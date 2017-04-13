@@ -10,19 +10,22 @@
 import sys
 from paraview.simple import *
 
-if( len(sys.argv) != 3 ):
+if( len(sys.argv) != 5 ):
     print "Use used: "
     for i in range (0, len(sys.argv)):
-        print "arg[" + str(i) + "]: " +sys.argv[i] 
-    print "Usage: pvpython " + sys.argv[0] + " <data_file> + <target_file>"
+        print "arg[" + str(i) + "]: " +sys.argv[i]
+    print "Usage: pvpython " + sys.argv[0] + " <data_file> <target_file> <width> <height>"
     exit(1)
 
 reader = OpenDataFile(sys.argv[1])
 reader.UpdatePipeline()
 
+width = argv[3]
+height = argv[4]
+
 view = GetActiveViewOrCreate('RenderView')
 #view.UseOffscreenRendering=1
-view.ViewSize = [ 3840, 2160 ]
+view.ViewSize = [ width, height ]
 view.ResetCamera()
 
 model = GetActiveSource()

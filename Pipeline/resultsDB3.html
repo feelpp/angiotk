@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"><![endif]-->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Asciidoctor 1.5.2">
+<title>AngioTK Pipeline Runs History</title>
+<!--<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300,300italic,400,400italic,600,600italic%7CNoto+Serif:400,400italic,700,700italic%7CDroid+Sans+Mono:400"> -->
+<link rel="stylesheet" href="../../css/w3.css">
+<style>
+
+div#pageTitle {
+  font-size: 2em;
+  text-align: center;
+}
+div#statsSection, div#configSection {
+  width: 50%;
+  float: left;
+}
+p#statsTitle, p#configTitle {
+  font-size: 1.5em;
+  padding: .1em;
+  margin: 0;
+}
+p#statsDetails, p#configDetails {
+  padding: .1em;
+  margin: 0;
+}
+
+
+table {
+  border: 0;
+  padding: 0;
+  border-collapse: collapse;
+}
+
+table thead, table tfoot {
+  background-color: #B0D0FF;
+  font-weight: bold;
+}
+
+tr {
+  padding: 0;
+}
+
+tr.failureRow {
+  background-color: rgba(255,0,0,0.1);
+}
+
+tr.successRow {
+  background-color: rgba(0,255,0,0.1);
+}
+
+tr.even, tr.alt, tr:nth-of-type(even) {
+  background-color: #F7F9F7;
+}
+
+tbody tr.accordionHead:hover {
+  background-color: #A3A3A9;
+}
+
+tbody tr.accordionBody td:hover {
+  background-color: #A3A3A9;
+}
+
+tbody tr.accordionBody {
+  padding: 0;
+  margin: 0;
+  min-height: 0;
+}
+
+table, th, td {
+  border: 1px solid #DFDFDF;
+}
+
+th {
+  padding: .75em;
+}
+
+th, td {
+  vertical-align: top;
+  background-color: transparent;
+  text-align: left;
+  max-width: 12em;
+}
+
+div.container {
+  padding: .75em;
+}
+
+td.accordionTD {
+  padding: 0;
+  min-height: 0;
+}
+
+td.titleCell {
+  vertical-align: middle;
+  text-align: center;
+  padding-top: .1em;
+  padding-bottom: .1em;
+}
+
+
+img.thumbnail {
+  width: 128px; 
+  display: block;
+  padding: 0;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: .3em;
+  margin-bottom: .3em;
+}
+
+img.thumbnail:hover {
+  -webkit-box-shadow: 0 0 20px #A3F9A3;
+  box-shadow: 0 0 10px 3px #FFFFFF; /*#83D983;*/
+}
+
+tr.accordionHead {
+  /*background-color: #;*/
+  /*colspan: all;*/
+}
+
+button.rowButton, button.w3-button.w3-bar-item.rowButton {
+  font-size: 20px;
+  border: 1px solid #D9D9D9;
+  float: left;
+}
+
+div.rowButtonGroup {
+}
+
+div.rowButtonGroupContainer {
+}
+
+</style>
+
+</head>
+
+<body class="article">
+  <div id="header" class="w3-container w3-center">
+  </div>
+  <div id="pageTitle", class="w3-container w3-center paragraph">
+    <p>AngioTK pipeline results</p>
+  </div>
+  <div id="statsSection", class="paragraph runEnvironment">
+    <p id="statsTitle">Statistics:</p>
+  </div>
+  <div id="configSection", class="paragraph runEnvironment">
+    <p id="configTitle">Configuration:</p>
+  </div>
+  <div id="results", class="">
+    <p></p>
+  </div>
+  <div class="w3-section"></div> <!-- This prevent the table to be displayed next to the table instead of on top of it -->
+  <div class="w3-bar rowButtonGroup">
+      <button class="w3-button w3-bar-item rowButton", onclick="switchAllRows('expand');">Expand all</button>
+      <button class="w3-button w3-bar-item rowButton", onclick="switchAllRows('collapse');">Collapse all</button>
+      <button class="w3-button w3-bar-item rowButton", onclick="switchAllRows('failures');">Failures only</button>
+      <button class="w3-button w3-bar-item rowButton", onclick="switchAllRows('reset');">Reset</button>
+    </div>
+  <div style="clear:both" class="w3-section"></div> <!-- "clear:both" : This prevent the table to be displayed next to the table instead of on top of it (which would happen because of "float: left" attribute in rowButton)-->
+  <div>
+    <table id="results table" class="w3-table"> <!-- This table will be expanded and filled dynamically by javascript (js/populate_from_json.js) -->
+      <thead>
+        <tr id="results table head">
+        </tr>
+      </thead>
+      <tbody id="results table body"> <!-- This table will be expanded and filled dynamically by javascript (js/populate_from_json.js) -->
+      </tbody>
+    </table>
+</div>
+</body>
+<div id="content">
+</div>
+
+<script src="../../js/jquery-3.1.0.min.js"></script>
+<script src="../../js/resultsDB_populate_from_json_accordion.js"></script>
+<script src="../../js/jquery-ui-1.12.1.custom/jquery-ui.min.js"></script>
+<script>
+$(function() {
+ $( "#accordion" ).accordion(
+ {
+    collapsible: true,
+    heightStyle: "content"
+ });
+});
+</script>
+<script>
+function switchAllRows(aim) {
+  console.log("Fold !");
+  var bodies = document.querySelectorAll(".accordionBody");
+  var i;
+  switch(aim) {
+    case 'expand':
+      for (i = 0; i < bodies.length; i++) {
+        $(bodies[i]).children().children().slideDown();
+      }
+      break;
+    case 'collapse':
+      for (i = 0; i < bodies.length; i++) {
+        $(bodies[i]).children().children().slideUp();
+      }
+      break;
+    case 'failures':
+      var failures = document.querySelectorAll(".failureRow");
+      var successes = document.querySelectorAll(".successRow");
+      for (i = 0; i < failures.length; i++) {
+        $(failures[i]).next('.accordionBody').children().children().slideDown();
+      }
+      for (i = 0; i < successes.length; i++) {
+        $(successes[i]).next('.accordionBody').children().children().slideUp();
+      }
+      break;
+    case 'reset':
+      $(bodies[0]).children().children().slideDown();
+      for (i = 1; i < bodies.length; i++) {
+        $(bodies[i]).children().children().slideUp();
+      }
+      break;
+  }
+};
+</script>
+
+<script>
+$(function(){
+  var heads = document.querySelectorAll(".accordionHead");
+  var i;
+  for (i = 0; i < heads.length; i++) {
+    $(heads[i]).next('.accordionBody').children().children().hide();
+    $(heads[i]).click(function(){
+      $(this).next('.accordionBody').children().children().slideToggle();
+    });
+  $(heads[0]).next('.accordionBody').children().children().show();
+  }
+});
+</script>
+</body>
+</html>

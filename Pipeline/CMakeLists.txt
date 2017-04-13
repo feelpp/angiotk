@@ -33,6 +33,16 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/screenshot.py DESTINATION bin)
 configure_file(summary.html ${CMAKE_CURRENT_BINARY_DIR}/summary.html)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/summary.html DESTINATION bin)
 
+configure_file(resultsDB2.html ${CMAKE_CURRENT_BINARY_DIR}/resultsDB2.html)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/resultsDB2.html DESTINATION bin)
+
+configure_file(resultsDB3.html ${CMAKE_CURRENT_BINARY_DIR}/resultsDB3.html)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/resultsDB3.html DESTINATION bin)
+
 # copy the javascript directory
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/js
+  DESTINATION bin)
+
+# copy the css directory
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/css
   DESTINATION bin)
