@@ -237,7 +237,7 @@ def main():
     # Database final update
     nSuccess = 0
     nIncomplete = 0
-    nFail = 0
+    nFailure= 0
     for mriFile in resultsDB['results'].keys(): # For each mriFile
         if resultsDB['results'][mriFile]['1 - RORPO processing']['Success']==False:
             nFailure += 1 # total failures
@@ -248,7 +248,7 @@ def main():
                 nIncomplete += 1 # incomplete reconstructions
     resultsDB[cfg]['successful reconstructions'] = nSuccess
     resultsDB[cfg]['incomplete reconstructions'] = nIncomplete
-    resultsDB[cfg]['total failure'] = nFail
+    resultsDB[cfg]['total failure'] = nFailure
     resultsDB[cfg]['total time'] = str(datetime.datetime.now()-initialTime)
     # write to database file
     dbFile = open(results_json, 'w')
@@ -315,11 +315,11 @@ def main():
 
     # copy resultsDB2.html file to results directory
     resultsDBHtml = 'resultsDB2.html'
-    distutils.dir_util.copy_tree(resultsDBHtml, os.path.join(resultsDBPath, resultsDBHtml))
+    distutils.file_util.copy_file(resultsDBHtml, os.path.join(resultsDBPath, resultsDBHtml))
 
     # copy resultsDB3.html file to results directory
     resultsDBHtml = 'resultsDB3.html'
-    distutils.dir_util.copy_tree(resultsDBHtml, os.path.join(resultsDBPath, resultsDBHtml))
+    distutils.file_util.copy_file(resultsDBHtml, os.path.join(resultsDBPath, resultsDBHtml))
 
     # =====================
 

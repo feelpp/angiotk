@@ -29,7 +29,10 @@ def executeCommand(text, cmd, logPrefix=""):
     returnCode = 0
 
     if(debug > 0):
+        print "============================================================================================================================="
         print "executeCommand: " + cmd
+        print "============================================================================================================================="
+        sys.stdout.flush()
 
     # if we specify an absolute command path
     # we check that the file exists
@@ -314,7 +317,7 @@ def main():
         if(len(lst) == 5):
             # Ensure spacing for isotropic data
             #if(float(lst[2]) == float(lst[3]) and float(lst[3]) == float(lst[4])): # If image is alreay isotropic, we simply create and use a symbolic link to it.
-            if(false): # This branch is temporarily bypassed because even if the image is already isotropic, we force this conversion as it gives us a uchar image, which is mandatory for the CTS step.
+            if(False): # This branch is temporarily bypassed because even if the image is already isotropic, we force this conversion as it gives us a uchar image, which is mandatory for the CTS step.
                 print "Current spacing OK (" + spacing + ")"
                 print AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha"
                 print (not os.path.exists(AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha"))
@@ -860,6 +863,7 @@ def main():
 
     # Print timing
     print "Total time elapsed in script after 7_Volume mesh processing: " + str(time.time() - tinit)
+    sys.stdout.flush()
 
     # ++++++ Save a screenshot of the stl model.
     model = max(glob.iglob(AngioTKOutputPath + "/remeshgmsh/*.stl"), key=os.path.getctime)
