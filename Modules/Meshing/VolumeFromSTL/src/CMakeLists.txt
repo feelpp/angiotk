@@ -14,9 +14,14 @@ install(TARGETS angiotk_meshing_volumefromstl
     LIBRARY DESTINATION Modules/Meshing/lib
 )
 
-angiotk_add_component( meshing_centerlinesmanagergui centerlinesmanagergui_main.cpp )
-target_link_libraries( meshing_centerlinesmanagergui ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
-
+if(APPLE)
+  add_executable(meshing_centerlinesmanagergui MACOSX_BUNDLE centerlinesmanagergui_main.cpp )
+  target_link_libraries( meshing_centerlinesmanagergui  ${VTK_LIBRARIES} angiotk_meshing_volumefromstl)
+else()
+  angiotk_add_component( meshing_centerlinesmanagergui centerlinesmanagergui_main.cpp )
+  #target_link_libraries( meshing_centerlinesmanagergui ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
+  target_link_libraries( meshing_centerlinesmanagergui ${VTK_LIBRARIES} angiotk_meshing_volumefromstl)
+endif()
 
 angiotk_add_component( meshing_createinletoutletdesc createinletoutletdesc_main.cpp )
 target_link_libraries( meshing_createinletoutletdesc ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)

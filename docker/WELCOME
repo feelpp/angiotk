@@ -1,0 +1,8 @@
+# Feel++ development environment image
+
+This image provides a development environment for building the Feel++
+libraries. It does not provide an installation of Feel++. It is
+intended for users who want to build their own version of Feel++. It
+also serves as a base image for
+<https://registry.hub.docker.com/u/feelpp/dev>, which does
+provide the development version of feelpp.
