@@ -227,7 +227,6 @@ class AngioTkCenterline : public Field{
 
   void removeBranchIds( std::set<int> const& _removeBranchIds );
   void cleanBranch();
-  void cleanBranchFromRadiusField( std::string const& fieldName );
   void removeDuplicateBranch();
   void addFieldBranchIds( std::string const& fieldName = "BranchIds" );
   void addFieldRadiusMin( std::string const& fieldName = "RadiusMin" );

@@ -204,61 +204,6 @@ static void orderMLines(std::vector<MLine*> &lines, MVertex *vB, MVertex *vE)
   }
 }
 
-
-void fillRegionBetweenCut(MTriangle* mtInit,
-			 std::multimap<MEdge, MTriangle*, Less_Edge> const& e2e,
-			 std::set<MTriangle*> &group,
-			 std::set<MEdge, Less_Edge> & touched,
-			 std::set<MEdge, Less_Edge> const& theCut)
-{
-
-
-  // MTriangle* mtInit = ite->second;
-    group.insert( mtInit );
-
-    std::set<MTriangle*> newTestTriange;
-    std::set<MTriangle*> newTestTriange2;
-    newTestTriange.insert( mtInit );
-
-    while ( !newTestTriange.empty() )
-      {
-	newTestTriange2.clear();
-	for ( MTriangle* mt : newTestTriange )
-	  {
-	    for (int i = 0; i < mt->getNumEdges(); ++i)
-	      {
-		const MEdge & me2 = mt->getEdge(i);
-		if ( theCut.find( me2 ) != theCut.end() )
-		  {
-		    touched.insert( me2 ); //break;
-		  }
-		else
-		  {
-		    if ( touched.find( me2 ) == touched.end() )
-		      {
-			touched.insert( me2 ); //break;
-			for ( std::multimap <MEdge, MTriangle*, Less_Edge>::const_iterator itT = e2e.lower_bound(me2);
-			      itT != e2e.upper_bound(me2); ++itT)
-			  {
-			    // if triangle already register, go to the next
-			    if ( group.find( itT->second ) == group.end() )
-			      {
-				newTestTriange2.insert( itT->second );
-				group.insert( itT->second );
-			      }
-			  }
-		      }
-		  } // else
-	      } // for
-	  }// for ( MTriangle* mtCur : newTestTriange )
-	newTestTriange.clear();
-	newTestTriange = newTestTriange2;
-
-      } // while
-
-}
-
-#if 0
 static void recurConnectByMEdge(const MEdge &e,
 				std::multimap<MEdge, MTriangle*, Less_Edge> const&e2e,
 				std::set<MTriangle*> &group,
@@ -280,7 +225,7 @@ static void recurConnectByMEdge(const MEdge &e,
     group.insert(it->second);
 
     for (int i = 0; i < it->second->getNumEdges(); ++i){
-      const MEdge & me = it->second->getEdge(i);
+      MEdge me = it->second->getEdge(i);
       if (theCut.find(me) != theCut.end()) {
 	touched.insert(me); //break;
       }
@@ -288,7 +233,6 @@ static void recurConnectByMEdge(const MEdge &e,
     }
   }
 }
-#endif
 
 static MVertex* getCommonVertexInEdge( MEdge const& edge1, MEdge const& edge2 )
 {
@@ -1809,91 +1753,6 @@ void AngioTkCenterline::cleanBranch()
 
 }
 
-void AngioTkCenterline::cleanBranchFromRadiusField( std::string const& fieldName )
-{
-  Msg::Info("AngioTkCenterline: cleanBranch start");
-
-  if ( !this->hasField( fieldName ) )
-    return;
-
-  std::set<int> branchIdsRemove;
-  for(int i = 0; i < edges.size(); ++i)
-    {
-      if ( branchIdsRemove.find( i ) != branchIdsRemove.end() )
-	continue;
-      /*if ( edges[i].vB == edges[i].vE )
-	continue;*/
-
-      std::vector<MLine*> linesInBranch = edges[i].lines;
-      if ( this->centerlinesExtremities().find( edges[i].vB ) != this->centerlinesExtremities().end() ||
-	   this->centerlinesExtremities().find( edges[i].vE ) != this->centerlinesExtremities().end() )
-	{
-
-	  double maxRadius = maxScalarValueInPath( linesInBranch, fieldName );
-
-	  //if ( 3*edges[i].length < (edges[i].minRad+edges[i].maxRad)/2. )
-	  if ( edges[i].length < 2*maxRadius/*edges[i].maxRad*/ )
-	    {
-	      branchIdsRemove.insert(i);
-	    }
-
-	}
-      else if ( M_junctionsVertex.find( edges[i].vB ) != M_junctionsVertex.end() &&
-		M_junctionsVertex.find( edges[i].vE ) != M_junctionsVertex.end() )
-	{
-	  double maxRadius = maxScalarValueInPath( linesInBranch, fieldName );
-
-	  for(int i2 = 0; i2 < edges.size(); ++i2)
-	    {
-	      if ( i == i2 ) continue;
-	      /*if ( edges[i2].vB == edges[i2].vE )
-		continue;*/
-
-	      if ( branchIdsRemove.find( i2 ) != branchIdsRemove.end() )
-		continue;
-
-	      if ( ( edges[i].vB == edges[i2].vB && edges[i].vE == edges[i2].vE ) ||
-		   ( edges[i].vB == edges[i2].vE && edges[i].vE == edges[i2].vB ) )
-		{
-		  // if ( edges[i2].length < 2*(edges[i2].minRad+edges[i2].maxRad)/2. )
-		  if ( edges[i2].length < 2*maxRadius )
-		    {
-		      branchIdsRemove.insert(i2);
-		    }
-		}
-	    }
-	}
-    }
-
-  // re-run updateCenterlinesForUse if there are branchs to remove
-  if ( !branchIdsRemove.empty() )
-    {
-      for ( int branchId : branchIdsRemove )
-	{
-	  //std::cout << "find NEW remove : edges[i2].lines.size() " << edges[branchId].lines.size() << "\n";
-	  std::vector<MLine*> mylinesToRemove = edges[branchId].lines;
-	  for(int j = 0; j < mylinesToRemove.size(); ++j)
-	    {
-	      int v0Id = mylinesToRemove[j]->getVertex(0)->getIndex();
-	      int v1Id = mylinesToRemove[j]->getVertex(1)->getIndex();
-	      M_registerLinesToRemoveFromPointIdPairInModelEdge.insert( std::make_pair(v0Id,v1Id) );
-	      M_registerLinesToRemoveFromPointIdPairInModelEdge.insert( std::make_pair(v1Id,v0Id) );
-	    }
-	}
-      // copy previous mapping
-      std::map<int,int> _previousMapVertexGmshIdToVtkId;
-      _previousMapVertexGmshIdToVtkId.insert( this->M_mapVertexGmshIdToVtkId.begin(),this->M_mapVertexGmshIdToVtkId.end() );
-      // update for use
-      this->updateCenterlinesForUse(modEdges);
-      // update fields data
-      this->updateFieldsDataAfterReduction(_previousMapVertexGmshIdToVtkId);
-    }
-
-}
-
-
-
-
 void AngioTkCenterline::createBranches(int maxN)
 {
   Msg::Info("AngioTkCenterline: start createBranches (maxNin =%d)",maxN);
@@ -2565,17 +2424,11 @@ void AngioTkCenterline::createFaces()
     touched.clear();
     std::multimap<MEdge, MTriangle*, Less_Edge>::iterator ite = e2e.begin();
     MEdge me = ite->first;
-#if 0
     while (theCut.find(me) != theCut.end()){
       ite++;
       me = ite->first;
     }
     recurConnectByMEdge(me,e2e, group, touched, theCut);
-#else
-    MTriangle* mtInit = ite->second;
-    fillRegionBetweenCut( mtInit,e2e,group,touched,theCut );
-#endif
-
     std::vector<MTriangle*> temp;
     temp.insert(temp.begin(), group.begin(), group.end());
     faces.push_back(temp);
@@ -2611,6 +2464,7 @@ void AngioTkCenterline::createFaces()
 }
 
 
+
 void AngioTkCenterline::createFacesFromClip()
 {
   std::vector<std::vector<MTriangle*> > faces;
@@ -2630,17 +2484,14 @@ void AngioTkCenterline::createFacesFromClip()
     //std::cout << "e2e.size() " << e2e.size() << "\n";
     std::multimap<MEdge, MTriangle*, Less_Edge>::iterator ite = e2e.begin();
     MEdge me = ite->first;
-#if 0
     while (theCut.find(me) != theCut.end()){
       ite++;
       //if ( ite == e2e.end() ) break;
       me = ite->first;
     }
-#endif
-    MTriangle* mtInit = ite->second;
-    fillRegionBetweenCut( mtInit,e2e,group,touched,theCut );
-
     //if ( ite == e2e.end() ) continue;
+    //std::cout << "before recurConnectByMEdge\n"<<std::flush;
+    recurConnectByMEdge(me,e2e, group, touched, theCut);
     //std::cout << "touched.size() " << touched.size() << "\n"<<std::flush;
     std::set<int> groupTouchClipTag;
     for ( MEdge const& edgeTouch : touched )
@@ -2712,6 +2563,7 @@ void AngioTkCenterline::createFacesFromClip()
   }
 
 }
+
 
 
 void AngioTkCenterline::initPhysicalMarkerFromDescFile( std::vector<GEdge*> boundEdges )
@@ -3231,7 +3083,6 @@ void AngioTkCenterline::runClipMesh()
     }
 #else
   //for ( int k=0;k<cutDesc.size(); ++k)
-  int cptTotalCut=0;
   for ( auto const& cutDescPair : cutDesc2 )
     {
       MVertex* vExtremity = cutDescPair.first;
@@ -3252,11 +3103,8 @@ void AngioTkCenterline::runClipMesh()
 	      break;
 	    }
 	}
-      ++cptTotalCut;
       if (!cutSucess)
-	Msg::Error("AngioTkCenterline: open surface fails for extermity %d/%d with pt : %g,%g,%g",cptTotalCut,cutDesc2.size(),vExtremity->x(),vExtremity->y(),vExtremity->z());
-      else
-	Msg::Info("AngioTkCenterline: open surface done for extremity %d/%d", cptTotalCut,cutDesc2.size());
+	Msg::Error("open surface fail for the extermity pt : %g,%g,%g",vExtremity->x(),vExtremity->y(),vExtremity->z());
     }
 #endif
   fileWrited.close();
