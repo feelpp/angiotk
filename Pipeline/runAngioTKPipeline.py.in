@@ -186,7 +186,7 @@ def main():
         else:
             print "Incorrect spacing (" + spacing + ")"
             print "Attempting to correct spacing"
-            cmd = "ResampleVolumesToBeIsotropic " + AngiotTKOutputPath + "/data/" + inputFileNoExt + ".mha " + \
+            cmd = "filtering_ResampleVolumesToBeIsotropic " + AngiotTKOutputPath + "/data/" + inputFileNoExt + ".mha " + \
                   AngiotTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha 0 255"
             if(not os.path.exists(AngiotTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha")):
                 retcode, _ = executeCommand("", cmd, logPath + "/Convert_iso")

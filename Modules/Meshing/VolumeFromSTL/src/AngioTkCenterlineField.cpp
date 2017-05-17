@@ -3466,7 +3466,7 @@ void AngioTkCenterline::runSurfaceRemesh( std::string const& remeshPartitionMesh
     {
       this->cutMesh( remeshPartitionMeshFile );
     }
-  else
+  //else
     {
       GModel * gmodel = new GModel();
       // add new model as current
