@@ -92,7 +92,7 @@ if ( ANGIOTK_USE_OLD_FEELPP_CMAKE_DETECTION )
   endif()
 else()
 if ( ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR} )
-    find_package(Feel++ PATHS $ENV{FEELPP_DIR}/share/feel/cmake/modules /usr/share/feel/cmake/modules /usr/local/share/feel/cmake/modules /opt/share/feel/cmake/modules)
+    find_package(Feel++ PATHS $ENV{FEELPP_DIR}/share/feelpp/feel/cmake/modules /usr/share/feelpp/feel/cmake/modules /usr/local/share/feelpp/feel/cmake/modules /opt/share/feelpp/feel/cmake/modules)
     if(NOT FEELPP_FOUND)
         message(FATAL_ERROR "Feel++ was not found on your system. Make sure to install it and specify the FEELPP_DIR to reference the installation directory.") 
     endif()
@@ -133,8 +133,11 @@ endif()
 
 #=========================================================
 # Find Python
-FIND_PACKAGE(PythonLibs)
-FIND_PACKAGE(PythonInterp)
+#FIND_PACKAGE(PythonLibs)
+#FIND_PACKAGE(PythonInterp)
+# Python 3 not supported by vmtk <=1.3
+FIND_PACKAGE(PythonLibs 2)
+FIND_PACKAGE(PythonInterp 2)
 
 #=========================================================
 # Find VMTK
