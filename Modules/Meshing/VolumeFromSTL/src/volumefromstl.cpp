@@ -23,6 +23,9 @@
 
 #include <vtkvmtkPolyDataCenterlines.h>
 #include <vtkSTLReader.h>
+#ifdef HZ
+#undef HZ
+#endif
 #include <vtkPointLocator.h>
 #include <vtkIdList.h>
 #include <vtkUnstructuredGridWriter.h>
