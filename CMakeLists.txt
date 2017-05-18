@@ -103,8 +103,6 @@ if ( ANGIOTK_USE_OLD_FEELPP_CMAKE_DETECTION )
     endif()
   endif()
 else()
-  message("TOTO FEELPP_DIR =$ENV{FEELPP_DIR}")
-    message("TOTO2 FEELPP_DIR =${FEELPP_DIR}")
   if ( ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR} )
     find_package(Feel++ PATHS
       ${FEELPP_DIR}/share/feelpp/feel/cmake/modules

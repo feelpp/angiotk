@@ -1,0 +1,31 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index b6d5309..b3cb5b6 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -79,10 +79,22 @@ ENDIF (APPLE)
+ option( USE_SYSTEM_VTK
+   "Exclude VTK from SuperBuild and use an existing build instead." OFF )
+ if( USE_SYSTEM_VTK )
+-  find_package( VTK REQUIRED )
+-  if( ${VTK_VERSION_MAJOR} LESS 6 )
+-    include( ${VTK_USE_FILE} )
+-  endif( ${VTK_VERSION_MAJOR} LESS 6 )
++  FIND_PACKAGE(ParaView QUIET NO_MODULE )
++  if(ParaView_FOUND)
++    message(STATUS "[ParaView] Use file: ${PARAVIEW_USE_FILE}")
++    message( "PARAVIEW_QT_QMAKE_EXECUTABLE=${PARAVIEW_QT_QMAKE_EXECUTABLE}")
++    INCLUDE(${PARAVIEW_USE_FILE})
++    INCLUDE(${VTK_USE_FILE})
++    set (VTK_VERSION_MAJOR ${VTK_MAJOR_VERSION})
++    set (VTK_VERSION_MINOR ${VTK_MINOR_VERSION})
++    #message("VTK_MAJOR_VERSION=${VTK_MAJOR_VERSION} vs ${VTK_VERSION_MAJOR}")
++    set(VTK_FOUND 1)
++  else()
++    find_package( VTK REQUIRED )
++    if( ${VTK_VERSION_MAJOR} LESS 6 )
++      include( ${VTK_USE_FILE} )
++    endif( ${VTK_VERSION_MAJOR} LESS 6 )
++  endif()
+ endif( USE_SYSTEM_VTK )
+ 
+ #-----------------------------------------------------------------------------

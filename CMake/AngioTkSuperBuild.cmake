@@ -17,15 +17,15 @@ if ( NOT ANGIOTK_USE_SYSTEM_ITK )
     #UPDATE_DISCONNECTED 1
     UPDATE_COMMAND ""
     )
-  if (0)
-    install(SCRIPT "${AngioTk_SOURCE_DIR}/CMake/AngioTkInstallExternalPackages.cmake")
-  endif()
-  set( ITK_DIR ${AngioTk_BINARY_DIR}/ExternalPackages/install/ITK/lib/cmake/ITK-4.11)
 
+  set( ITK_DIR ${AngioTk_BINARY_DIR}/ExternalPackages/install/ITK/lib/cmake/ITK-4.11)
+  set( ITK_FOUND 1)
+  set( ANGIOTK_HAS_ITK_FROM_SUPERBUILD 1 )
+  ExternalProject_Get_Property(AngioTk_ExternalPackages_ITK  BINARY_DIR )
+  set( ANGIOTK_SUPERBUILD_ITK_BINARY_DIR ${BINARY_DIR} )
   list(APPEND ANGIOTK_VMTK_EXTERNALPROJECT_DEPENDS AngioTk_ExternalPackages_ITK)
   list(APPEND ANGIOTK_EXTERNALPROJECT_DEPENDS AngioTk_ExternalPackages_ITK)
 endif()
-
 
 #####################
 # VMTK
@@ -35,7 +35,7 @@ if ( NOT ANGIOTK_USE_SYSTEM_VMTK )
   list( APPEND VMTK_SUPERBUILD_CMAKE_ARGS -DVMTK_USE_SUPERBUILD=OFF)
   list(APPEND VMTK_SUPERBUILD_CMAKE_ARGS -DUSE_SYSTEM_ITK=ON -DITK_DIR=${ITK_DIR} )
   if ( FEELPP_HAS_PARAVIEW )
-    list(APPEND VMTK_SUPERBUILD_CMAKE_ARGS -DUSE_SYSTEM_VTK=ON -DParaView_DIR=${FEELPP_ParaView_DIR} -DVTK_DIR=${FEELPP_ParaView_DIR} )
+    list(APPEND VMTK_SUPERBUILD_CMAKE_ARGS -DUSE_SYSTEM_VTK=ON -DParaView_DIR=${FEELPP_PARAVIEW_DIR} -DVTK_DIR=${FEELPP_PARAVIEW_DIR} )
   elseif( FEELPP_HAS_VTK )
     list(APPEND VMTK_SUPERBUILD_CMAKE_ARGS -DUSE_SYSTEM_VTK=ON -DVTK_DIR=${FEELPP_VTK_DIR} )
   else()
@@ -49,6 +49,7 @@ if ( NOT ANGIOTK_USE_SYSTEM_VMTK )
     PREFIX "${CMAKE_BINARY_DIR}/ExternalPackages/build/VMTK"
     GIT_REPOSITORY "https://github.com/vmtk/vmtk.git"
     GIT_TAG v1.3.2
+    PATCH_COMMAND git apply ${AngioTk_SOURCE_DIR}/CMake/AngioTk_VMTK_v1.3.2.patch
     CMAKE_ARGS ${VMTK_SUPERBUILD_CMAKE_ARGS}
     #UPDATE_DISCONNECTED 1
     UPDATE_COMMAND ""
@@ -95,3 +96,7 @@ ExternalProject_Add(AngioTkSuperBuild    # Name for custom target
   DEPENDS ${ANGIOTK_EXTERNALPROJECT_DEPENDS}
   #STEP_TARGETS configure build
   )
+
+
+configure_file(${AngioTk_SOURCE_DIR}/CMake/AngioTkSuperBuildInstall.cmake.in ${AngioTk_BINARY_DIR}/CMake/AngioTkSuperBuildInstall.cmake  @ONLY)
+INSTALL(SCRIPT ${AngioTk_BINARY_DIR}/CMake/AngioTkSuperBuildInstall.cmake)
