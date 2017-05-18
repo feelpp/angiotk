@@ -20,8 +20,8 @@ if( len(sys.argv) != 5 ):
 reader = OpenDataFile(sys.argv[1])
 reader.UpdatePipeline()
 
-width = argv[3]
-height = argv[4]
+width = int(sys.argv[3])
+height = int(sys.argv[4])
 
 view = GetActiveViewOrCreate('RenderView')
 #view.UseOffscreenRendering=1

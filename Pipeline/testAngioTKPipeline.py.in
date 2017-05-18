@@ -105,7 +105,7 @@ def addStepEntry(resDB, currentStepName, success, output, time, screenshotfile, 
 def saveScreenshot(modelPath, screenshotPath, logPrefix, width, height):
     # path to screenshot script:
     screenshotScriptPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "screenshot.py")
-    screenshotCmd = "pvbatch --use-offscreen-rendering " + screenshotScriptPath + " " + modelPath + " " + screenshotPath + " " + width + " " + height
+    screenshotCmd = "pvbatch --use-offscreen-rendering " + screenshotScriptPath + " " + modelPath + " " + screenshotPath + " " + str(width) + " " + str(height)
     print '--------------------------------------------------------------------------------'
     startTime = datetime.datetime.now()
     executeCommand("", screenshotCmd, logPrefix)
@@ -706,6 +706,7 @@ def main():
     thumbnailFullPath = os.path.join(resultsScreenshotPath, "tn_" + screenshotFile)
     if mustSaveScreenshots:
         screenshotPool.apply_async(saveScreenshot, (model, screenshotFullPath, screenshotLogPath, screenshotWidth, screenshotHeight))
+        screenshotPool.apply_async(saveScreenshot, (model, thumbnailFullPath, screenshotLogPath, thumbnailWidth, thumbnailHeight))
     screenshotlink = os.path.join(screenshotPath, screenshotFile)
 
     # ------ Add Step Entry
@@ -758,6 +759,7 @@ def main():
     thumbnailFullPath = os.path.join(resultsScreenshotPath, "tn_" + screenshotFile)
     if mustSaveScreenshots:
         screenshotPool.apply_async(saveScreenshot, (model, screenshotFullPath, screenshotLogPath, screenshotWidth, screenshotHeight))
+        screenshotPool.apply_async(saveScreenshot, (model, thumbnailFullPath, screenshotLogPath, thumbnailWidth, thumbnailHeight))
     screenshotlink = os.path.join(screenshotPath, screenshotFile)
 
     # ------ Add Step Entry
@@ -796,6 +798,7 @@ def main():
     thumbnailFullPath = os.path.join(resultsScreenshotPath, "tn_" + screenshotFile)
     if mustSaveScreenshots:
         screenshotPool.apply_async(saveScreenshot, (model, screenshotFullPath, screenshotLogPath, screenshotWidth, screenshotHeight))
+        screenshotPool.apply_async(saveScreenshot, (model, thumbnailFullPath, screenshotLogPath, thumbnailWidth, thumbnailHeight))
     screenshotlink = os.path.join(screenshotPath, screenshotFile)
 
     # ------ Add Step Entry
@@ -836,6 +839,7 @@ def main():
     thumbnailFullPath = os.path.join(resultsScreenshotPath, "tn_" + screenshotFile)
     if mustSaveScreenshots:
         screenshotPool.apply_async(saveScreenshot, (model, screenshotFullPath, screenshotLogPath, screenshotWidth, screenshotHeight))
+        screenshotPool.apply_async(saveScreenshot, (model, thumbnailFullPath, screenshotLogPath, thumbnailWidth, thumbnailHeight))
     screenshotlink = os.path.join(screenshotPath, screenshotFile)
 
     # ------ Add Step Entry
@@ -872,6 +876,7 @@ def main():
     thumbnailFullPath = os.path.join(resultsScreenshotPath, "tn_" + screenshotFile)
     if mustSaveScreenshots:
         screenshotPool.apply_async(saveScreenshot, (model, screenshotFullPath, screenshotLogPath, screenshotWidth, screenshotHeight))
+        screenshotPool.apply_async(saveScreenshot, (model, thumbnailFullPath, screenshotLogPath, thumbnailWidth, thumbnailHeight))
     screenshotlink = os.path.join(screenshotPath, screenshotFile)
 
     # ------ Add Step Entry
