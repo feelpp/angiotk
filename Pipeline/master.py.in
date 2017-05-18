@@ -34,7 +34,8 @@ def main():
 
     # arguments parsing and management
     parser = argparse.ArgumentParser()
-    parser.add_argument('--inputpath', required=True, help='Path to all input files in .mha format')
+    parser.add_argument('--inputpath', required=True, help='Path to input files (mha or nii format)')
+    parser.add_argument('-f', default="mha", help='Format of input files to process: nii or mha (default: mha)')
     parser.add_argument('--outputpath', required=True, help='Path to write results to')
     parser.add_argument('-n', default=1, type=int, help='Limit actual processing to n mha files')
     parser.add_argument('-p', default=1, type=int, help='Number of processes to use')
@@ -52,7 +53,7 @@ def main():
     osWalkInitTime = time.time()
     for path, dirs, files in os.walk(databaseRootDir):
         for f in files:
-            if f.endswith("art.mha") or f.endswith("cor.mha") or f.endswith("pcp.mha"):
+            if f.endswith("art." + args.f) or f.endswith("cor." + args.f) or f.endswith("pcp." + args.f):
                 mhaFiles.append(os.path.join(path,f))
     osWalkEndTime = time.time()
     print "The following .mha files were found"
