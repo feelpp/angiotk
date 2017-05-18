@@ -5,6 +5,16 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.7 FATAL_ERROR)
 #AngioTk = Virtual Angiography Toolkit
 PROJECT(AngioTk)
 #=========================================================
+option(ANGIOTK_USE_SYSTEM_ITK "detect ITK on system" OFF)
+option(ANGIOTK_USE_SYSTEM_VMTK "detect VMTK on system" OFF)
+option(ANGIOTK_USE_SUPERBUILD "Build AngioTk and ITK/VMTK if required" ON )
+OPTION(BUILD_EXAMPLES "Build examples" OFF)
+OPTION(BUILD_DOXYGEN "Build Doxygen Documentation" OFF)
+#=========================================================
+# Shared libraries option
+OPTION(BUILD_SHARED_LIBS "Build AngioTk with shared libraries." ON)
+SET(AngioTk_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
+#=========================================================
 
 #=========================================================
 #Support for the CTest dashboard testing system
@@ -58,6 +68,7 @@ ENDIF ("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64")
 
 #=========================================================
 # Find ITK (required)
+if ( ANGIOTK_USE_SYSTEM_ITK )
 FIND_PACKAGE(ITK)
 IF(ITK_FOUND)
   message(STATUS "[ITK] Use file: ${ITK_USE_FILE}")
@@ -68,6 +79,7 @@ IF(ITK_FOUND)
 ELSE(ITK_FOUND)
   MESSAGE(FATAL_ERROR "Cannot build without ITK. Set ITK_DIR.")
 ENDIF(ITK_FOUND)
+endif()
 
 #=========================================================
 # Find Feel++
@@ -91,15 +103,21 @@ if ( ANGIOTK_USE_OLD_FEELPP_CMAKE_DETECTION )
     endif()
   endif()
 else()
-if ( ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR} )
-    find_package(Feel++ PATHS $ENV{FEELPP_DIR}/share/feelpp/feel/cmake/modules /usr/share/feelpp/feel/cmake/modules /usr/local/share/feelpp/feel/cmake/modules /opt/share/feelpp/feel/cmake/modules)
+  message("TOTO FEELPP_DIR =$ENV{FEELPP_DIR}")
+    message("TOTO2 FEELPP_DIR =${FEELPP_DIR}")
+  if ( ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR} )
+    find_package(Feel++ PATHS
+      ${FEELPP_DIR}/share/feelpp/feel/cmake/modules
+      $ENV{FEELPP_DIR}/share/feelpp/feel/cmake/modules
+      /usr/share/feelpp/feel/cmake/modules /usr/local/share/feelpp/feel/cmake/modules /opt/share/feelpp/feel/cmake/modules)
     if(NOT FEELPP_FOUND)
-        message(FATAL_ERROR "Feel++ was not found on your system. Make sure to install it and specify the FEELPP_DIR to reference the installation directory.") 
+      message(FATAL_ERROR "Feel++ was not found on your system. Make sure to install it and specify the FEELPP_DIR to reference the installation directory.") 
     endif()
     if(BUILD_MODULE_Meshing AND (NOT FEELPP_HAS_ANN))
-        message(FATAL_ERROR "ANN does not seem to be installed on this platform. Please install Feel++ with ANN support.")
+      message(FATAL_ERROR "ANN does not seem to be installed on this platform. Please install Feel++ with ANN support.")
     endif()
 
+    if ( 0 )
     # Check that the COMPILER flags are compatible, in case we don't compile with the same compiler as Feel++ was built with
     # Clang and GCC might have flag differences
     include(CheckCXXCompilerFlag)
@@ -128,6 +146,7 @@ if ( ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR} )
     endif()
     unset(_CMAKE_CXX_FLAGS)
     unset(REMOVED_FLAGS)
+    endif()
 endif()
 endif()
 
@@ -140,12 +159,14 @@ FIND_PACKAGE(PythonLibs 2)
 FIND_PACKAGE(PythonInterp 2)
 
 #=========================================================
+if ( ANGIOTK_USE_SYSTEM_VMTK )
 # Find VMTK
 
 # binary dir
 FIND_PATH(VMTK_BINARY_DIR 
     NAMES vmtkcenterlines 
     PATH 
+    ${VMTK_DIR}/bin
     $ENV{VMTK_DIR}/bin
     $ENV{VMTKHOME}/bin
     )
@@ -155,11 +176,12 @@ FIND_PATH(VMTK_BINARY_DIR
 
 # include dir
 FIND_PATH(VMTK_INCLUDE_DIR vtkvmtkConfigure.h 
-    HINTS 
-    $ENV{VMTK_DIR}/include/
-    $ENV{VMTKHOME}/include/
-    PATH_SUFFIXES vmtk
-    )
+  HINTS
+  ${VMTK_DIR}/include/
+  $ENV{VMTK_DIR}/include/
+  $ENV{VMTKHOME}/include/
+  PATH_SUFFIXES vmtk
+  )
 #FIND_PATH(VMTK_INCLUDE_DIR vmtk/vtkvmtkConfigure.h HINTS $ENV{VMTK_DIR}/include/  )
 # if ( NOT VMTK_INCLUDE_DIR )
 #   message(FATAL_ERROR "VMTK_INCLUDE_DIR not find")
@@ -171,7 +193,8 @@ foreach(_vmtklib vtkvmtkCommon vtkvmtkComputationalGeometry)
   unset(VMTK_LIBRARY CACHE)
   FIND_LIBRARY(VMTK_LIBRARY
       NAMES ${_vmtklib} 
-      HINTS 
+      HINTS
+      ${VMTK_DIR}/lib/
       $ENV{VMTK_DIR}/lib/
       $ENV{VMTKHOME}/lib/
       PATH_SUFFIXES vmtk
@@ -192,8 +215,21 @@ if ( ${VMTK_FOUND} )
   message(STATUS "VMTK binary dir: ${VMTK_BINARY_DIR}")
   message(STATUS "VMTK included: ${VMTK_INCLUDE_DIR}")
   message(STATUS "VMTK libraries: ${VMTK_LIBRARIES}")
-else()
-  if(BUILD_MODULE_Meshing)
+endif()
+
+endif( ANGIOTK_USE_SYSTEM_VMTK )
+
+#=========================================================
+if ( ANGIOTK_USE_SUPERBUILD )
+  include(${AngioTk_SOURCE_DIR}/CMake/AngioTkSuperBuild.cmake)
+  return()
+endif()
+
+
+#=========================================================
+# some checks
+if(BUILD_MODULE_Meshing)
+  if ( NOT VMTK_FOUND )
     message(FATAL_ERROR "VMTK does not seem to be installed on this platform.
     Please set the VMTK_DIR variable or use the vmtk_env.sh script provided
     with VMTK and export VMTKHOME.")
@@ -201,11 +237,6 @@ else()
 endif()
 
 
-#=========================================================
-# Shared libraries option
-OPTION(BUILD_SHARED_LIBS "Build AngioTk with shared libraries." ${ITK_BUILD_SHARED})
-SET(AngioTk_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
-#=========================================================
 
 #=========================================================
 # AngioTk uses KWStyle for checking the coding style
@@ -215,7 +246,7 @@ INCLUDE(${AngioTk_SOURCE_DIR}/CMake/KWStyle/KWStyle.cmake)
 
 #=========================================================
 # If choose to build documentation, then search for Doxygen executables.
-OPTION(BUILD_DOXYGEN "Build Doxygen Documentation" OFF)
+
 IF(BUILD_DOXYGEN)
   ADD_SUBDIRECTORY(documentation/Doxygen)
 ENDIF(BUILD_DOXYGEN)
@@ -223,7 +254,6 @@ ENDIF(BUILD_DOXYGEN)
 
 #=========================================================
 # If choose to build examples, then look into Examples folder.
-OPTION(BUILD_EXAMPLES "Build examples" OFF)
 IF(BUILD_EXAMPLES)
   ADD_SUBDIRECTORY(Examples/Python)
 ENDIF(BUILD_EXAMPLES)
