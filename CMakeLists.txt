@@ -153,8 +153,8 @@ endif()
 #FIND_PACKAGE(PythonLibs)
 #FIND_PACKAGE(PythonInterp)
 # Python 3 not supported by vmtk <=1.3
-FIND_PACKAGE(PythonLibs 2)
-FIND_PACKAGE(PythonInterp 2)
+FIND_PACKAGE(PythonLibs 2.7)
+FIND_PACKAGE(PythonInterp 2.7)
 
 #=========================================================
 if ( ANGIOTK_USE_SYSTEM_VMTK )
@@ -163,10 +163,12 @@ if ( ANGIOTK_USE_SYSTEM_VMTK )
 # binary dir
 FIND_PATH(VMTK_BINARY_DIR 
     NAMES vmtkcenterlines 
-    PATH 
+    #PATH
+    HINTS
     ${VMTK_DIR}/bin
     $ENV{VMTK_DIR}/bin
     $ENV{VMTKHOME}/bin
+    #NO_DEFAULT_PATH
     )
 # if ( NOT VMTK_BINARY_DIR )
 #    message(FATAL_ERROR "VMTK_BINARY_DIR not find")

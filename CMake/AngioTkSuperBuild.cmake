@@ -5,6 +5,7 @@ include(ExternalProject)
 set(ANGIOTK_VMTK_EXTERNALPROJECT_DEPENDS)
 set(ANGIOTK_EXTERNALPROJECT_DEPENDS)
 
+set(ANGIOTK_SUPERBUILD_SETUP_TEXT)
 #####################
 # ITK
 #####################
@@ -18,13 +19,16 @@ if ( NOT ANGIOTK_USE_SYSTEM_ITK )
     UPDATE_COMMAND ""
     )
 
-  set( ITK_DIR ${AngioTk_BINARY_DIR}/ExternalPackages/install/ITK/lib/cmake/ITK-4.11)
+  set( ITK_INSTALL_DIR ${AngioTk_BINARY_DIR}/ExternalPackages/install/ITK)
+  set( ITK_DIR ${ITK_INSTALL_DIR}/lib/cmake/ITK-4.11)
   set( ITK_FOUND 1)
   set( ANGIOTK_HAS_ITK_FROM_SUPERBUILD 1 )
   ExternalProject_Get_Property(AngioTk_ExternalPackages_ITK  BINARY_DIR )
   set( ANGIOTK_SUPERBUILD_ITK_BINARY_DIR ${BINARY_DIR} )
   list(APPEND ANGIOTK_VMTK_EXTERNALPROJECT_DEPENDS AngioTk_ExternalPackages_ITK)
   list(APPEND ANGIOTK_EXTERNALPROJECT_DEPENDS AngioTk_ExternalPackages_ITK)
+
+  set(ANGIOTK_SUPERBUILD_SETUP_TEXT "${ANGIOTK_SUPERBUILD_SETUP_TEXT} export LD_LIBRARY_PATH=${ITK_INSTALL_DIR}/lib:$LD_LIBRARY_PATH\n")
 endif()
 
 #####################
@@ -63,6 +67,8 @@ if ( NOT ANGIOTK_USE_SYSTEM_VMTK )
   set( ANGIOTK_SUPERBUILD_VMTK_BINARY_DIR ${BINARY_DIR} )
   list(APPEND ANGIOTK_EXTERNALPROJECT_DEPENDS AngioTk_ExternalPackages_VMTK)
 
+  set(ANGIOTK_SUPERBUILD_SETUP_TEXT "${ANGIOTK_SUPERBUILD_SETUP_TEXT} export LD_LIBRARY_PATH=${VMTK_DIR}/lib:$LD_LIBRARY_PATH\n")
+  set(ANGIOTK_SUPERBUILD_SETUP_TEXT "${ANGIOTK_SUPERBUILD_SETUP_TEXT} export PYTHONPATH=${VMTK_DIR}/lib/python2.7/site-packages:$PYTHONPATH\n")
 endif()
 
 
@@ -107,3 +113,6 @@ set( ANGIOTK_SUPERBUILD_ANGIOTK_BINARY_DIR ${BINARY_DIR} )
 
 configure_file(${AngioTk_SOURCE_DIR}/CMake/AngioTkSuperBuildInstall.cmake.in ${AngioTk_BINARY_DIR}/CMake/AngioTkSuperBuildInstall.cmake  @ONLY)
 INSTALL(SCRIPT ${AngioTk_BINARY_DIR}/CMake/AngioTkSuperBuildInstall.cmake)
+
+
+file(WRITE  ${ANGIOTK_SUPERBUILD_ANGIOTK_BINARY_DIR}/AngioTkSetupEnv.sh ${ANGIOTK_SUPERBUILD_SETUP_TEXT})
