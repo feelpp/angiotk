@@ -57,6 +57,10 @@ if ( NOT ANGIOTK_USE_SYSTEM_VMTK )
     )
 
   set(VMTK_DIR ${AngioTk_BINARY_DIR}/ExternalPackages/install/VMTK)
+  set( VMTK_FOUND 1)
+  set( ANGIOTK_HAS_VMTK_FROM_SUPERBUILD 1 )
+  ExternalProject_Get_Property(AngioTk_ExternalPackages_VMTK  BINARY_DIR )
+  set( ANGIOTK_SUPERBUILD_VMTK_BINARY_DIR ${BINARY_DIR} )
   list(APPEND ANGIOTK_EXTERNALPROJECT_DEPENDS AngioTk_ExternalPackages_VMTK)
 
 endif()
@@ -97,6 +101,9 @@ ExternalProject_Add(AngioTkSuperBuild    # Name for custom target
   #STEP_TARGETS configure build
   )
 
+set( ANGIOTK_HAS_ANGIOTK_FROM_SUPERBUILD 1 )
+ExternalProject_Get_Property(AngioTkSuperBuild  BINARY_DIR )
+set( ANGIOTK_SUPERBUILD_ANGIOTK_BINARY_DIR ${BINARY_DIR} )
 
 configure_file(${AngioTk_SOURCE_DIR}/CMake/AngioTkSuperBuildInstall.cmake.in ${AngioTk_BINARY_DIR}/CMake/AngioTkSuperBuildInstall.cmake  @ONLY)
 INSTALL(SCRIPT ${AngioTk_BINARY_DIR}/CMake/AngioTkSuperBuildInstall.cmake)
