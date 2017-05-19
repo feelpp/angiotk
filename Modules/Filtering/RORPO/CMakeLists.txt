@@ -1,4 +1,7 @@
 
+
+
+if ( 0 )
 # Use external project module for building rorpo
 include(ExternalProject)
 
@@ -31,4 +34,6 @@ ExternalProject_Add(RORPO    # Name for custom target
 )
 else()
     message(WARNING "RORPO uses std::regex_iterator which is not implemented properly before GCC 4.9. You are using gcc ${_GNU_C_COMPILER_VERSION} and g++ ${_GNU_CXX_COMPILER_VERSION}, thus it won't be built. Please update your alternatives for gcc and g++.")
+endif()
+
 endif()

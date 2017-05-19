@@ -71,11 +71,55 @@ if ( NOT ANGIOTK_USE_SYSTEM_VMTK )
   set(ANGIOTK_SUPERBUILD_SETUP_TEXT "${ANGIOTK_SUPERBUILD_SETUP_TEXT} export PYTHONPATH=${VMTK_DIR}/lib/python2.7/site-packages:$PYTHONPATH\n")
 endif()
 
+######################
+# RORPO
+#####################
+
+if ( NOT ANGIOTK_USE_SYSTEM_RORPO )
+
+  # RORPO requires OpenMP, so we need to use gcc/g++
+  # looking for gcc/g++
+  execute_process(COMMAND which gcc OUTPUT_VARIABLE _GNU_C_COMPILER)
+  string(REPLACE "\n" "" _GNU_C_COMPILER ${_GNU_C_COMPILER})
+  execute_process(COMMAND which g++ OUTPUT_VARIABLE _GNU_CXX_COMPILER)
+  string(REPLACE "\n" "" _GNU_CXX_COMPILER ${_GNU_CXX_COMPILER})
+
+  # Checking version
+  # RORPO uses std::regex_iterator, which is not implemented before GCC 4.9
+  # Thus we have to ensure that we have the correct version
+  execute_process(COMMAND bash "-c" "`which gcc` --version" OUTPUT_VARIABLE _GNU_C_COMPILER_FULL_VERSION)
+  string(REGEX MATCH "[0-9]+[.][0-9]+[.][0-9]+" _GNU_C_COMPILER_DOTTED_VERSION ${_GNU_C_COMPILER_FULL_VERSION})
+  string(REPLACE "." "" _GNU_C_COMPILER_VERSION ${_GNU_C_COMPILER_DOTTED_VERSION})
+  execute_process(COMMAND bash "-c" "`which g++` --version" OUTPUT_VARIABLE _GNU_CXX_COMPILER_FULL_VERSION)
+  string(REGEX MATCH "[0-9]+[.][0-9]+[.][0-9]+" _GNU_CXX_COMPILER_DOTTED_VERSION ${_GNU_CXX_COMPILER_FULL_VERSION})
+  string(REPLACE "." "" _GNU_CXX_COMPILER_VERSION ${_GNU_CXX_COMPILER_DOTTED_VERSION})
+
+  if(_GNU_C_COMPILER_VERSION GREATER "490" AND _GNU_CXX_COMPILER_VERSION GREATER "490")
+
+    set( RORPO_SUPERBUILD_CMAKE_ARGS -DCMAKE_CXX_COMPILER=${_GNU_CXX_COMPILER} -DCMAKE_C_COMPILER=${_GNU_C_COMPILER}  -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS})
+    list(APPEND RORPO_SUPERBUILD_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${AngioTk_BINARY_DIR}/ExternalPackages/install/RORPO)
+    ExternalProject_Add(AngioTk_ExternalPackages_RORPO
+      PREFIX "${CMAKE_BINARY_DIR}/ExternalPackages/build/RORPO"
+      GIT_REPOSITORY "https://github.com/path-openings/RORPO"
+      CMAKE_ARGS ${RORPO_SUPERBUILD_CMAKE_ARGS}
+      UPDATE_COMMAND ""
+      )
+
+    set( RORPO_DIR ${AngioTk_BINARY_DIR}/ExternalPackages/install/RORPO )
+    set( RORPO_FOUND 1)
+    set( ANGIOTK_HAS_RORPO_FROM_SUPERBUILD 1 )
+    ExternalProject_Get_Property(AngioTk_ExternalPackages_RORPO  BINARY_DIR )
+    set( ANGIOTK_SUPERBUILD_RORPO_BINARY_DIR ${BINARY_DIR} )
+    list(APPEND ANGIOTK_EXTERNALPROJECT_DEPENDS AngioTk_ExternalPackages_RORPO)
+
+    set(ANGIOTK_SUPERBUILD_SETUP_TEXT "${ANGIOTK_SUPERBUILD_SETUP_TEXT} export LD_LIBRARY_PATH=${RORPO_DIR}/lib:$LD_LIBRARY_PATH\n")
+  endif()
+endif()
+
 
 #####################
 # AngioTk
 #####################
-
 
 set( ANGIOTK_SUPERBUILD_CMAKE_ARGS
   -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}  -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS}
