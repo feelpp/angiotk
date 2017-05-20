@@ -121,6 +121,9 @@ if ( ANGIOTK_USE_OLD_FEELPP_CMAKE_DETECTION )
   endif()
 else()
   if ( ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR} )
+    if (ANGIOTK_USE_SUPERBUILD)
+      set(FEELPP_DONT_SETUP_CMAKE 1)
+    endif()
     find_package(Feel++ PATHS
       ${FEELPP_DIR}/share/feelpp/feel/cmake/modules
       $ENV{FEELPP_DIR}/share/feelpp/feel/cmake/modules
@@ -221,19 +224,54 @@ foreach(_vmtklib vtkvmtkCommon vtkvmtkComputationalGeometry)
   endif()
 endforeach()
 
+unset(VMTK_FOUND)
 if ( VMTK_BINARY_DIR AND VMTK_INCLUDE_DIR AND VMTK_LIBRARIES )
   set( VMTK_FOUND 1)
-else()
-  set( VMTK_FOUND 0)
 endif()
 
-if ( ${VMTK_FOUND} )
+if ( VMTK_FOUND )
   include_directories( ${VMTK_INCLUDE_DIR} )
   message(STATUS "VMTK binary dir: ${VMTK_BINARY_DIR}")
   message(STATUS "VMTK included: ${VMTK_INCLUDE_DIR}")
   message(STATUS "VMTK libraries: ${VMTK_LIBRARIES}")
 endif()
 
+endif()
+
+#=========================================================
+# RORPO
+if ( ANGIOTK_USE_SYSTEM_RORPO )
+
+  FIND_PATH(RORPO_BINARY_DIR
+    NAMES RORPO_multiscale_usage
+    HINTS
+    ${RORPO_DIR}/bin
+    )
+
+  unset(RORPO_LIBRARIES)
+  foreach( _rorpolib Nifti  RORPO  docopt)
+    FIND_LIBRARY(RORPO_LIBRARY
+      NAMES ${_rorpolib}
+      HINTS
+      ${RORPO_DIR}/lib
+      )
+    if ( RORPO_LIBRARY )
+      if ( NOT RORPO_LIBRARIES )
+	set(RORPO_LIBRARIES ${RORPO_LIBRARY})
+      else()
+	list( APPEND RORPO_LIBRARIES ${RORPO_LIBRARY} )
+      endif()
+      unset(RORPO_LIBRARY CACHE)
+    endif()
+  endforeach()
+
+  unset(RORPO_FOUND)
+  if ( RORPO_BINARY_DIR AND RORPO_LIBRARIES )
+    set( RORPO_FOUND 1)
+    message(STATUS "found RORPO")
+    message(STATUS "RORPO binary dir: ${RORPO_BINARY_DIR}")
+    message(STATUS "RORPO libraries: ${RORPO_LIBRARIES}")
+  endif()
 endif()
 
 #=========================================================
