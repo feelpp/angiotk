@@ -181,7 +181,8 @@ if ( ANGIOTK_USE_SYSTEM_VMTK )
 # Find VMTK
 
 # binary dir
-FIND_PATH(VMTK_BINARY_DIR 
+unset(VMTK_EXECUTABLE_DIR)
+FIND_PATH(VMTK_EXECUTABLE_DIR 
     NAMES vmtkcenterlines 
     #PATH
     HINTS
@@ -190,9 +191,6 @@ FIND_PATH(VMTK_BINARY_DIR
     $ENV{VMTKHOME}/bin
     #NO_DEFAULT_PATH
     )
-# if ( NOT VMTK_BINARY_DIR )
-#    message(FATAL_ERROR "VMTK_BINARY_DIR not find")
-# endif()
 
 # include dir
 FIND_PATH(VMTK_INCLUDE_DIR vtkvmtkConfigure.h 
@@ -202,10 +200,6 @@ FIND_PATH(VMTK_INCLUDE_DIR vtkvmtkConfigure.h
   $ENV{VMTKHOME}/include/
   PATH_SUFFIXES vmtk
   )
-#FIND_PATH(VMTK_INCLUDE_DIR vmtk/vtkvmtkConfigure.h HINTS $ENV{VMTK_DIR}/include/  )
-# if ( NOT VMTK_INCLUDE_DIR )
-#   message(FATAL_ERROR "VMTK_INCLUDE_DIR not find")
-# endif()
 
 # libraries path
 unset(VMTK_LIBRARIES)
@@ -225,13 +219,11 @@ foreach(_vmtklib vtkvmtkCommon vtkvmtkComputationalGeometry)
 endforeach()
 
 unset(VMTK_FOUND)
-if ( VMTK_BINARY_DIR AND VMTK_INCLUDE_DIR AND VMTK_LIBRARIES )
+if ( VMTK_EXECUTABLE_DIR AND VMTK_INCLUDE_DIR AND VMTK_LIBRARIES )
   set( VMTK_FOUND 1)
-endif()
-
-if ( VMTK_FOUND )
   include_directories( ${VMTK_INCLUDE_DIR} )
-  message(STATUS "VMTK binary dir: ${VMTK_BINARY_DIR}")
+  message(STATUS "found VMTK")
+  message(STATUS "VMTK executables dir: ${VMTK_EXECUTABLE_DIR}")
   message(STATUS "VMTK included: ${VMTK_INCLUDE_DIR}")
   message(STATUS "VMTK libraries: ${VMTK_LIBRARIES}")
 endif()
@@ -242,7 +234,8 @@ endif()
 # RORPO
 if ( ANGIOTK_USE_SYSTEM_RORPO )
 
-  FIND_PATH(RORPO_BINARY_DIR
+  unset(RORPO_EXECUTABLE_DIR)
+  FIND_PATH(RORPO_EXECUTABLE_DIR
     NAMES RORPO_multiscale_usage
     HINTS
     ${RORPO_DIR}/bin
@@ -266,16 +259,17 @@ if ( ANGIOTK_USE_SYSTEM_RORPO )
   endforeach()
 
   unset(RORPO_FOUND)
-  if ( RORPO_BINARY_DIR AND RORPO_LIBRARIES )
+  if ( RORPO_EXECUTABLE_DIR AND RORPO_LIBRARIES )
     set( RORPO_FOUND 1)
     message(STATUS "found RORPO")
-    message(STATUS "RORPO binary dir: ${RORPO_BINARY_DIR}")
+    message(STATUS "RORPO executables dir: ${RORPO_EXECUTABLE_DIR}")
     message(STATUS "RORPO libraries: ${RORPO_LIBRARIES}")
   endif()
 endif()
 
 #=========================================================
 if ( ANGIOTK_USE_SUPERBUILD )
+  message(STATUS "AngioTk run SuperBuild")
   include(${AngioTk_SOURCE_DIR}/CMake/AngioTkSuperBuild.cmake)
   return()
 endif()

@@ -101,7 +101,7 @@ InletOutletDesc::loadFromSTL( std::string inputPath )
 {
 
     std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
-    std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+    std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_EXECUTABLE_DIR );
 
     //if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
     if ( !fs::exists(inputPath) )
@@ -445,7 +445,7 @@ CenterlinesFromSurface::run()
 
     // source ~/packages/vmtk/vmtk.build2/Install/vmtk_env.sh
     std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
-    std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+    std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_EXECUTABLE_DIR );
 
     if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
     {
@@ -1192,7 +1192,7 @@ ImageFromCenterlines::run()
     {
 #if 0
         std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
-        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_EXECUTABLE_DIR );
 
         std::ostringstream __str;
         __str << pythonExecutable << " ";
@@ -1410,7 +1410,7 @@ SurfaceFromImage::run()
     if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
     {
         std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
-        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_EXECUTABLE_DIR );
 
         std::string nameImageInit = outputNameWithoutExt+"_levelsetInit.vti";
         std::string outputPathImageInit = (directory/fs::path(nameImageInit)).string();
@@ -1958,7 +1958,7 @@ SubdivideSurface::run()
     if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
     {
         std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
-        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_EXECUTABLE_DIR );
 
         std::ostringstream __str;
         __str << pythonExecutable << " ";
@@ -2075,7 +2075,7 @@ SmoothSurface::run()
     if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
     {
         std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
-        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_EXECUTABLE_DIR );
 
         std::ostringstream __str;
         __str << pythonExecutable << " ";
@@ -2278,7 +2278,7 @@ void
 OpenSurface::runVMTK()
 {
     std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
-    std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+    std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_EXECUTABLE_DIR );
 
     std::ostringstream __str;
     __str << pythonExecutable << " ";
@@ -2445,7 +2445,7 @@ RemeshSurface::runVMTK()
     std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
     __str << pythonExecutable << " ";
     //std::string dirBaseVmtk = "/Users/vincentchabannes/packages/vmtk/vmtk.build2/Install/bin/";
-    std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+    std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_EXECUTABLE_DIR );
     __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtksurfaceremeshing ";
     __str << "-ifile " << this->inputSurfacePath() << " ";
     __str << "-ofile " << this->outputPath() << " ";
