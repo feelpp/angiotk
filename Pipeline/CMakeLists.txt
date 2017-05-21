@@ -1,16 +1,10 @@
 
-message("ITK_BINARY_DIR=${ITK_BINARY_DIR}")
-message("VMTK_EXECUTABLE_DIR=${VMTK_EXECUTABLE_DIR}")
-message("RORPO_EXECUTABLE_DIR=${RORPO_EXECUTABLE_DIR}")
-message("ANGIOTK_BINARY_DIR=${ANGIOTK_BINARY_DIR}")
-message("AngioTk_BINARY_DIR=${AngioTk_BINARY_DIR}")
 set(ANGIOTK_EXECUTABLE_DIR ${AngioTk_BINARY_DIR}/bin)
-message("CMAKE_RUNTIME_OUTPUT_DIRECTORY=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+configure_file(runAngioTKPipeline.py.in ${CMAKE_CURRENT_BINARY_DIR}/runAngioTKPipeline.py)
+#install(FILES ${CMAKE_CURRENT_BINARY_DIR}/runAngioTKPipeline.py DESTINATION bin)
 
-message("CMAKE_CURRENT_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}")
+configure_file(AngioTkInstallPipelineScript.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/AngioTkInstallPipelineScript.cmake @ONLY)
+INSTALL(SCRIPT  ${CMAKE_CURRENT_BINARY_DIR}/AngioTkInstallPipelineScript.cmake)
 
-Configure_file(runAngioTKPipeline.py.in ${CMAKE_CURRENT_BINARY_DIR}/runAngioTKPipeline.py)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/runAngioTKPipeline.py DESTINATION bin)
-
-configure_file(setupAngioTKEnvironment.sh.in ${CMAKE_CURRENT_BINARY_DIR}/setupAngioTKEnvironment.sh)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/setupAngioTKEnvironment.sh DESTINATION bin)
+#configure_file(setupAngioTKEnvironment.sh.in ${CMAKE_CURRENT_BINARY_DIR}/setupAngioTKEnvironment.sh)
+#install(FILES ${CMAKE_CURRENT_BINARY_DIR}/setupAngioTKEnvironment.sh DESTINATION bin)
