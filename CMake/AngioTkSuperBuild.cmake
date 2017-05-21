@@ -168,7 +168,16 @@ ExternalProject_Get_Property(AngioTkSuperBuild  BINARY_DIR )
 set( ANGIOTK_SUPERBUILD_ANGIOTK_BINARY_DIR ${BINARY_DIR} )
 
 configure_file(${AngioTk_SOURCE_DIR}/CMake/AngioTkSuperBuildInstall.cmake.in ${AngioTk_BINARY_DIR}/CMake/AngioTkSuperBuildInstall.cmake  @ONLY)
-INSTALL(SCRIPT ${AngioTk_BINARY_DIR}/CMake/AngioTkSuperBuildInstall.cmake)
+install(SCRIPT ${AngioTk_BINARY_DIR}/CMake/AngioTkSuperBuildInstall.cmake)
+
+if (ANGIOTK_HAS_VMTK_FROM_SUPERBUILD)
+  set(VMTK_EXECUTABLE_DIR ${ANGIOTK_SUPERBUILD_VMTK_INSTALL_PREFIX}/bin)
+endif()
+if (ANGIOTK_HAS_RORPO_FROM_SUPERBUILD)
+  set(RORPO_EXECUTABLE_DIR ${ANGIOTK_SUPERBUILD_RORPO_INSTALL_PREFIX}/bin)
+endif()
+configure_file(${AngioTk_SOURCE_DIR}/Pipeline/AngioTkInstallPipelineScript.cmake.in ${AngioTk_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/AngioTkInstallPipelineScript.cmake @ONLY)
+install(SCRIPT ${AngioTk_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/AngioTkInstallPipelineScript.cmake)
 
 
 file(WRITE  ${ANGIOTK_SUPERBUILD_ANGIOTK_BINARY_DIR}/AngioTkSetupEnv.sh ${ANGIOTK_SUPERBUILD_SETUP_TEXT})
