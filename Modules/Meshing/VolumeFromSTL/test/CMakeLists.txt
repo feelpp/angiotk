@@ -13,16 +13,19 @@ ExternalData_expand_arguments( angioTkData EXTERNALDATA_OUTPUT_FILES DATA{${Volu
 list(APPEND EXTERNALDATA_ALL_OUTPUT_FILES ${EXTERNALDATA_OUTPUT_FILES})
 ExternalData_expand_arguments( angioTkData EXTERNALDATA_OUTPUT_FILES DATA{${VolumeFromSTL_SOURCE_DIR}/simpleTbifurcation.inletoutlet.desc} )
 list(APPEND EXTERNALDATA_ALL_OUTPUT_FILES ${EXTERNALDATA_OUTPUT_FILES})
-
-foreach( datafile ${EXTERNALDATA_ALL_OUTPUT_FILES})
-  get_filename_component( _realfile "${datafile}" REALPATH)
-  get_filename_component( _name "${datafile}" NAME)
-  install(FILES ${_realfile} DESTINATION share/AngioTK/Modules/Meshing/VolumeFromSTL/Tests RENAME ${_name})
-endforeach()
-
-add_dependencies( angiotk_meshing_pipeline_volumefromstl angioTkData)
 unset(ExternalData_BINARY_ROOT)
 unset(ExternalData_SOURCE_ROOT)
+
+# install data downloaded (special treatment (data are not generated at this time and file are symbolic link)
+install(CODE 
+  "foreach( datafile ${EXTERNALDATA_ALL_OUTPUT_FILES})
+     get_filename_component( _realfile \"\${datafile}\" REALPATH)
+     get_filename_component( _name \"\${datafile}\" NAME)
+     file(INSTALL \${_realfile} DESTINATION \${CMAKE_INSTALL_PREFIX}/share/AngioTK/Modules/Meshing/VolumeFromSTL/Tests RENAME \${_name} )
+   endforeach()"
+)
+
+add_dependencies( angiotk_meshing_pipeline_volumefromstl angioTkData)
 
 set(ANGIOTK_MODULE_MESHING_TEST_CFG_FILES centerlines.cfg remeshstlvmtk.cfg remeshstlgmsh.cfg volumefromstlandcenterlines.cfg volumefromstl.cfg)
 set(ANGIOTK_MODULE_MESHING_TEST_CFG_FILES_TO_INSTALL)
@@ -45,5 +48,5 @@ add_test(NAME test_angiotk_meshing_remeshstlgmsh COMMAND angiotk_meshing_remeshs
 add_test(NAME test_angiotk_meshing_volumefromstlandcenterlines COMMAND angiotk_meshing_volumefromstlandcenterlines
   --config-file=${ANGIOTK_MODULE_MESHING_TEST_BINARY_DIR}/volumefromstlandcenterlines.cfg )
 
-add_test(NAME testmeshing_volumefromstl COMMAND angiotk_meshing_pipeline_volumefromstl
+add_test(NAME test_angiotk_meshing_volumefromstl COMMAND angiotk_meshing_pipeline_volumefromstl
   --config-file=${ANGIOTK_MODULE_MESHING_TEST_BINARY_DIR}/volumefromstl.cfg )
