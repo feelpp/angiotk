@@ -9,7 +9,7 @@ add_library( angiotk_meshing_volumefromstl
   centerlinesmanageriodata.cpp
   )
 target_link_libraries( angiotk_meshing_volumefromstl ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} ${VMTK_LIBRARIES} )
-
+target_include_directories(angiotk_meshing_volumefromstl BEFORE PUBLIC ${VolumeFromSTL_SOURCE_DIR}/include/gmshHeadersMissing )
 install(TARGETS angiotk_meshing_volumefromstl LIBRARY DESTINATION lib/ COMPONENT Libs)
 
 if(APPLE)
@@ -26,20 +26,15 @@ target_link_libraries( angiotk_meshing_createinletoutletdesc ${FEELPP_LIBRARY} $
 
 angiotk_add_component( angiotk_meshing_centerlines centerlines_main.cpp )
 target_link_libraries( angiotk_meshing_centerlines ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
-configure_file( centerlines.cfg ${AngioTk_BINARY_DIR}/cfg/meshing/test_centerlines.cfg )
 
 angiotk_add_component( angiotk_meshing_remeshstl remeshstl_main.cpp )
 target_link_libraries( angiotk_meshing_remeshstl ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
-configure_file( remeshstlvmtk.cfg ${AngioTk_BINARY_DIR}/cfg/meshing/test_remeshstlvmtk.cfg )
-configure_file( remeshstlgmsh.cfg ${AngioTk_BINARY_DIR}/cfg/meshing/test_remeshstlgmsh.cfg )
 
 angiotk_add_component( angiotk_meshing_volumefromstlandcenterlines volumefromstlandcenterlines_main.cpp )
 target_link_libraries( angiotk_meshing_volumefromstlandcenterlines ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
-configure_file( volumefromstlandcenterlines.cfg ${AngioTk_BINARY_DIR}/cfg/meshing/test_volumefromstlandcenterlines.cfg )
 
 angiotk_add_component( angiotk_meshing_pipeline_volumefromstl volumefromstl_main.cpp )
 target_link_libraries( angiotk_meshing_pipeline_volumefromstl ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
-configure_file( volumefromstl.cfg ${AngioTk_BINARY_DIR}/cfg/meshing/test_volumefromstl.cfg )
 
 angiotk_add_component( angiotk_meshing_imagefromcenterlines imagefromcenterlines_main.cpp )
 target_link_libraries( angiotk_meshing_imagefromcenterlines ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
@@ -66,8 +61,3 @@ angiotk_add_component( angiotk_meshing_tubularextension tubularextension_main.cp
 target_link_libraries( angiotk_meshing_tubularextension ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
 
 
-ExternalData_expand_arguments( angioTkData testArgs DATA{${VolumeFromSTL_SOURCE_DIR}/simpleTbifurcation.stl} )
-ExternalData_expand_arguments( angioTkData testArgs DATA{${VolumeFromSTL_SOURCE_DIR}/simpleTbifurcation_remeshVMTKarea0.005.stl} )
-ExternalData_expand_arguments( angioTkData testArgs DATA{${VolumeFromSTL_SOURCE_DIR}/simpleTbifurcation_remeshVMTKarea0.005_centerlines.vtk} )
-ExternalData_expand_arguments( angioTkData testArgs DATA{${VolumeFromSTL_SOURCE_DIR}/simpleTbifurcation.inletoutlet.desc} )
-add_dependencies( angiotk_meshing_pipeline_volumefromstl angioTkData)
