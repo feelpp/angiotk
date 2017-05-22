@@ -80,10 +80,11 @@ def main():
     partialResultsDBPath = os.path.join(resultsDBPath, 'partial_results')
     testAngioTKPipeline.makedir(partialResultsDBPath)
     resultsDBName = "resultsDB.json"
+    resultsHtml = "results.html"
     results_json = os.path.join(resultsDBPath, resultsDBName) # ex: $RESULTS/resultsDataBase/runs/run-YYYY-MM-DD_HH:MM:SS/resultsDB.json
-    results_html_absolute = os.path.splitext(results_json)[0] + '.html' # ex: $RESULTS/resultsDataBase/runs/run-YYYY-MM-DD_HH:MM:SS/resultsDB.html
-    results_html_extra_slash = results_html_absolute.lstrip(resultsDataBasePath) # ex: /runs/run-YYYY-MM-DD_HH:MM:SS/resultsDB.html
-    results_html = os.path.join('runs', runID, os.path.splitext(resultsDBName)[0] + '.html') # ex: runs/run-YYYY-MM-DD_HH:MM:SS/resultsDB.html
+    results_html_absolute = os.path.join(resultsDBPath, resultsHtml) # ex: $RESULTS/resultsDataBase/runs/run-YYYY-MM-DD_HH:MM:SS/results.html
+    results_html_extra_slash = results_html_absolute.lstrip(resultsDataBasePath) # ex: /runs/run-YYYY-MM-DD_HH:MM:SS/results.html
+    results_html = os.path.join('runs', runID, resultsHtml) # (first slash removed) ex: runs/run-YYYY-MM-DD_HH:MM:SS/results.html
 
     partialResultsToMerge = []
 
@@ -289,40 +290,17 @@ def main():
     jsDir = 'js'
     distutils.dir_util.copy_tree(jsDir, os.path.join(resultsDataBasePath, jsDir))
 
-    # ====== old code ======
-    # The following two commands (asciidocDBpy and asciidoctor) should be removed soon:
-    # they produce the resultsDB.hmtl file in two steps using the results_json file:
-    # (json file ---(asciidocDBpy)--> asciidoc file --(asciidoctor)--> html file)
-    # This process is to be replaced with a simpler approach, similar to what happens for
-    # summary.html: a generic html page with css and javascript to dynamically populate it using the json file
-
-    # external scripts execution
-    cmd = 'python ' + asciidocDBpy + ' -i ' + results_json
-    print '----------------------------------------' + asciidocDBpy + '--------------------------------------------'
-    testAngioTKPipeline.executeCommand("", cmd, resultsLogPath) # output is a .adoc file named like input
-
-    results_adoc = os.path.splitext(results_json)[0] + '.adoc'
-    cmd = 'asciidoctor ' + results_adoc
-    print '----------------------------------------' + 'asciidoctor' + '--------------------------------------------'
-    testAngioTKPipeline.executeCommand("", cmd, resultsLogPath) # output is a .html file named like input
-
-    # =====================
-
-    # ===== new code ======
-
     # copy css directory to results directory
     cssDir = 'css'
     distutils.dir_util.copy_tree(cssDir, os.path.join(resultsDataBasePath, cssDir))
 
-    # copy resultsDB2.html file to results directory
-    resultsDBHtml = 'resultsDB2.html'
-    distutils.file_util.copy_file(resultsDBHtml, os.path.join(resultsDBPath, resultsDBHtml))
+    # copy results.html file to results directory
+    resultsHtml = 'results.html'
+    distutils.file_util.copy_file(resultsHtml, os.path.join(resultsDBPath, resultsHtml))
 
-    # copy resultsDB3.html file to results directory
-    resultsDBHtml = 'resultsDB3.html'
-    distutils.file_util.copy_file(resultsDBHtml, os.path.join(resultsDBPath, resultsDBHtml))
-
-    # =====================
+    # copy results2.html file to results directory
+    resultsHtml = 'results2.html'
+    distutils.file_util.copy_file(resultsHtml, os.path.join(resultsDBPath, resultsHtml))
 
     print "Total wall-clock time in " + __file__ + ": " + str(datetime.datetime.now()-initialTime)
 
