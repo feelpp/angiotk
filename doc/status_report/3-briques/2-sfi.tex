@@ -1,0 +1,58 @@
+	\subsection{Extraction de surface}
+	\label{brique:sfi}
+
+À partir de l'image filtrée par RORPO, l'extraction de surface est réalisée par \execname{meshing\_surfacefromimage}, qui démarre avec une méthode des surfaces de niveau. Les surfaces de niveau sont initialisées en utilisant l'isosurface d'une valeur d'intensité donnée (méthode \textit{isosurface}), soit l'ensemble des voxels dont l'intensité est comprise dans un intervalle donné (méthode \textit{threshold}). Un algorithme de marching cubes extrait ensuite la surface. 
+
+
+	\subsubsection{Subdivision de surface}
+	
+	On peut également subdiviser la surface obtenue, à l'aide des 3 méthodes: \textit{linear} (conservation des points d'origine et subdivisions linéaires entre eux \tbv), \textit{butterfly} (conservation des points d'origine et ajout de nouveaux points) ou \textit{loop} (déplacement des points d'origine et ajout de nouveaux points). La différence entre les deux dernières est la classe de régularité vers laquelle tend la surface quand le nombre de subdivisions augmente: $C^1$ pour \textit{butterfly} et $C^2$ pour \textit{loop}.
+
+	\subsubsection{\ioT}
+
+\iolist
+{image 3D au format \mha (potentiellement tout format lisible par VTK).}
+{modèle 3D au format \stl.}
+
+	\subsubsection{\argsT}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Les paramètres sont en grande partie regroupés dans un fichier de configuration. Voici ceux qui sont plutôt directement ajoutés à la ligne de commande:
+
+\args
+{config-file}{}{string}{nom du fichier de configuration à utiliser.}
+{input.image.filename}{}{string}{nom du fichier à traiter.}
+{output.path}{}{string}{nom du fichier à produire.}
+{pre-process.resize-from-reference-image.path}{}{string}{nom de l'image de référence à utiliser pour le redimensionnement.}
+\stoparg
+
+	\subsubsection{Fichier de configuration}
+	
+L'utilisation des fichiers de configuration est décrite dans la section \titleref{configfile}.
+Voici les paramètres qu'on préférera inclure dans un fichier de configuration (si une valeur est affectée, c'est celle par défaut):
+
+\configfile
+{force-rebuild}{1}{int}{0 pour éviter le calcul si le fichier cible existe déjà, 1 pour le forcer (et écraser le fichier cible)}
+{method}{threshold}{string}{méthode à utiliser pour initialiser les surfaces de niveau, parmi: threshold, isosurface}
+{image-fusion.operator}{max}{string}{opérateur pour la méthode parmi: max, min, multiply, substract \tbv comment choisir ?}
+{threshold.lower}{}{double}{limite basse pour la méthode threshold \tbv comment choisir ?}
+{threshold.lower}{}{double}{limite haute pour la méthode threshold \tbv comment choisir ?}
+{apply-connectivity.largest-region}{1}{bool}{1 pour ne retenir que les $n$ plus grandes parties connexes de la surface, 0 pour tout conserver.}
+{apply-connectivity.number}{1}{int}{nombre $n$de plus grandes parties à conserver.}
+{post-process.subdivide-surface}{}{bool}{1 pour activer la subdivision de surface, 0 pour la désactiver \tbv comment choisir ?}
+{post-process.smooth-surface}{}{bool}{1 pour activer le lissage de surface, 0 pour le désactiver \tbv comment choisir ?}
+{[subdivide-surface]}{cette ligne définit un préfixe de paramètres, commun à tous les paramètres qui suivent cette ligne, jusqu'à la prochaine définition de préfixe.}{}{}
+{method}{butterfly}{string}{nom de la méthode à utiliser parmi: linear, butterfly, loop \tbv comment choisir ?}
+{subdivisions}{1}{int}{nombre de subdivisions \tbv comment choisir ?}
+{[smooth-surface]}{nouveau préfixe}{}{}
+{method}{taubin}{string}{nom de la méthode à utiliser parmi: taubin, laplace \tbv comment choisir ?}
+{iterations}{30}{int}{nombre d'itérations}
+{taubin.passband}{0.1}{double}{...\tbv}
+{laplace.relaxation}{0.01}{double}{...\tbv}
+\stopfile
+
+	\subsubsection{\etatg}
+
+L'extraction de surface fonctionne correctement pour les images disponibles. Rien à signaler.
+
+

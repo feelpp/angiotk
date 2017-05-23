@@ -1,0 +1,27 @@
+	\subsection{Génération des lignes centrales}
+
+Une fois les fichiers de paires de points définis, ils sont utilisés chacun à leur tour avec la surface extraite pour générer les lignes centrales avec \execname{meshing\_centerlines}.
+
+
+	\subsubsection{\ioT}
+
+\iolist
+{fichier \stl + fichier \pointpair ou fichier lisible par gmsh (.geo ou maillage 1D .msh).}
+{fichier \vtk.}
+
+
+	\subsubsection{\argsT}
+
+\args
+{config-file}{}{string}{nom du fichier de configuration à utiliser}
+{input.surface.filename}{}{string}{fichier \stl}
+{input.pointpair.filename}{}{string}{fichier \pointpair}
+{output.directory}{}{string}{répertoire de sortie du fichier \vtk à produire}
+{delaunay-tessellation.force-rebuild}{0}{bool}{si le fichier existe déjà: 1 pour forcer la tessellation de Delaunay (et écraser le fichier), 0 pour la désactiver}
+{delaunay-tessellation.output.directory}{}{string}{répertoire de sortie de la tessellation de Delaunay}
+\stoparg
+
+
+	\subsubsection{\etatg}
+	
+

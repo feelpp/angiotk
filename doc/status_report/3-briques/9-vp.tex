@@ -1,0 +1,40 @@
+	\subsection{Génération de maillage volumique}
+
+Dans cette dernière étape, \execname{meshing\_volumefromstlandcenterlines} permet de mailler le volume des vaisseaux sanguins. Il est possible d'extruder plusieurs couches au niveau de la paroi, afin notamment de prendre en compte son épaisseur lors des simulations d'interactions fluide-structure. On va aussi pouvoir marquer les différentes entrées et sorties du maillage afin de pouvoir faire des simulations, en générant des fichiers \desc contenant des nom de marqueurs et les positions des points correspondants.
+
+	\subsubsection{\ioT}
+	
+\iolist
+{fichier \stl, fichier \vtk et éventuellement fichier \desc}
+{fichier \msh}
+
+\subsubsection{Fichier \desc}
+
+Si aucun fichier \desc n'est fourni, il sera généré. Si le fichier est fourni, il sera utilisé pour générer le maillage final.
+	
+	\subsubsection{\argsT}
+
+\args
+{config-file}{}{string}{Nom du fichier de configuration à utiliser}
+{input.surface.filename}{}{string}{Fichier \stl (la surface à traiter)}
+{input.centerlines.filename}{}{string}{Fichier \vtk (les lignes centrales)}
+{output.directory}{}{string}{Répertoire de sortie du fichier \stl à produire}
+\stoparg
+
+		\subsubsection{Fichier de configuration}
+
+\configfile
+{force-rebuild}{1}{bool}{0 pour éviter le calcul si le fichier cible existe déjà, 1 pour le forcer (et écraser le fichier cible)}
+{output.save-binary}{1}{bool}{Définit le type de fichier \msh à produire: 1 pour du binaire, 0 pour de l'ASCII}
+{input.desc.filename}{}{string}{Nom du fichier de description à utiliser \$cfgdir/data/FOA42.desc}
+{nb-points-in-circle}{15}{int}{Nombre de points désiré pour une section circulaire lors du maillage du volume}
+{extrude-wall}{0}{bool}{1 pour extruder une ou plusieurs couches de la paroi, 0 sinon}
+{extrude-wall.nb-elt-layer}{2}{int}{Nombre de couches à extruder}
+{extrude-wall.h-layer}{0.2}{double}{Epaisseur de la paroi à extruder (en pourcentage du rayon)}
+\stopfile
+
+	\subsubsection{\etatg}
+	
+Si la surface contient plus d'une composante connexe, l'algorithme entre dans une boucle infinie. Une solution est de séparer les composantes connexes au préalable, par exemple avec \paraview, puis de les traiter séparément.
+
+

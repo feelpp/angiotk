@@ -1,0 +1,270 @@
+\documentclass[a4paper]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[francais]{babel}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{pdfpages} 
+\usepackage{listings}
+\usepackage{color}
+\usepackage{array}
+\usepackage{geometry}
+\usepackage{dsfont}
+\usepackage{amsmath}
+\usepackage{amsfonts, amssymb}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{todonotes}
+\usepackage{url}
+\usepackage{subfigure}
+\usepackage{verbatim}
+\usepackage{ifthen}
+\usepackage{xstring}
+\usepackage{siunitx}
+
+\usepackage[pdftex,           %%% hyper-references for pdflatex
+bookmarks=true,               %%% generate bookmarks ...
+bookmarksnumbered=true,       %%% ... with numbers
+hypertexnames=false,          %%% needed for correct links to figures
+breaklinks=true,              %%% break links if exceeding a single line
+colorlinks=true,              %%% links are colored
+citecolor=blue,               %%% color of cite links
+linkcolor=black,               %%% color of hyperref links
+menucolor=black,              %%% color of Acrobat Reader menu buttons
+urlcolor=magenta,             %%% color of page of \url{...}
+pdfstartview=FitH]{hyperref}
+
+% commande pour référencer plus explicitement:
+\newcommand*{\fullref}[1]{\hyperref[{#1}]{\autoref*{#1} \nameref*{#1}}}
+\newcommand*{\titleref}[1]{\hyperref[{#1}]{\ref*{#1} \nameref*{#1}}}
+
+%\usepackage{nameref}
+\usepackage{amsfonts,amssymb}
+\usepackage{amsmath}
+%\usepackage{verbatim} déjà déclaré plus haut
+\usepackage{xspace}
+%\usepackage{glossaries}
+%\addto\captionsfrench{%
+%    \renewcommand*{\glossaryname}{Glossaire}}
+
+
+\lstset{
+language=C,
+basicstyle=\footnotesize,
+numbers=left,
+numberstyle=\normalsize,
+numbersep=15pt,
+}
+\pagestyle{fancy}
+\lhead{\leftmark}
+\rhead{\rightmark}
+\lfoot{François Der Hovsepian}
+\cfoot{\thepage/\pageref{LastPage}}
+\rfoot{Rapport sur l'état du framework AngioTK}
+
+% bibliographie
+\usepackage[backend=biber,style=alphabetic]{biblatex}
+\providecommand*{\footcite}{\fc}
+\bibliography{bib/bibliography.bib}
+
+% symboles mathématiques
+\newcommand{\N}{{\mathbb{N}}}
+\newcommand{\Z}{{\mathbb{Z}}}
+\newcommand{\R}{{\mathbb{R}}}
+\newcommand{\vecteur}{\overrightarrow}
+\newcommand{\vect}[1]{\boldsymbol{#1}}
+
+
+% abréviations
+\newcommand{\cad}{c'est-à-dire\xspace}
+\newcommand{\ioT}{Formats supportés\xspace}
+\newcommand{\argsT}{Paramètres\xspace}
+\newcommand{\etatg}{État général\xspace}
+
+% 
+\newcommand \sw[1] {\texttt{#1}\xspace}
+\newcommand \sourcepath[1 ]{\path{#1}\xspace}
+\newcommand \rorpo {\sw{RORPO}\xspace}
+\newcommand \vmtk {\sw{VMTK}\xspace}
+\newcommand \gmsh {\sw{Gmsh}\xspace}
+\newcommand \paraview {\sw{Paraview}\xspace}
+\newcommand \cts {\sw{component\_tree\_segmentation}\xspace}
+\newcommand \runpy {\sw{runAngioTKPipeline.py}\xspace}
+\newcommand \masterpy {\sw{master.py}\xspace}
+\newcommand \summaryHtml {\sw{summary.html}\xspace}
+
+
+% marqueurs
+\newcommand \tbv {\textcolor{red}{(?)}\xspace}
+\newcommand \execname[1] {\texttt{#1}\xspace}
+\newcommand \argfont {\texttt}
+\newcommand \argtypefont[1] {\textcolor{olive}{#1}}
+\newcommand \argvaluefont[1] {\textcolor{gray}{#1}}
+\newcommand \argdescriptionfont[1] {\textcolor{teal}{#1}}
+\newcommand {\cfgfont} {\texttt}
+\newcommand \cfgtypefont[1] {\textcolor{olive}{#1}}
+\newcommand \cfgvaluefont[1] {\textcolor{gray}{#1}}
+\newcommand \cfgdescriptionfont[1] {\textcolor{teal}{#1}}
+\newcommand \cfgsectiondescriptionfont[1] {\textcolor{violet}{#1}}
+\newcommand \cfgcommentfont[1] {\textcolor{violet}{#1}}
+
+% formats de fichier
+\newcommand {\mha} {MetaImage (.mha)\xspace}
+\newcommand {\nii} {NIfTI (.nii)\xspace}
+\newcommand {\stl} {STereoLithography (.stl)\xspace}
+\newcommand {\msh} {MSH (.msh)\xspace}
+\newcommand {\desc} {desc (.desc)\xspace}
+\newcommand {\pointpair} {texte contenant des paires de points (.pointpair.data)\xspace}
+\newcommand {\vtk} {VTK (.vtk)\xspace}
+\newcommand {\html} {html\xspace}
+\newcommand {\json} {json\xspace}
+
+% répertoires
+\newcommand {\resultsDataBase} {\textit{resultsDataBase}}
+
+\makeatletter
+% ----------------------------------- commande \iolist ------------------------------------
+% Détail des paramètres d'un programme en ligne de commande: fonction pour l'utilisateur (contient un nombre impair d'arguments: des couples {argument}{description} et un argument  final pour clore la liste: \stoparg
+\newcommand \iolist[2] {% (On commente cette ligne pour pouvoir la sauter.)
+\begin{itemize}
+\item \texttt{Entrée}: {#1}
+\item \texttt{Sortie}: {#2}
+\end{itemize}
+}
+\makeatother
+
+\makeatletter
+% ----------------------------------- commande \args ------------------------------------
+% Détail des paramètres d'un programme en ligne de commande: fonction pour l'utilisateur (contient un nombre impair d'arguments: des couples {argument}{description} et un argument  final pour clore la liste: \stoparg
+\newcommand{\args}{% (On commente cette ligne pour pouvoir la sauter.)
+\begin{itemize}
+\@argstest
+}
+\newcommand \@argstest{%
+\@ifnextchar\stoparg{\@argsend}{\@argscouple}
+}
+\newcommand \@argscouple[4]{%
+\StrLen{#1}[\argLength]% on stocke la longueur d'abord /!\ important, \StrLen ne peut pas être incluse (nested) dans le 'if'
+\ifthenelse{\equal{\argLength}{1}}% On distingue 2 cas:
+{\@argscoupleshort{#1}{#2}{#3}{#4}}% argument court (une seule lettre, comme -i) 
+{\@argscouplelong{#1}{#2}{#3}{#4}}% et argument long (--input)
+\@argstest
+}
+\newcommand \@argscoupleshort[4]{%
+\item[] \argfont{-#1}: \argvaluefont{#2} (\argtypefont{#3}) \argdescriptionfont{#4}
+}
+\newcommand \@argscouplelong[4]{%
+\IfSubStr{#1}{<}% On distingue entre <input> et --input
+{\item[] \argfont{#1>}: \argvaluefont{#2} (\argtypefont{#3}) \argdescriptionfont{#4}}% 
+{\item[] \argfont{-{}-#1}: \argvaluefont{#2} (\argtypefont{#3}) \argdescriptionfont{#4}}
+}
+\newcommand \@argsend[1]{%
+\end{itemize}
+}
+\makeatother
+
+\makeatletter
+% --------------------------------- commande \configfile ------------------------------------
+% Détail des paramètres d'un fichier de configuration: fonction pour l'utilisateur (contient un nombre impair d'arguments: des couples {argument}{description} et un argument  final pour clore la liste: \stopfile
+\newcommand{\configfile}{% (On commente cette ligne pour pouvoir la sauter.)
+\begin{itemize}
+\@configfiletest
+}
+\newcommand\@configfiletest{%
+\@ifnextchar\stopfile{\@configfileend}{\@configfilearg}
+}
+\newcommand\@configfilearg[4]{%
+\IfSubStr{#1}{[}{ \item[] \cfgfont{#1} \# \cfgsectiondescriptionfont{#2}\xspace}% section
+{\IfSubStr{#1}{//}{ \item[] \cfgcommentfont{#1} \xspace}% commentaire
+{ \item[] \cfgfont{#1}=\cfgvaluefont{#2} \# (\cfgtypefont{#3})  \cfgdescriptionfont{#4}\xspace}}% parametre
+\@configfiletest
+}
+\newcommand\@configfileend[1]{%
+\end{itemize}
+}
+\makeatother
+
+
+% raccourcis chemins
+\newcommand{\chpath}{}
+\newcommand{\secpath}{}
+\newcommand{\imgpath}{}
+
+\title{Rapport sur l'état du framework AngioTK.}
+\author{François Der Hovsepian}
+\date{\today}
+
+\makeindex
+%\makeglossaries
+
+%--------------------------------------------------begin document----------------------------------------
+
+\begin{document}
+
+
+\makeatletter
+
+\begin{titlepage}
+
+\centering
+\Large
+%Rapport de stage\\
+%Master 2 de Calcul Scientifique et Mathématiques de l'Information
+
+\vfill
+
+%\includegraphics[scale=0.3]{logo-uds.png}
+\vfill
+\hrule
+\vfill
+
+\Huge\@title\\
+\vfill
+
+\huge
+\hrule
+\vfill
+\small\@author\\
+%\vspace{15pt}
+%\vfill
+%\Large
+%\@date
+\vfill
+
+\end{titlepage}
+ 
+\makeatother
+
+
+
+
+%\include{0-abstract/abstract}
+%\include{0-abstract/merci}
+
+\tableofcontents
+
+\include{1-intro/intro}
+
+\include{2-architecture/architecture}
+
+%---------------------------------------------------------------------------------------------------------------
+%--------------------------------------------------begin def------------------------------------------------
+%---------------------------------------------------------------------------------------------------------------
+
+%---------------------------------------------------------------------------------------------------------------
+%--------------------------------------------------end def---------------------------------------------------
+%---------------------------------------------------------------------------------------------------------------
+
+\include{3-briques/briques}
+
+\include{4-pipeline/pipeline}
+
+\include{0-notes/notes}
+
+\nocite{*}
+\printbibliography
+
+
+\end{document}

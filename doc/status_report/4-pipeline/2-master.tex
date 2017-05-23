@@ -1,0 +1,116 @@
+	\subsection{\masterpy}
+	\label{pipeline:master}
+	
+Le script \masterpy vise à automatiser l'exécution du pipeline pour plusieurs images. Il permet également de visualiser les résultats de chaque exécution et d'en constituer un historique.
+
+	\subsubsection{\ioT}
+
+\iolist
+{répertoire contenant des images 3D isotrope au format \mha ou \nii}
+{ensemble des résultats du pipeline pour chaque image trouvée}
+
+
+	\subsubsection{\argsT}
+
+\args
+{inputpath}{}{string}{répertoire ou arborescence contenant les images à traiter}
+{outputpath}{}{string}{répertoire de sortie}
+{n}{}{int}{nombre maximal d'images à traiter}
+{p}{}{int}{nombre d'images à traiter en parallèle}
+{noscreenshots)}{}{void}{désactive la génération d'images des résultats}
+\stoparg
+
+	\subsubsection{Parallélisation}
+L'utilisation du script \masterpy offre deux niveaux de parallélisation: 
+\begin{itemize}
+	\item via un paramètre (p), elle permet de lancer plusieurs instances du pipeline en même temps, pour autant d'images. 
+	\item le rendu des images de résultats est également lancé en parallèle, afin de ne pas bloquer l'exécution du pipeline.
+\end{itemize}
+
+	\subsubsection{Fichiers générés}
+
+Le script est conçu dans l'optique d'exécutions répétées, notamment pour corriger les problèmes constatés ou vérifier que des modifications dans le code d'AngioTK ou de ses composants n'entravent pas son fonctionnement. Ainsi, un même répertoire de sortie est amené à être utilisé plusieurs fois. Celui-ci contiendra, après au moins une exécution:
+
+\begin{itemize}
+	\item un répertoire par image traitée: celui-ci contient les fichiers produits (modèles, images...) par les briques logicielles
+	\item un répertoire \textit{logs} contenant des copies des sorties des exécutions (classés par image)
+	\item un répertoire \resultsDataBase contenant, entre autres, des fichiers \html et \json destinés à présenter les résultats sous forme de page web.
+\end{itemize}
+
+
+	\subsubsection{Historique des exécutions}
+
+Le répertoire \resultsDataBase contient en particulier un fichier \summaryHtml donnant accès à l'historique des exécutions du pipeline, et à une page dédiée à chaque exécution présentant un tableau de résultats. Pour pouvoir visualiser ceux-ci, il est nécessaire de faire tourner un serveur HTTP dont le répertoire racine correspond au répertoire de sortie du script \masterpy.
+
+Ensuite, on accède à l'historique directement dans le navigateur par:
+
+http://<url\_ou\_ip\_du\_serveur>/\resultsDataBase/\summaryHtml
+
+\begin{figure}[H]
+\label{fig:summary_html}
+\begin{center}
+  \includegraphics[width= \linewidth]{\imgpath summary_html}
+  \caption*{Historique des exécutions.}
+\end{center}
+\end{figure}
+
+La page présente la liste des exécutions enregistrées par ordre antichronologique. Chaque exécution est représenté par son titre (la date et l'heure), et les détails peuvent être enroulés/déroulés en cliquant sur le titre. Pour gagner en lisibilité et en confort, un seul enregistrement est présenté en détails à la fois (au chargement de la page, il s'agit du plus récent).
+
+Le lien \textit{link to full page} amène à une page contenant le tableau des résultats. 
+
+
+	\subsubsection{Tableau des résultats d'une exécution}
+	
+Ce tableau présente les résultats du pipeline pour chaque image (une par ligne) et pour chaque étape du pipeline (une par colonne). Chaque cellule contient:
+
+\begin{itemize}
+ \item le temps d'exécution ;
+ \item une image du résultat ;
+ \item un commentaire sur le déroulement des opérations ;
+ \item un lien vers le (dernier) fichier produit.
+\end{itemize}
+
+\begin{figure}[H]
+\label{fig:resultsdb_html_1}
+\begin{center}
+  \includegraphics[width= \linewidth]{\imgpath resultsdb_html_1}
+  \caption*{Page d'une exécution du pipeline - Environnement logiciel et statistiques.}
+\end{center}
+\end{figure}
+
+
+\begin{figure}[H]
+\label{fig:resultsdb_html_2}
+\begin{center}
+  \includegraphics[width= \linewidth]{\imgpath resultsdb_html_2}
+  \caption*{Page d'une exécution du pipeline - Tableau des résultats.}
+\end{center}
+\end{figure}
+
+
+\begin{figure}[H]
+\label{fig:resultsdb_html_3}
+\begin{center}
+  \includegraphics[width= \linewidth]{\imgpath resultsdb_html_3}
+  \caption*{Tableau des résultats: en cas d'échec d'une étape, un fond rouge est appliqué sur la cellule correspondante, pour la faire ressortir.}
+\end{center}
+\end{figure}
+
+Cette page peut devenir lourde quand le nombre d'images traitées est élevé. C'est pourquoi elle a été refaite récemment. Deux versions provisoires existent pour la remplacer:
+
+\begin{figure}[H]
+\label{fig:resultsdb2_html}
+\begin{center}
+  \includegraphics[width= \linewidth]{\imgpath resultsdb2_html}
+  \caption*{Version 1: tableau complet.}
+\end{center}
+\end{figure}
+
+\begin{figure}[H]
+\label{fig:resultsdb3_html}
+\begin{center}
+  \includegraphics[width= \linewidth]{\imgpath resultsdb3_html}
+  \caption*{Version 2: tableau dynamique plus compact, à lignes déroulantes.}
+\end{center}
+\end{figure}
+

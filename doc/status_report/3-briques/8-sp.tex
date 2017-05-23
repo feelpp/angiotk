@@ -1,0 +1,71 @@
+	\subsection{Traitement de surface}
+
+La surface est ici traitée et remaillée grâce à \execname{meshing\_remeshstl}: On procède d'abord à l'ouverture des extrémités, réalisée par \gmsh, %hardcoded at line 2153: std::string method = "gmsh"; in <angiotk_sources>/Modules/Meshing/VolumeFromSTL/src/volumefromstl.cpp
+ puis au remaillage de la surface, qui peut-être réalisé par plusieurs méthodes, soit via \vmtk (par défaut), soit via \gmsh. \gmsh supporte plusieurs méthodes, celle retenue dans le code de \execname{meshing\_remeshstl} est une méthode dite frontale. Deux autres méthodes sont également disponibles et une comparaison des trois est étudiée dans \cite{Marchandise2012} % command line argument: package-type, default value defined line 2496 in <angiotk_sources>/Modules/Meshing/VolumeFromSTL/src/volumefromstl.cpp
+
+	\subsubsection{\ioT}
+	
+\iolist
+{fichier \stl et fichier \vtk}
+{fichier \stl}
+	
+	\subsubsection{\argsT}
+
+\args
+{config-file}{}{string}{Nom du fichier de configuration à utiliser}
+{input.surface.filename}{}{string}{Fichier \stl (la surface à traiter)}
+{gmsh.centerlines.filename}{}{string}{Fichier \vtk (les lignes centrales)}
+{output.directory}{}{string}{Répertoire de sortie du fichier \stl à produire}
+\stoparg
+
+		\subsubsection{Fichier de configuration}
+
+\configfile
+{force-rebuild}{1}{bool}{0 pour éviter le calcul si le fichier cible existe déjà, 1 pour le forcer (et écraser le fichier cible)}
+{output.save-binary}{1}{bool}{Définit le type de fichier \stl à produire: 1 pour du binaire, 0 pour de l'ASCII}
+{package-type}{vmtk}{string}{À choisir parmi: vtmk, gmsh, gmsh-executable \tbv comment choisir ?}
+{pre-process.open-surface}{}{bool}{1 pour ouvrir les extrémités des structures tubulaires}
+{[vmtk]}{paramètres spécifiques au remaillage via vmtk}{}{}
+{area}{0.5}{double}{Surface désirée d'un triangle lors du remaillage \tbv comment choisir ?}
+{n-iteration}{10}{int}{Nombre maximal d'itérations}
+{[gmsh]}{paramètres spécifiques au remaillage via gmsh}{}{}
+{nb-points-in-circle}{15}{int}{Nombre de points désiré pour une section circulaire lors du remaillage}
+{radius-uncertainty}{0.0}{double}{Incertitude sur le rayon, à choisir de l'ordre de la précision du pixel de l'image}
+{remesh-partition.force-rebuild}{true}{bool}{1 pour forcer le remaillage de partition si le fichier cible existe déjà, 0 sinon}
+{[open-surface]}{paramètres spécifiques à l'ouverture des extrémités par gmsh}{}{} 
+{force-rebuild}{1}{bool}{0 pour éviter le calcul si le fichier cible existe déjà, 1 pour le forcer (et écraser le fichier cible)}
+{output.save-binary}{1}{bool}{définit le type de fichier \stl à produire: 1 pour du binaire, 0 pour de l'ASCII}
+{radius-uncertainty}{0.0}{double}{Incertitude sur le rayon, à choisir de l'ordre de la précision du pixel de l'image}
+{distance-clip.scaling-factor}{0.0}{double}{Pour ajuster la distance à laquelle on coupe la structure tubulaire (afin de l'ouvrir): ajuster ce paramètre permet d'éviter de couper trop proche de l'extrémité de la branche (dans la zone où le rayon rétrécit progressivement)}
+\stopfile
+
+\begin{center}
+ \begin{figure}[H]
+	\begin{minipage}[b]{.33\linewidth}
+            	\centering
+            	\includegraphics[width=\linewidth]{\imgpath 6_comparison_closed}
+		\caption*{Surface avant l'ouverture}
+	\end{minipage}
+	\begin{minipage}[b]{0.33\linewidth}
+            	\centering
+            	\includegraphics[width=\linewidth]{\imgpath 6_comparison_open_0}
+		\caption*{Ouverture avec $k = 0$ }
+	\end{minipage}
+	\begin{minipage}[b]{0.33\linewidth}
+            	\centering
+            	\includegraphics[width=\linewidth]{\imgpath 6_comparison_open_2}
+		\caption*{Surface ouverte avec $k = 2$ }
+	\end{minipage}
+	
+	\caption{Impact du paramètre $\cfgfont{distance-clip.scaling-factor} = k$:  augmenter $k$ revient à couper plus loin de l'extrémité. L'avantage est visible sur la plus petite branche: on évite le rétrécissement avant l'ouverture.}
+ \end{figure}
+\end{center}
+
+	\subsubsection{\etatg}
+	
+Deux problèmes peuvent se poser durant cette étape:
+\begin{itemize}
+ \item crash d'origine inconnue (très rare).
+ \item échec du remaillage d'une partition (ajuster les paramètres \cfgfont{radius-uncertainty} et \cfgfont{gmsh.nb\allowbreak-points-in-circle} permet de régler le problème).
+\end{itemize}
+

@@ -1,0 +1,34 @@
+	\subsection{Segmentation par Component Tree}
+
+Afin de contourner le problème des lignes centrales, l'une des pistes envisagées consiste à améliorer la segmentation qui a lieu après le filtrage afin d'extraire directement une surface satisfaisante. Aussi, une méthode de segmentation par component tree a été ajoutée et peut déjà être testée. Celle-ci fait appel à des marqueurs, placés sur les régions d'intérêt de l'image à segmenter. Le principe de la méthode est décrit dans \cite{Passat2011}. La génération de marqueurs est assurée par \rorpo et la segmentation en elle-même par \cts.
+
+	\subsubsection{Génération de marqueurs}
+
+Les marqueurs à utiliser sont donnés par \rorpo: il s'agit précisément des structures tubulaires qu'il met en valeur. Concrètement ces marqueurs sont donc obtenus sous la forme d'une image de mêmes dimensions que l'image à segmenter.
+
+	\subsubsection{\ioT}
+	
+\iolist
+{2 fichiers \nii (image et marqueurs)}
+{fichier \nii}
+
+	
+	\subsubsection{\argsT}
+
+Les paramètres doivent être donnés dans un ordre précis lors de l'appel de la ligne de commande:
+
+\begin{lstlisting}
+$ component_tree_segmentation <input path> <label path> <output path> <alpha> <threshold>
+\end{lstlisting}
+
+\args
+{<input path}{}{string}{Image à segmenter}
+{<label path}{}{string}{Marqueurs à utiliser (= image filtrée par \rorpo)}
+{<output path}{}{string}{Répertoire de sortie}
+{<alpha}{}{double}{Paramètre $\alpha$ (nombre réel) compris entre 0 et 1}
+{<threshold}{}{int}{Seuil (nombre entier) compris entre 0 et 255}
+\stoparg
+
+	\subsubsection{\etatg}
+	
+

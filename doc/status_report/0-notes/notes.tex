@@ -1,0 +1,19 @@
+\renewcommand{\chpath}{00-notes/}
+\renewcommand{\imgpath}{\chpath img/}
+\renewcommand{\secpath}{\chpath}
+\chapter{Notes}
+\label{chap:notes}
+
+\section{Visualisation de données - \paraview}
+Pour visualiser des images \nii dans \paraview, il faut au préalable activer un plugin supportant ce format. 
+Le plugin \texttt{AnalyzeNIfTIIO} est intégré à \paraview, mais désactivé par défaut. Pour l'activer, dans l'interface graphique (\paraview 5.0.1), il faut:
+
+\begin{itemize}
+\item accéder au menu \texttt{Tools > Manage Plugins...},
+\item sélectionner le plugin \texttt{AnalyzeNIfTIIO} dans la liste,
+\item cliquer sur \texttt{Load Selected}.
+\end{itemize}
+
+En cas de connexion à un serveur \paraview (pvserver), deux listes de plugins seront présentées: une distance (les plugins du serveur) et une locale (ceux de l'instance de \paraview dont l'interface graphique est utilisée). Il suffit d'activer le plugin dans les deux listes.
+
+%\input{\chpath annexe_rorpo}

@@ -1,0 +1,49 @@
+	\subsection{Filtrage d'image 3D: \rorpo}
+	\label{brique:rorpo}
+	
+\rorpo est utilisé via l'exécutable \execname{RORPO\_multiscale\_usage}, qui permet de cumuler les exécutions de \rorpo pour plusieurs échelles consécutives.
+
+	\subsubsection{Prétraitements}
+
+Quelques traitements et vérifications sont effectuées avant de lancer \rorpo:
+
+\begin{itemize}
+\item Conversion au format \mha si nécessaire (\texttt{vmtkimagereader/vmtkimagewriter}).
+\item Création d'une version isotrope si nécessaire (KitWare/itk: \texttt{ResampleVolumesToBeIsotropic}).
+\item Conversion au format \nii (\texttt{vmtkimagereader/vmtkimagewriter}).
+\end{itemize}
+
+	\subsubsection{\ioT}
+
+\iolist
+{image 3D isotrope au format \mha ou \nii (le choix entre les deux n'a aucune incidence).}
+{image 3D isotrope au format \mha ou \nii (à choisir via le paramètre \texttt{-{}-extension}).}
+
+
+
+	\subsubsection{\argsT}
+	\label{brique:rorpo:p}
+
+\args
+{input (-i)}{}{string}{nom du fichier image à traiter.}
+{output (-o)}{}{string}{nom du fichier à produire.}
+{extension (-e)}{}{int}{format de fichier en sortie, 0 pour \mha, 1 pour \nii.}
+{smin (-s)}{}{int}{taille minimale de chemin (en pixels).}
+{factor (-f)}{}{float}{raison de la suite géométrique des échelles: $s_{n+1} = f \cdot s_n$.}
+{nb\_scale (-n)}{}{int}{nombre d'échelles à utiliser (taille de la suite).}
+{core (-f)}{}{int}{nombre de processus (threads) à utiliser (maximum 7).}
+\stoparg
+
+
+
+%Note: $s_{min}$ est donnée en pixels. On peut calculer ce paramètre en fonction de la taille minimale des structures à mettre en évidence (voir l'annexe \ref{sec:lminRORPO})
+
+
+	\subsubsection{\etatg}
+\rorpo fonctionne sur l'ensemble des images disponibles, et aucun problème n'est à signaler.
+
+	\subsubsection{Post-traitements}
+
+L'image 3D obtenue ne subit qu'un seul post-traitement avant l'étape suivante: une reconversion au format \mha (\texttt{vmtkimagereader/vmtkimagewriter}).
+
+

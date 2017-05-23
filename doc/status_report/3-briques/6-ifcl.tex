@@ -1,0 +1,28 @@
+	\subsection{Génération d'image 3D}
+
+À partir des lignes centrales fusionnées, on génère une nouvelle image 3D (isotrope) avec \execname{meshing\_imagefromcenterlines}.
+
+	\subsubsection{\ioT}
+
+\iolist
+{fichier \vtk.}
+{fichier \mha.}
+
+
+	\subsubsection{\argsT}
+
+\args
+{config-file}{}{string}{nom du fichier de configuration à utiliser}
+{input.centerlines.filename}{}{string}{fichier \vtk contenant les lignes centrales}
+{output.directory}{}{string}{répertoire pour le fichier \mha à produire}
+{dim.x}{0}{int}{|}
+{dim.y}{0}{int}{\} dimensions de l'image à produire (en voxels)}
+{dim.z}{0}{int}{|}
+{dim.spacing}{0.0}{double}{espacement entre les points (taille des voxels)}
+{radius-array-name}{MaximumInscribedSphereRadius}{string}{nom de la liste des rayons de sphères inscrites}
+\stoparg
+
+
+	\subsubsection{\etatg}
+
+La génération d'image fonctionne bien. Il est important de noter que la taille des pixels demandée doit être inférieure au rayon minimum.

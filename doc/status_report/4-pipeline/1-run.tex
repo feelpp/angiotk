@@ -1,0 +1,36 @@
+	\subsection{runAngioTKPipeline.py}
+	\label{pipeline:run}
+	
+Le script \runpy permet d'exécuter le pipeline de reconstruction de modèle facilement pour une image donnée. Schématiquement, il exécute chaque brique logicielle l'une après l'autre, en utilisant la sortie d'une brique comme entrée de la brique suivante.
+
+	\subsubsection{\ioT}
+
+\iolist
+{image 3D au format \mha ou \nii et répertoire contenant des fichiers de configurations}
+{ensemble des sorties de toutes les briques logicielles du pipeline}
+
+
+	\subsubsection{\argsT}
+
+\args
+{inputfile}{}{string}{Nom de l'image 3D (\mha ou \nii)}
+{inputpath}{}{string}{Nom du répertoire contenant les fichiers de configurations}
+{outputpath}{}{string}{Répertoire de sortie}
+\stoparg
+
+
+	\subsubsection{Répertoire des fichiers de configuration}
+Les fichiers de configurations doivent être nommés comme suit, afin d'être détectés et utilisés correctement par \runpy:
+
+\begin{itemize}
+	\item rorpo.cfg
+	\item surfacefromimage.cfg
+	\item centerlines.cfg
+	\item centerlinesmanager.cfg
+	\item imagefromcenterlines.cfg
+	\item surfacefromimage2.cfg
+	\item remeshstlgmsh.cfg
+	\item volumefromstlandcenterlines.cfg
+\end{itemize}
+
+

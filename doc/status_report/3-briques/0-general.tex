@@ -1,0 +1,20 @@
+	\subsection{Généralités}
+
+Les briques logicielles présentées ici sont écrites en C++. Bien qu'ils soient appelés dans un certain ordre par le script du pipeline, les exécutables correspondants sont tout à fait utilisables indépendamment les uns des autres.
+
+	\subsubsection{Fichiers de configurations}
+	\label{configfile}
+
+Certains paramètres varient plus fréquemment que d'autres lors de l'appel à une brique logicielle donnée. Pour cette raison, il est possible de regrouper des paramètres dans un fichier texte, appelé fichier de configuration. 
+Ainsi, lors de l'appel à la brique logicielle concernée, il suffit, dans la ligne de commande, de rajouter un paramètre \argfont{-{}-config-file <chemin/vers/fichier.cfg>} pour que les paramètres contenus dans le fichier de configuration soient lus depuis celui-ci.
+
+La structure du fichier de configuration est très simple:
+
+\begin{itemize}
+ \item chaque ligne débute par le nom d'un paramètre, suivi d'un symbole $=$ et de la valeur correspondante: \argfont{parameter=value},
+ \item les lignes vides sont ignorées,
+ \item le symbole \# sert à écrire les commentaires (tout ce qui le suit dans la ligne est donc ignoré),
+ \item une ligne peut définir une section: elle est démarre par un mot placé entre crochets. Ce mot servira de préfixe à tous les paramètres définis les lignes suivantes, jusqu'à une éventuelle prochaine section.
+\end{itemize}
+
+Le mécanisme des fichiers de configuration fonctionne avec toutes les briques à l'exception de \rorpo, dont le jeu de paramètres est de toute façon restreint et abrégé (voir \titleref{brique:rorpo:p}). Néanmoins, cette fonctionnalité est tout de même disponible pour \rorpo à plus haut niveau, dans le script du pipeline.

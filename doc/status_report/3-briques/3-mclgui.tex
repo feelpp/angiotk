@@ -1,0 +1,35 @@
+	\subsection{Définition des lignes centrales}
+
+Nous avons besoin de connaître les lignes centrales des vaisseaux sanguins afin de pouvoir les reconstruire. À ce jour (\today), cette étape demande encore un effort manuel et passe par l'utilisation d'un outil graphique: \execname{meshing\_centerlinesmanagergui} qui affiche la surface extraite précédemment en transparence. Il s'utilise en plaçant des points représentés par des sphères le long des vaisseaux sanguins, ainsi qu'en ajustant le diamètre de la sphère pour qu'elle soit inscrite aux parois des vaisseaux sanguins (à la souris et au clavier):
+
+\begin{figure}[H]
+\begin{center}
+  \subfigure[]{ \includegraphics[width=0.45\linewidth]{\imgpath gui1}\label{fig:gui1}}
+  \subfigure[]{ \includegraphics[width=0.45\linewidth]{\imgpath gui2}\label{fig:gui2}}
+\caption{%(\subref{fig:gui1} et \subref{fig:gui2}).
+}
+\end{center}
+\label{fig:mclgui}
+\end{figure}
+
+Les points et rayons ainsi définis sont sauvegardés dans un fichier texte. Il est possible (et recommandé) d'ajouter les points petit à petit et de vérifier que la reconstruction se passe bien avant de rajouter d'autres points. Il est évidemment possible de continuer à ajouter des points dans un fichier existant.
+
+	\subsubsection{\ioT}
+
+\iolist
+{fichier \stl (et éventuellement fichier \pointpair à enrichir).}
+{fichier \pointpair .}
+
+
+	\subsubsection{\argsT}
+
+\args
+{input.surface.path}{}{string}{fichier \stl}
+{input.point-pair.path}{}{string}{(optionnel) fichier \pointpair à enrichir}
+\stoparg
+
+
+	\subsubsection{\etatg}
+	
+L'outil fonctionne comme attendu. L'utilisation peut cependant devenir compliquée, passé un certain nombre de points placés. En utilisation à distance (ssh) il est très fréquent de subir des ralentissements ou des gels de quelques secondes. Pour travailler sur des images comme celles dont nous disposons, une bonne connexion entre l'utilisateur et le serveur est indispensable pour réduire à la fois ces désagréments et le temps de réponse.
+

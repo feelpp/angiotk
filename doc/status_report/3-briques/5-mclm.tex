@@ -1,0 +1,45 @@
+	\subsection{Fusion des lignes centrales}
+
+Les lignes centrales sont finalement fusionnées avec \execname{meshing\_centerlinesmanager}.
+
+	\subsubsection{\ioT}
+
+\iolist
+{fichier \stl, fichiers \vtk.}
+{fichier \vtk.}
+
+
+	\subsubsection{\argsT}
+
+\args
+{config-file}{}{string}{nom du fichier de configuration à utiliser.}
+{input.surface.filename}{}{string}{fichier \stl (optionnel, sert à estimer le rayon des lignes centrales).}
+{input.centerlines.filename}{}{string}{fichier \vtk d'une ligne centrale (un paramètre à ajouter pour chaque fichier à fusionner).}
+{output.directory}{}{string}{répertoire pour le fichier \vtk à produire.}
+\stoparg
+
+
+	\subsubsection{Fichier de configuration}
+
+\configfile
+{remove-branch-ids}{}{vector of int}{pour retirer certaines branches}
+%{use-window-interactor}{0}{bool}{}
+%{window-width}{1024}{}{}
+%{window-height}{768}{}{}
+{[threshold-radius]}{}{}{}
+{min}{-1}{double}{rayon minimum}
+{max}{-1}{double}{rayon maximum}
+{[avoid-tubular-colision]}{}{}{}
+{apply}{0}{bool}{1 pour activer le mécanisme, 0 sinon}
+{distance-min}{0.4}{double}{distance minimale}
+{radius-min}{0.4}{double}{rayon minimum}
+{[smooth-resample]}{}{}{}
+{apply}{1}{bool}{1 pour activer le mécanisme, 0 sinon}
+{geo-points-spacing}{4.0}{double}{espace entre les points}
+{mesh-size}{1.0}{double}{}
+\stopfile
+
+	\subsubsection{\etatg}
+	
+Des collisions sont possibles selon le rayon et la proximité des vaisseaux sanguins. Ajuster les paramètres \argfont{avoid-tubular-colision.*} permet d'éviter ce phénomène \tbv.
+
