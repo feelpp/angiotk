@@ -100,27 +100,7 @@ endif()
 
 #=========================================================
 # Find Feel++
-OPTION(ANGIOTK_USE_OLD_FEELPP_CMAKE_DETECTION "use old cmake feel++ detection" OFF)
-if ( ANGIOTK_USE_OLD_FEELPP_CMAKE_DETECTION )
-  FIND_PATH(FEELPP_CMAKE_MODULES FindFeel++.cmake PATH $ENV{FEELPP_DIR}/share/feel/cmake/modules/   /usr/share/feel/cmake/modules/ /usr/local/share/feel/cmake/modules/ )
-  if ( FEELPP_CMAKE_MODULES )
-    set(CMAKE_MODULE_PATH ${FEELPP_CMAKE_MODULES})
-    Find_Package(Feel++)
-    set(Feel++_FOUND 1)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g0 -O3 -DNDEBUG  -finline-functions -pedantic  -ftemplate-depth-256 -Wno-inline" )
-
-    if(BUILD_MODULE_Meshing AND (NOT ANN_INCLUDE_DIR OR NOT ANN_LIB))
-      message(FATAL_ERROR "ANN does not seem to be installed on this platform. Please install Feel++ with ANN support.")
-    endif()
-  else()
-    # The meshing module uses Feel++
-    # If it is not installed, make cmake end up with an error
-    if(BUILD_MODULE_Meshing)
-      message(FATAL_ERROR "Feel++ does not seem to be installed on this platform. Please set the FEELPP_DIR variable.")
-    endif()
-  endif()
-else()
-  if ( ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR} )
+if ( 1 )
     if (ANGIOTK_USE_SUPERBUILD)
       set(FEELPP_DONT_SETUP_CMAKE 1)
     endif()
@@ -165,7 +145,6 @@ else()
     unset(_CMAKE_CXX_FLAGS)
     unset(REMOVED_FLAGS)
     endif()
-endif()
 endif()
 
 #=========================================================
