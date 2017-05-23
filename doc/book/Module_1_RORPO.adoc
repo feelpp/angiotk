@@ -1,0 +1,28 @@
+# RORPO
+
+RORPO is an image filtering software which highlight tubular structures. In our context, the targeted tubular structures are the blood vessels. The executable we use is named `RORPO_multiscale_usage`.
+
+NOTE: This page was written using the complete RORPO documentation which is available link:http://path-openings.github.io/RORPO/[on the official website].
+
+## Supported file formats
+
+- input: a 3D isotropic image in either MetaImage (.mha) or NIfTI (.nii) format (*short* type support only)
+- output: a 3D isotropic image in either MetaImage (.mha) or NIfTI (.nii) format (set using `--extension`)
+
+## Parameters
+
+- `--input` (`-i`) : (string) Path to the .mha or .nii image. The image type must be *short*
+- `--output` (`-o`) : (string) Path to write the resulting image
+- `--smin` (`-s`) : (int) Minimum path length
+- `--factor` (`-f`) : (float) Factor for the geometric sequence of scales; scale\_(n+1) = factor * scale\_(n)
+- `--nb_scales` (`-n`) : (int) Number of scales
+- `--extension` (`-e`) : (int) 1 for nifti input image; 0 for mha input image
+- `--core` (`-c`): (int) Optional, number of CPU threads used for RPO computation, up to 7
+
+
+
+
+
+
+
+link:Overview.adoc[Go back to Overview]

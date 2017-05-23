@@ -9,9 +9,11 @@ Therefore, AngioTK is structured as a one-directional pipeline whose initial inp
 
 Each of these processes corresponds to a dedicated software module:
 
-## 1.The Filtering Module (ITK/Medipy/RORPO)
+## 1.Filtering Module (ITK/Medipy/RORPO/VMTK)
 
-Images are filtered to prepare them for mesh extraction, and converted to isotropic images if necessary.
+Images are filtered to prepare them for mesh extraction and made isotropic if necessary. 
+
+The main goal here is to highlight tubular structures so they can be extracted in the next step. This is accomplished by RORPO. See link:Module_1_RORPO.adoc[RORPO] for more information on using it.
 
 ## 2.Meshing Module (VTK/VMTK/GMSH)
 

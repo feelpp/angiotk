@@ -3,7 +3,7 @@
 The goal here is to generate a 3D mesh of the blood vessels visible in the MRI. In order to reach this goal, the data must undergo several processing steps which are detailed below.
 
 ## Segmentation & Surface extraction (VMTK)
-Image segmentation is used to detect blood vessels in the MRIs. Blood vessels surfaces are extracted (using a level-set method).
+Image segmentation is used to detect blood vessels in the MRIs. Blood vessels surfaces are extracted (using a level-set method). See link:SurfaceFromImage.adoc[Surface extraction] for details.
 
 ## Center lines definition (VTK)
 Blood vessels center lines are defined and can be corrected by hand using a graphical tool. For each center line point, the inscribed sphere is also stored.

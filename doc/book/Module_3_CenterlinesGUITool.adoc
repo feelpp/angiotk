@@ -1,6 +1,6 @@
-# The Centerline Editing Graphical Tool
+# The Center line Editing Graphical Tool
 
-The Centerline Editing Graphical Tool's (CEGT) purpose is to assist the user in centerlines creation and edition. At this time (May 2016), it essentially remains a manual task, and a critical step in the pipeline (see the Center lines definition section in definitionlink:Meshing_Module_Description.adoc[the Meshing Module Description page].)
+The Center line Editing Graphical Tool's (CEGT) purpose is to assist the user in center lines creation and edition. At this time (May 2016), it essentially remains a manual task, and a critical step in the pipeline (see the Center lines definition section in definitionlink:Meshing_Module_Description.adoc[the Meshing Module Description page].)
 
 ## Overview
 
@@ -8,11 +8,11 @@ Although the CEGT is started using command line (and outputs useful messages the
 
 The user is presented with the initial blood vessels mesh generated in the previous step. 
 
-The goal is to define centerlines for each vein/artery. To define a centerline, the user has to define key points along the desired centerline, and pair them along the way, in order to create a polygonal chain through the blood vessel. 
+The goal is to define center lines for each vein/artery. To define a center line, the user has to define key points along the desired center line, and pair them along the way, in order to create a polygonal chain through the blood vessel. 
 
 During this process, the user also adjusts the radius of the inscribed sphere for each key point.
 
-When all the centerlines keypoints are well defined, the next pipeline module generates the centerlines and carries on automatically.
+When all the center lines keypoints are well defined, the next pipeline module generates the center lines and carries on automatically.
 
 ## Starting command line
 
@@ -44,11 +44,11 @@ IMPORTANT: when no point-pair file is specified, saving your progress will resul
 
 ## Recommended workflow
 
-At this time (May 2016), centerline generation is completely dependent and very sensitive to the provided pointsets. Therefore, a cautious stepwise workflow is strongly advised, and you should frequently check you progress with the centerline generator and ParaView:
+At this time (May 2016), center line generation is completely dependent and very sensitive to the provided pointsets. Therefore, a cautious stepwise workflow is strongly advised, and you should frequently check you progress with the center line generator and ParaView:
 
-- (optional) Prepare 2 different terminals, one for the CEGT, one for the centerline generator.
+- (optional) Prepare 2 different terminals, one for the CEGT, one for the center line generator.
 
-#### In the centerline editing graphical tool
+#### In the center line editing graphical tool
 - Start the GUI in one terminal
 - (optional) Press the 'h' key to display help (this should toggle an on-screen list of commands)
 - Use click&drag to rotate the mesh around, identify a blood vessel to work on.
@@ -57,11 +57,11 @@ At this time (May 2016), centerline generation is completely dependent and very 
 	* Adjust the position and size of the sphere using the following keys: left/right, up/down, o/l and p/m (all of which are also visible in the on-screen help)
 	* Press 'y' to validate the sphere parameters. To further modify these, simply click back on the sphere and proceed as if it was a newly created one.
 	* To connect or disconnect two points, click on both of them and press 'd'.
-- After adding/connecting a few points, you should save your work by pressing 's'. This will write two files: a point-pair file a point-set file. Now you can check centerline generation.
+- After adding/connecting a few points, you should save your work by pressing 's'. This will write two files: a point-pair file a point-set file. Now you can check center line generation.
 
-#### In the centerline generator
+#### In the center line generator
 
-- Launch the centerline generator with the relevant options to test your centerline definition points:
+- Launch the center line generator with the relevant options to test your center line definition points:
 
 	`meshing_centerlines`
 
@@ -84,7 +84,7 @@ At this time (May 2016), centerline generation is completely dependent and very 
 		`vtkvmtkSteepestDescentLineTracer (0x24ef850): `
 		`Degenerate descent detected. Target not reached.`
 	
-		This means the centerline is invalid and won't be used. Try changing the positions of the input points or adding more points in between.
+		This means the center line is invalid and won't be used. Try changing the positions of the input points or adding more points in between.
 
 
 #### In ParaView
