@@ -170,8 +170,8 @@ endif()
 
 #=========================================================
 # Find Python
-FIND_PACKAGE(PythonLibs)
-FIND_PACKAGE(PythonInterp)
+FIND_PACKAGE(PythonLibs 2)
+FIND_PACKAGE(PythonInterp 2)
 
 #=========================================================
 if ( ANGIOTK_USE_SYSTEM_VMTK )
