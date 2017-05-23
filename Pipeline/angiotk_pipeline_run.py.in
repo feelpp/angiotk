@@ -13,6 +13,8 @@ import sys
 import threading
 import time
 
+from vmtk import pypes
+
 debug = 1
 
 # execute a command line
@@ -142,9 +144,6 @@ def main():
     print "- PATH=" + my_env["PATH"]
     print ""
 
-    vmtkExecutablesDir="@VMTK_EXECUTABLE_DIR@"
-    rorpoExecutablesDir="@RORPO_EXECUTABLE_DIR@"
-    angiotkExecutablesDir="@ANGIOTK_EXECUTABLE_DIR@"
     # Create a log directory for the current execution
     dt = datetime.datetime.now()
     logPath = baseOutputPath + "/log/" + dt.strftime("%Y%m%d-%H%M%S")
@@ -162,9 +161,10 @@ def main():
     # otherwise convert it
     print "Checking input file " + args.inputfile + " ... "
     if(inputFileExt != ".mha"):
-        cmd = vmtkExecutablesDir + "/vmtkimagereader -ifile " + args.inputfile + " " \
+        cmd = "vmtkimagereader -ifile " + args.inputfile + " " \
             "--pipe vmtkimagewriter -ofile " + AngiotTKOutputPath + "/data/" + inputFileNoExt + ".mha"
-        retcode, _ = executeCommand("", cmd, logPath + "/Convert_format_mha")
+        #retcode, _ = executeCommand("", cmd, logPath + "/Convert_format_mha")
+        myPype = pypes.PypeRun(cmd);
     else:
         shutil.copy(args.inputfile, AngiotTKOutputPath + "/data/")
     sanityCheckFile(AngiotTKOutputPath + "/data/" + inputFileNoExt + ".mha")
@@ -190,7 +190,7 @@ def main():
         else:
             print "Incorrect spacing (" + spacing + ")"
             print "Attempting to correct spacing"
-            cmd = angiotkExecutablesDir+"/angiotk_filtering_ResampleVolumesToBeIsotropic " + AngiotTKOutputPath + "/data/" + inputFileNoExt + ".mha " + \
+            cmd ="angiotk_filtering_ResampleVolumesToBeIsotropic " + AngiotTKOutputPath + "/data/" + inputFileNoExt + ".mha " + \
                   AngiotTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha 0 255"
             if(not os.path.exists(AngiotTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha")):
                 retcode, _ = executeCommand("", cmd, logPath + "/Convert_iso")
@@ -204,10 +204,11 @@ def main():
 
     # Convert mha data to nii for RORPO
     print "Converting input file to .nii ... "
-    cmd = vmtkExecutablesDir + "/vmtkimagereader -ifile " + AngiotTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha" + " " \
+    cmd = "vmtkimagereader -ifile " + AngiotTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha" + " " \
         "--pipe vmtkimagewriter -ofile " + AngiotTKOutputPath + "/data/" + inputFileNoExt + ".nii"
     if(not os.path.exists(AngiotTKOutputPath + "/data/" + inputFileNoExt + ".nii")):
-        retcode, _ = executeCommand("", cmd, logPath + "/Convert_mha_nii")
+        #retcode, _ = executeCommand("", cmd, logPath + "/Convert_mha_nii")
+        myPype = pypes.PypeRun(cmd);
     sanityCheckFile(AngiotTKOutputPath + "/data/" + inputFileNoExt + ".nii")
     print ""
 
@@ -231,7 +232,7 @@ def main():
 
     makedir(AngiotTKOutputPath + "/RORPO/")
     RORPOOutputPrefix = inputFileNoExt + "_RORPO_" + str(scaleMin) + "_" + str(factor) + "_" + str(nbScales)
-    cmd = rorpoExecutablesDir + "/RORPO_multiscale_usage " + AngiotTKOutputPath + "/data/" + inputFileNoExt + ".nii " + \
+    cmd = "RORPO_multiscale_usage " + AngiotTKOutputPath + "/data/" + inputFileNoExt + ".nii " + \
         AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii " + \
         str(scaleMin) + " " + str(factor) + " " + str(nbScales) + " --core " + str(nbCores) + " --verbose"
     if(not os.path.exists(AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii")):
@@ -240,16 +241,17 @@ def main():
     print ""
 
     # Convert filtered data back to mha
-    cmd = vmtkExecutablesDir + "/vmtkimagereader -ifile " + AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii " + \
+    cmd = "vmtkimagereader -ifile " + AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".nii " + \
         "--pipe vmtkimagewriter -ofile " + AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha"
     if(not os.path.exists(AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha")):
-        retcode, _ = executeCommand("", cmd, logPath + "/Convert_nii_mha")
+        #retcode, _ = executeCommand("", cmd, logPath + "/Convert_nii_mha")
+        myPype = pypes.PypeRun(cmd);
     sanityCheckFile(AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha")
 
     # Extract mesh from images
     print "Extracting surface from image ... "
     sanityCheckFile(cfgpath + "/surfacefromimage.cfg")
-    cmd = angiotkExecutablesDir+"/angiotk_meshing_surfacefromimage --config-file " + cfgpath + "/surfacefromimage.cfg " + \
+    cmd = "angiotk_meshing_surfacefromimage --config-file " + cfgpath + "/surfacefromimage.cfg " + \
         "--input.image.filename " + AngiotTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha " + \
         "--pre-process.resize-from-reference-image.path " + AngiotTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha" + " " \
         "--output.path " + AngiotTKOutputPath + "/surfacefromimage/model.stl"
@@ -277,7 +279,7 @@ def main():
 
     cldata = glob.glob(cfgpath + "/data/pointset*.data")
     for cl in cldata:
-        cmd = angiotkExecutablesDir+"/angiotk_meshing_centerlines --config-file " + cfgpath + "/centerlines.cfg " \
+        cmd = "angiotk_meshing_centerlines --config-file " + cfgpath + "/centerlines.cfg " \
             "--input.surface.filename " + AngiotTKOutputPath + "/surfacefromimage/model.stl " \
             "--input.pointset.filename " + cl + " " \
             "--output.directory " + AngiotTKOutputPath + "/centerlines/part" + str(clid) + " " \
@@ -293,7 +295,7 @@ def main():
 
     cldata = glob.glob(cfgpath + "/data/pointpair*.data")
     for cl in cldata:
-        cmd = angiotkExecutablesDir+"/angiotk_meshing_centerlines --config-file " + cfgpath + "/centerlines.cfg " \
+        cmd = "angiotk_meshing_centerlines --config-file " + cfgpath + "/centerlines.cfg " \
             "--input.surface.filename " + AngiotTKOutputPath + "/surfacefromimage/model.stl " \
             "--input.pointpair.filename " + cl + " " \
             "--output.directory " + AngiotTKOutputPath + "/centerlines/part" + str(clid) + " " \
@@ -309,7 +311,7 @@ def main():
     # Iterate over geocenterline data
     cldata = glob.glob(cfgpath + "/data/geocenterlines*.data")
     for cl in cldata:
-        cmd = angiotkExecutablesDir+"/angiotk_meshing_centerlines --config-file " + cfgpath + "/centerlines.cfg " \
+        cmd = "angiotk_meshing_centerlines --config-file " + cfgpath + "/centerlines.cfg " \
             "--input.surface.filename " + AngiotTKOutputPath + "/surfacefromimage/model.stl " \
             "--input.geo-centerlines.filename " + cl + " " \
             "--output.directory " + AngiotTKOutputPath + "/centerlines/part" + str(clid) + " " \
@@ -328,7 +330,7 @@ def main():
     # Merge centerlines
     print "Merging centerlines ... "
     sanityCheckFile(cfgpath + "/centerlinesmanager.cfg")
-    cmd = angiotkExecutablesDir+"/angiotk_meshing_centerlinesmanager --config-file " + cfgpath + "/centerlinesmanager.cfg "
+    cmd = "angiotk_meshing_centerlinesmanager --config-file " + cfgpath + "/centerlinesmanager.cfg "
     cmd = cmd + "--input.surface.filename " + AngiotTKOutputPath + "/surfacefromimage/model.stl "
     cmd = cmd + "--output.directory " + AngiotTKOutputPath + "/centerlinesmanager "
     for i in range(len(cltpool)):
@@ -338,7 +340,7 @@ def main():
     # Regenerate image from centerlines
     print "Generating image from centerlines ... "
     sanityCheckFile(cfgpath + "/imagefromcenterlines.cfg")
-    cmd = angiotkExecutablesDir+"/angiotk_meshing_imagefromcenterlines --config-file " + cfgpath + "/imagefromcenterlines.cfg " \
+    cmd = "angiotk_meshing_imagefromcenterlines --config-file " + cfgpath + "/imagefromcenterlines.cfg " \
         "--input.centerlines.filename " + AngiotTKOutputPath + "/centerlinesmanager/model_centerlines_up.vtk " \
         "--output.directory " +  AngiotTKOutputPath + "/imagefromcenterlines"
     executeCommand("", cmd, logPath + "/meshing_imagefromcenterlines")
@@ -353,7 +355,7 @@ def main():
     # Extract the mesh
     print "Extracting surface from image ... "
     sanityCheckFile(cfgpath + "/surfacefromimage2.cfg")
-    cmd = angiotkExecutablesDir+"/angiotk_meshing_surfacefromimage --config-file " + cfgpath + "/surfacefromimage2.cfg " \
+    cmd = "angiotk_meshing_surfacefromimage --config-file " + cfgpath + "/surfacefromimage2.cfg " \
         "--input.image.filename " + newImage + " " + \
         "--output.directory " +  AngiotTKOutputPath + "/surfacefromimage2"
     executeCommand("", cmd, logPath + "/meshing_surfacefromimage2")
@@ -363,7 +365,7 @@ def main():
     # Process surface
     print "Processing mesh ... "
     sanityCheckFile(cfgpath + "/remeshstlgmsh.cfg")
-    cmd = angiotkExecutablesDir+"/angiotk_meshing_remeshstl --config-file " + cfgpath + "/remeshstlgmsh.cfg " \
+    cmd = "angiotk_meshing_remeshstl --config-file " + cfgpath + "/remeshstlgmsh.cfg " \
         "--input.surface.filename " + newSTL + " "  \
         "--gmsh.centerlines.filename " + AngiotTKOutputPath + "/centerlinesmanager/model_centerlines_up.vtk " \
         "--output.directory " +  AngiotTKOutputPath + "/remeshgmsh"
@@ -374,7 +376,7 @@ def main():
     # Prepare volume data for simulation
     print "Generating volume mesh ... "
     sanityCheckFile(cfgpath + "/volumefromstlandcenterlines.cfg")
-    cmd = angiotkExecutablesDir+"/angiotk_meshing_volumefromstlandcenterlines --config-file " + cfgpath + "/volumefromstlandcenterlines.cfg " \
+    cmd = "angiotk_meshing_volumefromstlandcenterlines --config-file " + cfgpath + "/volumefromstlandcenterlines.cfg " \
         "--input.surface.filename " + newSTL + " " \
         "--input.centerlines.filename " + AngiotTKOutputPath + "/centerlinesmanager/model_centerlines_up.vtk " \
         "--output.directory " + AngiotTKOutputPath + "/volumefromstlandcenterlines"
