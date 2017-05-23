@@ -1,0 +1,22 @@
+steps:
+ - name: ':ubuntu: 16.10,clang++-3.9'
+   command: .buildkite/steps/build.sh
+   agents:
+     docker: true
+     ubuntu: "16.10"
+   env:
+     PROJECT: angiotk
+     CXX: clang++-3.9
+     BUILD_JOBS: 10
+     FROM: feelpp/feelpp-toolboxes
+     TARGET: ubuntu:16.10
+     FEELPP_BRANCH: develop
+ - name: ':rocket: :whale: deploy :ubuntu: 16.10,clang++-3.9'
+   command: .buildkite/steps/release.sh
+   agents:
+     docker: true
+     ubuntu: "16.10"
+   branches: develop master
+   env:
+     PROJECT: angiotk
+     TARGET: ubuntu:16.10
