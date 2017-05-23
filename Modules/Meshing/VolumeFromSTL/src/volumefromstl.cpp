@@ -1525,7 +1525,7 @@ SurfaceFromImage::run()
         Py_Initialize();
         PyRun_SimpleString("from vmtk import pypes");
         std::ostringstream strPypesArg2;
-        strPypesArg << "myArguments='" << __str2.str() << "'";
+        strPypesArg2 << "myArguments='" << __str2.str() << "'";
         PyRun_SimpleString(strPypesArg2.str().c_str());
         PyRun_SimpleString("myPype = pypes.PypeRun(myArguments)");
         Py_Finalize();
