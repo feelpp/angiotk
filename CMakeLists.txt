@@ -174,6 +174,24 @@ FIND_PACKAGE(PythonLibs 2)
 FIND_PACKAGE(PythonInterp 2)
 
 #=========================================================
+# Find ITK (required)
+if ( NOT FEELPP_HAS_VTK )
+  option(ANGIOTK_USE_SYSTEM_VTK "detect VTK on system" ${ANGIOTK_EXTERNAL_PACKAGES_USE_SYSTEM_DEFAULT_OPTION})
+  if ( ANGIOTK_USE_SUPERBUILD AND (NOT ANGIOTK_USE_SYSTEM_VTK) )
+    set(ANGIOTK_SUPERBUILD_VTK_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX} CACHE STRING "VTK install prefix")
+  endif()
+  if ( ANGIOTK_USE_SYSTEM_VTK )
+    FIND_PACKAGE(VTK)
+    IF(VTK_FOUND)
+      message(STATUS "[VTK] Use file: ${VTK_USE_FILE}")
+      INCLUDE(${VTK_USE_FILE})
+    ELSE(VTK_FOUND)
+      MESSAGE(FATAL_ERROR "Cannot build without VTK. Set VTK_DIR.")
+    ENDIF(VTK_FOUND)
+  endif()
+endif()
+
+#=========================================================
 if ( ANGIOTK_USE_SYSTEM_VMTK )
 # Find VMTK
 
