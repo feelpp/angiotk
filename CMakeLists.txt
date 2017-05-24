@@ -32,7 +32,9 @@ OPTION(BUILD_DOXYGEN "Build Doxygen Documentation" OFF)
 OPTION(BUILD_SHARED_LIBS "Build AngioTk with shared libraries." ON)
 SET(AngioTk_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 #=========================================================
-
+if (NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release")
+endif()
 #=========================================================
 #Support for the CTest dashboard testing system
 INCLUDE(CTest)
