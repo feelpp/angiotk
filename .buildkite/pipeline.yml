@@ -11,6 +11,7 @@ steps:
      FROM: feelpp/feelpp-toolboxes
      TARGET: ubuntu:16.10
      FEELPP_BRANCH: develop
+     CMAKE_FLAGS: -DCMAKE_BUILD_TYPE=Release -DBUILD_MODULE_Meshing=ON -DBUILD_MODULE_Filtering=ON
  - name: ':rocket: :whale: deploy :ubuntu: 16.10,clang++-3.9'
    command: .buildkite/steps/release.sh
    agents:
