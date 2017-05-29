@@ -21,6 +21,9 @@ NOTE: This page was written using the complete RORPO documentation which is avai
 
 
 
+## Troubleshooting
+
+There is no known bug for this module. Please report any problem you may encounter.
 
 
 

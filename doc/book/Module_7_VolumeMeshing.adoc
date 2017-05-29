@@ -1,0 +1,35 @@
+# Volume meshing
+
+This last meshing step is deicated to volume meshing. It is also possible to extrude one or more layers from the tubular wall to account for its thickness in future fluid-structure interation numerical simulations. We will also generate mesh input and output markers in a description file (.desc). The executable we use is named `meshing_volumefromstlandcenterlines`.
+
+
+## Supported file formats
+
+- input: a 3D model in STereoLithography (.stl) format, a VTK file (.vtk) and, if appropriate, a description file (.desc).
+- output: a 3D mesh in MSH (.msh) format.
+
+## Parameters
+
+- `--input.suface.filename`: (string) Input 3D model in STereoLithography (.stl) format
+- `--input.centerlines.filename`: (string) Input center lines VTK file (.vtk)
+- `--output.directory`: (string) Output directory
+- `--config-file`: (string) Configuration file
+- `--force-rebuild=1` :(int) 0 to avoid computing if target file already exists, 1 to overwrite it
+- `--output.save-binary=1` (bool) Defines the type of STereoLithography (.stl) file to write: 1 for binary, 0 for ASCII
+- `--input.desc.filename=` (string) Description file (.desc) to use
+- `--nb-points-in-circle=15` (int) Desired number of point on the circular section of any tubular surface in the final mesh
+- `--extrude-wall=0` (bool) 1 to enable layer extrusion, 0 to disable it 
+- `--extrude-wall.nb-elt-layer=2` (int) Number of layers to extrude
+- `--extrude-wall.h-layer=0.2` (double) Thickness of each extruded layer, as a fraction of the radius (1.0 means 100%).
+
+
+NOTE: If the input surface has more than one connected component, the algorithm will enter an infinite loop. A solution is to split each connected component apart and to process them separately.
+
+
+
+
+
+
+
+
+link:Meshing_Module_Description.adoc[Go back to The Meshing Module]

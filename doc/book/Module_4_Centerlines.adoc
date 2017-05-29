@@ -50,4 +50,9 @@ The center lines can now be merged. This is done by `meshing_centerlinesmanager`
 - `--smooth-resample.mesh-size=1.0`: (double)
 
 
+
+## Troubleshooting
+
+Collisions may happen depending on blood vessels radius and proximity. Adjusting *avoid-tubular-colision.radius-min* and *avoid-tubular-colision.distance-min* should solve the problem.
+
 link:Meshing_Module_Description.adoc[Go back to The Meshing Module]
