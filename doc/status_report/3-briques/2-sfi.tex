@@ -36,7 +36,7 @@ Voici les paramètres qu'on préférera inclure dans un fichier de configuration
 {method}{threshold}{string}{méthode à utiliser pour initialiser les surfaces de niveau, parmi: threshold, isosurface}
 {image-fusion.operator}{max}{string}{opérateur pour la méthode parmi: max, min, multiply, substract \tbv comment choisir ?}
 {threshold.lower}{}{double}{limite basse pour la méthode threshold \tbv comment choisir ?}
-{threshold.lower}{}{double}{limite haute pour la méthode threshold \tbv comment choisir ?}
+{threshold.higher}{}{double}{limite haute pour la méthode threshold \tbv comment choisir ?}
 {apply-connectivity.largest-region}{1}{bool}{1 pour ne retenir que les $n$ plus grandes parties connexes de la surface, 0 pour tout conserver.}
 {apply-connectivity.number}{1}{int}{nombre $n$de plus grandes parties à conserver.}
 {post-process.subdivide-surface}{}{bool}{1 pour activer la subdivision de surface, 0 pour la désactiver \tbv comment choisir ?}
@@ -47,8 +47,8 @@ Voici les paramètres qu'on préférera inclure dans un fichier de configuration
 {[smooth-surface]}{nouveau préfixe}{}{}
 {method}{taubin}{string}{nom de la méthode à utiliser parmi: taubin, laplace \tbv comment choisir ?}
 {iterations}{30}{int}{nombre d'itérations}
-{taubin.passband}{0.1}{double}{...\tbv}
-{laplace.relaxation}{0.01}{double}{...\tbv}
+{taubin.passband}{0.1}{double}{limite haute du filtre passe-bas pour la méthode Taubin\tbv}
+{laplace.relaxation}{0.01}{double}{Facteur de relaxation pour la méthode Laplace\tbv}
 \stopfile
 
 	\subsubsection{\etatg}
