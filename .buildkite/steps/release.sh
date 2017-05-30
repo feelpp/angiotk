@@ -11,9 +11,9 @@ BRANCH=${BRANCH:-${BUILDKITE_BRANCH:master}}
 
 mkdir -p tools/scripts/buildkite/
 
-docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock feelpp/feelpp-libs:develop-ubuntu-17.04 \
+docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock feelpp/feelpp-libs \
        cat /usr/local/share/feelpp/scripts/release.sh | dos2unix > tools/scripts/buildkite/release.sh
-docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock feelpp/feelpp-libs:develop-ubuntu-17.04 \
+docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock feelpp/feelpp-libs \
        cat /usr/local/share/feelpp/scripts/list.sh | dos2unix > tools/scripts/buildkite/list.sh
 
 chmod u+x tools/scripts/buildkite/release.sh

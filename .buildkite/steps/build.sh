@@ -6,7 +6,7 @@ set -x
 BRANCH=${BRANCH:-${BUILDKITE_BRANCH:master}}
 
 echo "--- Dockerizing $PROJECT..."
-docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock -e GITHUB_OAUTH  feelpp/feelpp-libs:develop-ubuntu-16.10 \
+docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock -e GITHUB_OAUTH  feelpp/feelpp-libs \
        sudo \
        GITHUB_OAUTH=$GITHUB_OAUTH \
        CXX=${CXX} \
