@@ -26,7 +26,7 @@ Gitter: image:https://badges.gitter.im/vivabrain/angiotk.svg["Gitter", "https://
 
 == Build Status
 
-link:https://badge.buildkite.com/d3849e883f9aa42a088dd5d20290a68846182595a6ffe49858.svg[link=https://buildkite.com/feelpp/angiotk,text="Build Status"]
+image:https://badge.buildkite.com/d3849e883f9aa42a088dd5d20290a68846182595a6ffe49858.svg[link=https://buildkite.com/feelpp/angiotk,text="Build Status"]
 
 == Mailing lists
 
