@@ -19,84 +19,87 @@ docker run -ti feelpp/angiotk:latest
 
 # Step by step building documentation 
 
-## Initial setup
+Some dependecies must be installed in order to build and install AngioTK.
 
-Make sur you have all the dependencies installed for both feel++ and angiotk.
+## Feel++ 
 
-Feel++ requires at least:
+AngioTK needs the Feel++ library to be installed, and the `FEELPP_DIR` environment variable to reference its install directory (which is defined before compiler using the `-DCMAKE_INSTALL_PREFIX=` flag). 
 
-* openmpi
-* petsc/slepc
-* gmsh
-* boost
+### Feel++ requirements
 
-Advice regarding to compiler: prefer the use of clang instead of gcc (less memory and less compilation time).
+Please refer to the Feel++ documentation for further instructions on how to build and/or install Feel++
 
-Angiotk requires at least:
+As of today (may 2017), Feel++ installation has been successfully tested with the following environment:
 
-* Feel++
-* openmpi
-* ITK
-* vmtk
+##### Compiling requirements
+- gcc 6.1.0
+- clang 4.0.0
+- CMake 3.6.1
 
-## Building
+##### Other dependencies
+- openmpi 1.10.2
+- boost 1.61
+- petsc 3.6.4
+- slepc 3.6.3
+- gmsh 2.13.1
+- hdf5 1.8.17
+- VTK 7.0.0
+- ParaView 5.1.0
+- fftw 3.3.4
 
-### Feel++
+### Building the Feel++ library
 
-To build Feel++, please refer to the Feel++ documentation.
-You will have to install Feel++, so you might want to set up an installation path with `-DCMAKE_INSTALL_PREFIX="..."` (if you don't want to install Feel++ in your system), then build and install Feel++ with `make install-feelpp`.
+You should set the `CC` and `CXX` environment variables to refer to clang and clang++ respectively.
 
-Once Feel++ is installed, you need to export the `FEELPP_DIR` variable in your shell (e.g. put it in your .bashrc file). Set it to the installation directory of Feel++ (to one you previously set at the cmake step).
+##### Cloning sources (using git)
 
-### VMTK
+You need a suitable directory to clone the sources. For example, let's assume you clone the sources in a subdirectory in your home directory: 
 
-If you can install vmtk through your package system, you should do it this way, it would be easier. 
-
-It is not advised to use VMTK SuperBuild, as installed dependencies ITK and VTK are not located in the same place in different versions, making it harder to detect them correctly.
-
-If you need to build vmtk, pay attention to the library versions you will use.
-As of version 1.2, it has been built successfully with ITK 4.9.1 and VTK 5.8 and 5.10.1. Version 1.3 builds with VTK 6.0 
-
-Confirmed cmake working commands for installation:   
-* ITK 4.9.1:
-    
 ```
-git clone git://github.com/Kitware/ITK.git
-git checkout refs/tags/v4.9.1
-
-cd ITK
-mkdir build
-cd build
-
-#cmake .. -DCMAKE_INSTALL_PREFIX=<itk_install_dir> -DBUILD_EXAMPLES=ON -DITKV3_COMPATIBILITY=ON -DITK_USE_REVIEW=ON -DBUILD_SHARED_LIBS=ON
-
-cmake .. -DBUILD_EXAMPLES=OFF -DBUILD_TESTING=OFF -DBUILD_SHARED_LIBS=ON -DModule_ITKReview=ON -DCMAKE_INSTALL_PREFIX=/data/software/install/ITK/4.9.1
+mkdir $HOME/git
+cd $HOME/git
+git clone https://github.com/feelpp/feelpp.git
 ```
+The sources have been cloned to `$HOME/git/feelpp/`. You also need a build directory ***outside*** of the source directory. Let's assume we build in an other subdirectory in your home directory:
 
-
-`ITKV3_COMPATIBILITY` and `Module_ITKReview` are required for vmtk to work. There is a code example that allows to convert DICOM data to the mha format.   
-   
-Export the ITK_DIR variable to the install directory.
-
-* VTK 5.10.1:   
 ```
-cmake <vtk_source_dir> -DCMAKE_INSTALL_PREFIX=<vtk_install_dir> -DVTK_Group_MPI=ON -DVTK_Group_Qt=ON -DBUILD_SHARED_LIBS=ON -DVTK_WRAP_PYTHON=ON
-```   
-You need at least `VTK_WRAP_PYTHON`.
-   
-Export the VTK_DIR variable to the install directory.
-   
-* VMTK 1.2   
+mkdir $HOME/build
+mkdir $HOME/build/feelpp
+cd $HOME/build/feelpp
 ```
-cmake <vmtk_source_dir> -DUSE_SYSTEM_ITK=ON -DUSE_SYSTEM_VTK=ON
-```   
-Here we use the ITK and VTK that we just configured and installed in the system.
-   
-Export the VMTK_DIR or VMTKHOME variable to the install directory.
+Tell CMake where the source are, where to install the library (for example `$HOME/install/feelpp`) as well as build options. 
 
-For all those libraries, you might need to setup `PATH`, `LD_LIBRARY_PATH`, `CMAKE_PREFIX_PATH` ... or use the module command.
+```
+cmake $HOME/git/feelpp -DCMAKE_INSTALL_PREFIX=$HOME/install/feelpp -DFEELPP_ENABLE_NLOPT=OFF -DCMAKE_BUILD_TYPE=Release
+```
+NOTE: Disabling nlopt is necessary until further notice.
 
-<!--
+You can now build Feel++ using make:
+
+```
+make install-feelpp-lib -j 4
+```
+NOTE: The `-j` flag allows you to define how many compiling processes can run simultaneously. Increasing this value should decrease compiling time, until you reach the CPU core count of your system. 
+
+
+## Compilers
+
+We strongly advise to compile all of AngioTK's dependencies using the same versions of GCC, Clang and CMake used to build Feel++. 
+
+## ITK 4 or higher
+
+AngioTK requires ITK version 4 or higher to be installed and the `ITK_DIR` environment variable to reference its install directory.
+
+As of today (may 2017), AngioTK has been successfully compiled with ITK 4.12.0.
+
+## VMTK 1.3
+
+If you can install VMTK through your package system, you should do it this way, it would be easier. 
+
+As of today (may 2017), AngioTK has been successfully compiled with VMTK 1.3.
+
+### building VMTK
+
 If you prefer to build VMTK, the easiest way to do it is with the SuperBuild option. It will build VMTK and all its dependencies in a single directory, you will thus avoid compatibility issues.
 
 First clone vmtk with git and select the version you want:
@@ -131,32 +134,54 @@ cd build
 cmake ..
 make -j <njobs>
 ```   
-
--->
    
 Export the VMTK_DIR or VMTKHOME variable to the install directory to make it available to AngioTK.
 
 For all those libraries, you might need to setup `PATH`, `LD_LIBRARY_PATH`, `CMAKE_PREFIX_PATH` ... or use the module command.
 
-### Feel++
+## Python 2 (and *not* python 3)
 
-Regarding to building Feel++, please refer to the Feel++ documentation.
-An important point to note is that you have to ensure the compatibility with VMTK if you enable VTK in Feel++ (It is enabled by default). 
-To do so, you must ensure that you are using the exact same version of VTK, in Feel++ and VMTK.
-Possible errors might come from the fact that you enabled In-situ in Feel++. In this case, the typical VTK version used will be the one bundled with ParaView, which is often more recent that system versions.
+Python 2 is also required to run AngioTK. Python 3 will not work with AngioTK because it is not supported by VMTK 1.3.
 
-You will have to install Feel++, so you might want to set up an installation path with `-DCMAKE_INSTALL_PREFIX="..."` (if you don't want to install Feel++ in your system), then build and install Feel++ with `make install-feelpp-lib`.
+## Building AngioTK
 
-Once Feel++ is installed, you need to export the `FEELPP_DIR` variable in your shell (e.g. put it in your .bashrc file). Set it to the installation directory of Feel++ (that you previously set at the cmake step).
+When all of the dependencies are installed, building AngioTK is fairly simple. You need three directories: one for the sources, one for the building step and one to install AngioTK.
+Start by cloning the sources:
 
-### Angiotk
+```
+cd $HOME/git
+git clone http://github.com/feelpp/angiotk.git
+```
+Then call CMake, specify the install directory and enable/disable modules.
 
-To build the angiotk environment, first clone the angiotk repository.
-
-Then build and activate modules that you require.   
-For example, if you only want to enable the `Meshing` module:
-```   
-cmake /home/aancel/git/angiotk -DBUILD_MODULE_Meshing=ON
+```
+mkdir $HOME/build/angiotk
+cd $HOME/build/angiotk
+cmake $HOME/git/angiotk -DCMAKE_INSTALL_PREFIX=$HOME/install/angiotk -DBUILD_MODULE_Filtering=OFF -DBUILD_MODULE_Meshing=ON -DBUILD_MODULE_CFD=OFF -DBUILD_MODULE_ParticleTracer=OFF -DBUILD_MODULE_CT_Segmentation=ON -DCMAKE_BUILD_TYPE=Release
 ```
 
-If your build fails, then the problem must come from the previous installations that you have done. Please re-check them.
+Build AngioTK with make:
+
+```
+make -j 4
+make install
+```
+
+Finally, call the environment setup script before using AngioTK: (it will export required environment variables)
+
+```
+source $HOME/install/angiotk/bin/setupAngioTKEnvironment.sh
+```
+
+
+You can now run the pipeline scripts in:
+
+```
+$HOME/install/angiotk/bin/
+```
+
+Or call the modules individually, for example:
+
+```
+meshing_surfacefromimage <...>
+```

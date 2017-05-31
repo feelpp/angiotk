@@ -10,9 +10,9 @@ namespace Feel
 MeshPartitioner::MeshPartitioner( std::string prefix )
   :
   M_prefix( prefix ),
-  M_inputPath( soption(_name="input.filename",_prefix=this->prefix()) ),
-  M_outputPath( 1,soption(_name="output.filename",_prefix=this->prefix()) ),
-  M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+  M_inputPath( Environment::expand( soption(_name="input.filename",_prefix=this->prefix()) ) ),
+  M_outputPath( 1,Environment::expand( soption(_name="output.filename",_prefix=this->prefix()) ) ),
+  M_outputDirectory( Environment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
   M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
   //M_nPartitions( ioption(_name="npartitions",_prefix=this->prefix()) ),
   M_nPartitions( Environment::vm()[prefixvm(prefix,"npartitions").c_str()].as<std::vector<int> >() ),
@@ -233,8 +233,8 @@ template< class MeshType >
 ExtractSubMeshFromFSIMesh<MeshType>::ExtractSubMeshFromFSIMesh( std::string prefix )
   :
   M_prefix( prefix ),
-  M_inputBloodFlowMeshFilename( soption(_name="input.filename",_prefix=this->prefix()) ),
-  M_outputDirectory( soption(_name="output.directory",_prefix=this->prefix()) ),
+  M_inputBloodFlowMeshFilename( Environment::expand( soption(_name="input.filename",_prefix=this->prefix()) ) ),
+  M_outputDirectory( Environment::expand( soption(_name="output.directory",_prefix=this->prefix()) ) ),
   M_forceRebuild( boption(_name="force-rebuild",_prefix=this->prefix() ) ),
   M_markerNameLumenVolume( soption(_name="marker.lumen",_prefix=this->prefix()) ),
   M_markerNameArterialWallVolume( soption(_name="marker.arterial-wall",_prefix=this->prefix()) )

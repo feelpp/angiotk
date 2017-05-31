@@ -34,8 +34,9 @@ macro( angiotk_add_component _target _srcs )
   add_executable( ${_target} ${_srcs} )
 
   install(TARGETS ${_target}
-      RUNTIME DESTINATION Modules/${AngioTk_CURRENT_MODULE_NAME}/bin
-      LIBRARY DESTINATION Modules/${AngioTk_CURRENT_MODULE_NAME}/lib
+      RUNTIME DESTINATION bin #Modules/${AngioTk_CURRENT_MODULE_NAME}/bin
+      LIBRARY DESTINATION lib #Modules/${AngioTk_CURRENT_MODULE_NAME}/lib
+      COMPONENT Bin
       )
   
   file( APPEND ${AngioTk_EXECUTABLE_PATH}/${AngioTk_CURRENT_MODULE_NAME}.py

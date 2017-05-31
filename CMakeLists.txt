@@ -5,7 +5,36 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.7 FATAL_ERROR)
 #AngioTk = Virtual Angiography Toolkit
 PROJECT(AngioTk)
 #=========================================================
-
+option(ANGIOTK_USE_SUPERBUILD "Build AngioTk and ITK/VMTK if required" ON )
+if (ANGIOTK_USE_SUPERBUILD)
+  set(ANGIOTK_EXTERNAL_PACKAGES_USE_SYSTEM_DEFAULT_OPTION OFF)
+else()
+  set(ANGIOTK_EXTERNAL_PACKAGES_USE_SYSTEM_DEFAULT_OPTION ON)
+endif()
+option(ANGIOTK_USE_SYSTEM_ITK "detect ITK on system" ${ANGIOTK_EXTERNAL_PACKAGES_USE_SYSTEM_DEFAULT_OPTION})
+option(ANGIOTK_USE_SYSTEM_VMTK "detect VMTK on system" ${ANGIOTK_EXTERNAL_PACKAGES_USE_SYSTEM_DEFAULT_OPTION})
+option(ANGIOTK_USE_SYSTEM_RORPO "detect RORPO on system" ${ANGIOTK_EXTERNAL_PACKAGES_USE_SYSTEM_DEFAULT_OPTION})
+if ( ANGIOTK_USE_SUPERBUILD )
+  if ( NOT ANGIOTK_USE_SYSTEM_ITK )
+    set(ANGIOTK_SUPERBUILD_ITK_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX} CACHE STRING "ITK install prefix")
+  endif()
+  if ( NOT ANGIOTK_USE_SYSTEM_VMTK )
+    set(ANGIOTK_SUPERBUILD_VMTK_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX} CACHE STRING "VMTK install prefix")
+  endif()
+  if ( NOT ANGIOTK_USE_SYSTEM_RORPO )
+    set(ANGIOTK_SUPERBUILD_RORPO_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX} CACHE STRING "RORPO install prefix")
+  endif()
+endif()
+OPTION(BUILD_EXAMPLES "Build examples" OFF)
+OPTION(BUILD_DOXYGEN "Build Doxygen Documentation" OFF)
+#=========================================================
+# Shared libraries option
+OPTION(BUILD_SHARED_LIBS "Build AngioTk with shared libraries." ON)
+SET(AngioTk_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
+#=========================================================
+if (NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release")
+endif()
 #=========================================================
 #Support for the CTest dashboard testing system
 INCLUDE(CTest)
@@ -58,6 +87,7 @@ ENDIF ("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64")
 
 #=========================================================
 # Find ITK (required)
+if ( ANGIOTK_USE_SYSTEM_ITK )
 FIND_PACKAGE(ITK)
 IF(ITK_FOUND)
   message(STATUS "[ITK] Use file: ${ITK_USE_FILE}")
@@ -68,38 +98,26 @@ IF(ITK_FOUND)
 ELSE(ITK_FOUND)
   MESSAGE(FATAL_ERROR "Cannot build without ITK. Set ITK_DIR.")
 ENDIF(ITK_FOUND)
+endif()
 
 #=========================================================
 # Find Feel++
-OPTION(ANGIOTK_USE_OLD_FEELPP_CMAKE_DETECTION "use old cmake feel++ detection" OFF)
-if ( ANGIOTK_USE_OLD_FEELPP_CMAKE_DETECTION )
-  FIND_PATH(FEELPP_CMAKE_MODULES FindFeel++.cmake PATH $ENV{FEELPP_DIR}/share/feel/cmake/modules/   /usr/share/feel/cmake/modules/ /usr/local/share/feel/cmake/modules/ )
-  if ( FEELPP_CMAKE_MODULES )
-    set(CMAKE_MODULE_PATH ${FEELPP_CMAKE_MODULES})
-    Find_Package(Feel++)
-    set(Feel++_FOUND 1)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g0 -O3 -DNDEBUG  -finline-functions -pedantic  -ftemplate-depth-256 -Wno-inline" )
-
-    if(BUILD_MODULE_Meshing AND (NOT ANN_INCLUDE_DIR OR NOT ANN_LIB))
-      message(FATAL_ERROR "ANN does not seem to be installed on this platform. Please install Feel++ with ANN support.")
+if ( 1 )
+    if (ANGIOTK_USE_SUPERBUILD)
+      set(FEELPP_DONT_SETUP_CMAKE 1)
     endif()
-  else()
-    # The meshing module uses Feel++
-    # If it is not installed, make cmake end up with an error
-    if(BUILD_MODULE_Meshing)
-      message(FATAL_ERROR "Feel++ does not seem to be installed on this platform. Please set the FEELPP_DIR variable.")
-    endif()
-  endif()
-else()
-if ( ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR} )
-    find_package(Feel++ PATHS $ENV{FEELPP_DIR}/share/feelpp/feel/cmake/modules /usr/share/feelpp/feel/cmake/modules /usr/local/share/feelpp/feel/cmake/modules /opt/share/feelpp/feel/cmake/modules)
+    find_package(Feel++ PATHS
+      ${FEELPP_DIR}/share/feelpp/feel/cmake/modules
+      $ENV{FEELPP_DIR}/share/feelpp/feel/cmake/modules
+      /usr/share/feelpp/feel/cmake/modules /usr/local/share/feelpp/feel/cmake/modules /opt/share/feelpp/feel/cmake/modules)
     if(NOT FEELPP_FOUND)
-        message(FATAL_ERROR "Feel++ was not found on your system. Make sure to install it and specify the FEELPP_DIR to reference the installation directory.") 
+      message(FATAL_ERROR "Feel++ was not found on your system. Make sure to install it and specify the FEELPP_DIR to reference the installation directory.") 
     endif()
     if(BUILD_MODULE_Meshing AND (NOT FEELPP_HAS_ANN))
-        message(FATAL_ERROR "ANN does not seem to be installed on this platform. Please install Feel++ with ANN support.")
+      message(FATAL_ERROR "ANN does not seem to be installed on this platform. Please install Feel++ with ANN support.")
     endif()
 
+    if ( 0 )
     # Check that the COMPILER flags are compatible, in case we don't compile with the same compiler as Feel++ was built with
     # Clang and GCC might have flag differences
     include(CheckCXXCompilerFlag)
@@ -128,42 +146,56 @@ if ( ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR} )
     endif()
     unset(_CMAKE_CXX_FLAGS)
     unset(REMOVED_FLAGS)
-endif()
+    endif()
 endif()
 
 #=========================================================
 # Find Python
-#FIND_PACKAGE(PythonLibs)
-#FIND_PACKAGE(PythonInterp)
-# Python 3 not supported by vmtk <=1.3
 FIND_PACKAGE(PythonLibs 2)
 FIND_PACKAGE(PythonInterp 2)
 
 #=========================================================
+# Find ITK (required)
+if ( NOT FEELPP_HAS_VTK )
+  option(ANGIOTK_USE_SYSTEM_VTK "detect VTK on system" ${ANGIOTK_EXTERNAL_PACKAGES_USE_SYSTEM_DEFAULT_OPTION})
+  if ( ANGIOTK_USE_SUPERBUILD AND (NOT ANGIOTK_USE_SYSTEM_VTK) )
+    set(ANGIOTK_SUPERBUILD_VTK_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX} CACHE STRING "VTK install prefix")
+  endif()
+  if ( ANGIOTK_USE_SYSTEM_VTK )
+    FIND_PACKAGE(VTK)
+    IF(VTK_FOUND)
+      message(STATUS "[VTK] Use file: ${VTK_USE_FILE}")
+      INCLUDE(${VTK_USE_FILE})
+    ELSE(VTK_FOUND)
+      MESSAGE(FATAL_ERROR "Cannot build without VTK. Set VTK_DIR.")
+    ENDIF(VTK_FOUND)
+  endif()
+endif()
+
+#=========================================================
+if ( ANGIOTK_USE_SYSTEM_VMTK )
 # Find VMTK
 
 # binary dir
-FIND_PATH(VMTK_BINARY_DIR 
+unset(VMTK_EXECUTABLE_DIR)
+FIND_PATH(VMTK_EXECUTABLE_DIR 
     NAMES vmtkcenterlines 
-    PATH 
+    #PATH
+    HINTS
+    ${VMTK_DIR}/bin
     $ENV{VMTK_DIR}/bin
     $ENV{VMTKHOME}/bin
+    #NO_DEFAULT_PATH
     )
-# if ( NOT VMTK_BINARY_DIR )
-#    message(FATAL_ERROR "VMTK_BINARY_DIR not find")
-# endif()
 
 # include dir
 FIND_PATH(VMTK_INCLUDE_DIR vtkvmtkConfigure.h 
-    HINTS 
-    $ENV{VMTK_DIR}/include/
-    $ENV{VMTKHOME}/include/
-    PATH_SUFFIXES vmtk
-    )
-#FIND_PATH(VMTK_INCLUDE_DIR vmtk/vtkvmtkConfigure.h HINTS $ENV{VMTK_DIR}/include/  )
-# if ( NOT VMTK_INCLUDE_DIR )
-#   message(FATAL_ERROR "VMTK_INCLUDE_DIR not find")
-# endif()
+  HINTS
+  ${VMTK_DIR}/include/
+  $ENV{VMTK_DIR}/include/
+  $ENV{VMTKHOME}/include/
+  PATH_SUFFIXES vmtk
+  )
 
 # libraries path
 unset(VMTK_LIBRARIES)
@@ -171,7 +203,8 @@ foreach(_vmtklib vtkvmtkCommon vtkvmtkComputationalGeometry)
   unset(VMTK_LIBRARY CACHE)
   FIND_LIBRARY(VMTK_LIBRARY
       NAMES ${_vmtklib} 
-      HINTS 
+      HINTS
+      ${VMTK_DIR}/lib/
       $ENV{VMTK_DIR}/lib/
       $ENV{VMTKHOME}/lib/
       PATH_SUFFIXES vmtk
@@ -181,19 +214,67 @@ foreach(_vmtklib vtkvmtkCommon vtkvmtkComputationalGeometry)
   endif()
 endforeach()
 
-if ( VMTK_BINARY_DIR AND VMTK_INCLUDE_DIR AND VMTK_LIBRARIES )
+unset(VMTK_FOUND)
+if ( VMTK_EXECUTABLE_DIR AND VMTK_INCLUDE_DIR AND VMTK_LIBRARIES )
   set( VMTK_FOUND 1)
-else()
-  set( VMTK_FOUND 0)
-endif()
-
-if ( ${VMTK_FOUND} )
   include_directories( ${VMTK_INCLUDE_DIR} )
-  message(STATUS "VMTK binary dir: ${VMTK_BINARY_DIR}")
+  message(STATUS "found VMTK")
+  message(STATUS "VMTK executables dir: ${VMTK_EXECUTABLE_DIR}")
   message(STATUS "VMTK included: ${VMTK_INCLUDE_DIR}")
   message(STATUS "VMTK libraries: ${VMTK_LIBRARIES}")
-else()
-  if(BUILD_MODULE_Meshing)
+endif()
+
+endif()
+
+#=========================================================
+# RORPO
+if ( ANGIOTK_USE_SYSTEM_RORPO )
+
+  unset(RORPO_EXECUTABLE_DIR)
+  FIND_PATH(RORPO_EXECUTABLE_DIR
+    NAMES RORPO_multiscale_usage
+    HINTS
+    ${RORPO_DIR}/bin
+    )
+
+  unset(RORPO_LIBRARIES)
+  foreach( _rorpolib Nifti  RORPO  docopt)
+    FIND_LIBRARY(RORPO_LIBRARY
+      NAMES ${_rorpolib}
+      HINTS
+      ${RORPO_DIR}/lib
+      )
+    if ( RORPO_LIBRARY )
+      if ( NOT RORPO_LIBRARIES )
+	set(RORPO_LIBRARIES ${RORPO_LIBRARY})
+      else()
+	list( APPEND RORPO_LIBRARIES ${RORPO_LIBRARY} )
+      endif()
+      unset(RORPO_LIBRARY CACHE)
+    endif()
+  endforeach()
+
+  unset(RORPO_FOUND)
+  if ( RORPO_EXECUTABLE_DIR AND RORPO_LIBRARIES )
+    set( RORPO_FOUND 1)
+    message(STATUS "found RORPO")
+    message(STATUS "RORPO executables dir: ${RORPO_EXECUTABLE_DIR}")
+    message(STATUS "RORPO libraries: ${RORPO_LIBRARIES}")
+  endif()
+endif()
+
+#=========================================================
+if ( ANGIOTK_USE_SUPERBUILD )
+  message(STATUS "AngioTk run SuperBuild")
+  include(${AngioTk_SOURCE_DIR}/CMake/AngioTkSuperBuild.cmake)
+  return()
+endif()
+
+
+#=========================================================
+# some checks
+if(BUILD_MODULE_Meshing)
+  if ( NOT VMTK_FOUND )
     message(FATAL_ERROR "VMTK does not seem to be installed on this platform.
     Please set the VMTK_DIR variable or use the vmtk_env.sh script provided
     with VMTK and export VMTKHOME.")
@@ -201,11 +282,6 @@ else()
 endif()
 
 
-#=========================================================
-# Shared libraries option
-OPTION(BUILD_SHARED_LIBS "Build AngioTk with shared libraries." ${ITK_BUILD_SHARED})
-SET(AngioTk_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
-#=========================================================
 
 #=========================================================
 # AngioTk uses KWStyle for checking the coding style
@@ -215,7 +291,7 @@ INCLUDE(${AngioTk_SOURCE_DIR}/CMake/KWStyle/KWStyle.cmake)
 
 #=========================================================
 # If choose to build documentation, then search for Doxygen executables.
-OPTION(BUILD_DOXYGEN "Build Doxygen Documentation" OFF)
+
 IF(BUILD_DOXYGEN)
   ADD_SUBDIRECTORY(documentation/Doxygen)
 ENDIF(BUILD_DOXYGEN)
@@ -223,7 +299,6 @@ ENDIF(BUILD_DOXYGEN)
 
 #=========================================================
 # If choose to build examples, then look into Examples folder.
-OPTION(BUILD_EXAMPLES "Build examples" OFF)
 IF(BUILD_EXAMPLES)
   ADD_SUBDIRECTORY(Examples/Python)
 ENDIF(BUILD_EXAMPLES)

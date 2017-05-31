@@ -3,6 +3,8 @@
 #include <volumefromstl.hpp>
 #include <AngioTkCenterlineField.h>
 
+#include <Python.h>
+
 #include <vtkSmartPointer.h>
 #include <vtkPolyDataReader.h>
 #include <vtkPolyDataWriter.h>
@@ -100,8 +102,8 @@ int
 InletOutletDesc::loadFromSTL( std::string inputPath )
 {
 
-    std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
-    std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+    //std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
+    //std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_EXECUTABLE_DIR );
 
     //if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
     if ( !fs::exists(inputPath) )
@@ -444,8 +446,8 @@ CenterlinesFromSurface::run()
     std::string pathVTP = (directory/fs::path(name+".vtp")).string();
 
     // source ~/packages/vmtk/vmtk.build2/Install/vmtk_env.sh
-    std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
-    std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+    //std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
+    //std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_EXECUTABLE_DIR );
 
     if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
     {
@@ -663,8 +665,7 @@ CenterlinesFromSurface::run()
         else // use script python vmtkcenterlines
         {
             std::ostringstream __str;
-            __str << pythonExecutable << " ";
-            __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkcenterlines ";
+            __str << "vmtkcenterlines ";
             //__str << "-usetetgen 1 -simplifyvoronoi 1 ";
 
             if ( M_useInteractiveSelection )
@@ -733,15 +734,20 @@ CenterlinesFromSurface::run()
 
             __str << " -ifile " << this->inputSurfacePath() << " ";
             __str << " -ofile " << pathVTP << " " //name << ".vtp "
-                  << " --pipe " << dirBaseVmtk << "/vmtksurfacewriter "
+                  << " --pipe vmtksurfacewriter "
                   << " -ifile " << pathVTP << " " //name << ".vtp "
                   << " -ofile " << this->outputPath() << " " //name << ".vtk "
                   << " -mode ascii ";
-
             std::cout << "---------------------------------------\n"
-                      << "run in system : \n" << __str.str() << "\n"
+                      << "run vmtk python : \n" << __str.str() << "\n"
                       << "---------------------------------------\n";
-            auto err = ::system( __str.str().c_str() );
+            Py_Initialize();
+            PyRun_SimpleString("from vmtk import pypes");
+            std::ostringstream strPypesArg;
+            strPypesArg << "myArguments='" << __str.str() << "'";
+            PyRun_SimpleString(strPypesArg.str().c_str());
+            PyRun_SimpleString("myPype = pypes.PypeRun(myArguments)");
+            Py_Finalize();
         }
     }
     else
@@ -753,24 +759,28 @@ CenterlinesFromSurface::run()
     if ( M_viewResults )
     {
         std::ostringstream ostrView;
-        ostrView << pythonExecutable << " ";// << dirBaseVmtk << "/vmtk "
         if ( M_viewResultsWithSurface )
         {
-            ostrView << dirBaseVmtk << "/vmtksurfacereader -ifile " << this->inputSurfacePath() << " --pipe "
-                     << dirBaseVmtk << "/vmtkrenderer" << " --pipe "
-                     << dirBaseVmtk << "/vmtksurfaceviewer -opacity 0.25 " << " --pipe "
-                     << dirBaseVmtk << "/vmtksurfaceviewer -ifile " << this->outputPath() << " -array MaximumInscribedSphereRadius ";
+            ostrView << "vmtksurfacereader -ifile " << this->inputSurfacePath() << " --pipe "
+                     << "vmtkrenderer" << " --pipe "
+                     << "vmtksurfaceviewer -opacity 0.25 " << " --pipe "
+                     << "vmtksurfaceviewer -ifile " << this->outputPath() << " -array MaximumInscribedSphereRadius ";
         }
         else
         {
-            ostrView << dirBaseVmtk << "/vmtkcenterlineviewer -ifile " << this->outputPath() << " -pointarray MaximumInscribedSphereRadius";
+            ostrView << "vmtkcenterlineviewer -ifile " << this->outputPath() << " -pointarray MaximumInscribedSphereRadius";
         }
 
-
         std::cout << "---------------------------------------\n"
-                  << "run in system : \n" << ostrView.str() << "\n"
+                  << "run vmtk python : \n" << ostrView.str() << "\n"
                   << "---------------------------------------\n";
-        auto errView = ::system( ostrView.str().c_str() );
+        Py_Initialize();
+        PyRun_SimpleString("from vmtk import pypes");
+        std::ostringstream strPypesArg;
+        strPypesArg << "myArguments='" << ostrView.str() << "'";
+        PyRun_SimpleString(strPypesArg.str().c_str());
+        PyRun_SimpleString("myPype = pypes.PypeRun(myArguments)");
+        Py_Finalize();
     }
     std::cout << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n";
 
@@ -1192,7 +1202,7 @@ ImageFromCenterlines::run()
     {
 #if 0
         std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
-        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_EXECUTABLE_DIR );
 
         std::ostringstream __str;
         __str << pythonExecutable << " ";
@@ -1409,8 +1419,8 @@ SurfaceFromImage::run()
 
     if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
     {
-        std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
-        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
+        //std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
+        //std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_EXECUTABLE_DIR );
 
         std::string nameImageInit = outputNameWithoutExt+"_levelsetInit.vti";
         std::string outputPathImageInit = (directory/fs::path(nameImageInit)).string();
@@ -1423,11 +1433,19 @@ SurfaceFromImage::run()
             std::string nameImageFusion = outputNameWithoutExt+"_fusion.mha";
             std::string outputPathImageFusion = (directory/fs::path(nameImageFusion)).string();
             std::ostringstream ostrImageFusion;
-            ostrImageFusion << pythonExecutable << " " << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkimagecompose ";
+            ostrImageFusion << "vmtkimagecompose ";
             ostrImageFusion << "-ifile " << this->inputImagesPath(0) << " -i2file " << this->inputImagesPath(1) << " -operation " <<  M_imageFusionOperator << " ";
             ostrImageFusion << "-ofile " << outputPathImageFusion;
-            // run vmtk script
-            auto err = ::system( ostrImageFusion.str().c_str() );
+            std::cout << "---------------------------------------\n"
+                      << "run vmtk python : \n" << ostrImageFusion.str() << "\n"
+                      << "---------------------------------------\n";
+            Py_Initialize();
+            PyRun_SimpleString("from vmtk import pypes");
+            std::ostringstream strPypesArg;
+            strPypesArg << "myArguments='" << ostrImageFusion.str() << "'";
+            PyRun_SimpleString(strPypesArg.str().c_str());
+            PyRun_SimpleString("myPype = pypes.PypeRun(myArguments)");
+            Py_Finalize();
             // use new image generated as input
             inputImagePath = outputPathImageFusion;
         }
@@ -1447,8 +1465,7 @@ SurfaceFromImage::run()
         }
 
         std::ostringstream __str;
-        __str << pythonExecutable << " ";
-        __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkimageinitialization ";
+        __str << "vmtkimageinitialization ";
         __str << "-ifile " << inputImagePath << " -interactive 0 ";
         if ( M_method == "threshold" )
         {
@@ -1466,9 +1483,16 @@ SurfaceFromImage::run()
         __str << "-olevelsetsfile " << outputPathImageInit;
 
         std::cout << "---------------------------------------\n"
-                  << "run in system : \n" << __str.str() << "\n"
+                  << "run vmtk python : \n" <<__str.str() << "\n"
                   << "---------------------------------------\n";
-        auto err = ::system( __str.str().c_str() );
+        Py_Initialize();
+        PyRun_SimpleString("from vmtk import pypes");
+        std::ostringstream strPypesArg;
+        strPypesArg << "myArguments='" << __str.str() << "'";
+        PyRun_SimpleString(strPypesArg.str().c_str());
+        PyRun_SimpleString("myPype = pypes.PypeRun(myArguments)");
+        Py_Finalize();
+
 #if 0
         std::ostringstream __str2;
         __str2 << pythonExecutable << " ";
@@ -1489,18 +1513,22 @@ SurfaceFromImage::run()
         std::string outputPathImageLevelSetInit = (fs::path(this->outputPath()).parent_path()/fs::path(nameImageLevelSet)).string();
 
         std::ostringstream __str2;
-        __str2 << pythonExecutable << " ";
-        __str2 << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtklevelsetsegmentation ";
+        __str2 << "vmtklevelsetsegmentation ";
         __str2 << "-ifile " << inputImagePath << " ";
         //__str2 << "-levelsetstype isosurface -isosurfacevalue 0 ";
         __str2 << "-initiallevelsetsfile " << outputPathImageInit << " ";
         //__str2 << "-initializationimagefile " << outputPathImageInit << " ";
         __str2 << "-iterations 1 -ofile " << outputPathImageLevelSetInit;
         std::cout << "---------------------------------------\n"
-                  << "run in system : \n" << __str2.str() << "\n"
+                  << "run vmtk python : \n" <<__str2.str() << "\n"
                   << "---------------------------------------\n";
-        auto err2 = ::system( __str2.str().c_str() );
-
+        Py_Initialize();
+        PyRun_SimpleString("from vmtk import pypes");
+        std::ostringstream strPypesArg2;
+        strPypesArg2 << "myArguments='" << __str2.str() << "'";
+        PyRun_SimpleString(strPypesArg2.str().c_str());
+        PyRun_SimpleString("myPype = pypes.PypeRun(myArguments)");
+        Py_Finalize();
 
         // read image obtained by levelset segmentation
         vtkSmartPointer<vtkXMLImageDataReader> readerSegmentation = vtkSmartPointer<vtkXMLImageDataReader>::New();
@@ -1957,20 +1985,22 @@ SubdivideSurface::run()
 
     if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
     {
-        std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
-        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
-
         std::ostringstream __str;
-        __str << pythonExecutable << " ";
-        __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtksurfacesubdivision ";
+        __str << "vmtksurfacesubdivision ";
         __str << "-ifile " << this->inputSurfacePath() << " "
               << "-method " << M_method << " "
               << "-subdivisions " << M_nSubdivisions << " ";
         __str << "-ofile " << this->outputPath();
         std::cout << "---------------------------------------\n"
-                  << "run in system : \n" << __str.str() << "\n"
+                  << "run vmtk python : \n" << __str.str() << "\n"
                   << "---------------------------------------\n";
-        auto err = ::system( __str.str().c_str() );
+        Py_Initialize();
+        PyRun_SimpleString("from vmtk import pypes");
+        std::ostringstream strPypesArg;
+        strPypesArg << "myArguments='" << __str.str() << "'";
+        PyRun_SimpleString(strPypesArg.str().c_str());
+        PyRun_SimpleString("myPype = pypes.PypeRun(myArguments)");
+        Py_Finalize();
     }
 
 }
@@ -2074,12 +2104,8 @@ SmoothSurface::run()
 
     if ( !fs::exists( this->outputPath() ) || this->forceRebuild() )
     {
-        std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
-        std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
-
         std::ostringstream __str;
-        __str << pythonExecutable << " ";
-        __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtksurfacesmoothing ";
+        __str << "vmtksurfacesmoothing ";
         __str << "-ifile " << this->inputSurfacePath() << " "
               << "-iterations " << M_nIterations << " ";
         if ( M_method == "taubin" )
@@ -2088,9 +2114,15 @@ SmoothSurface::run()
             __str << "-method laplace -relaxation " << M_laplaceRelaxationFactor << " ";
         __str << "-ofile " << this->outputPath();
         std::cout << "---------------------------------------\n"
-                  << "run in system : \n" << __str.str() << "\n"
+                  << "run vmtk python : \n" << __str.str() << "\n"
                   << "---------------------------------------\n";
-        auto err = ::system( __str.str().c_str() );
+        Py_Initialize();
+        PyRun_SimpleString("from vmtk import pypes");
+        std::ostringstream strPypesArg;
+        strPypesArg << "myArguments='" << __str.str() << "'";
+        PyRun_SimpleString(strPypesArg.str().c_str());
+        PyRun_SimpleString("myPype = pypes.PypeRun(myArguments)");
+        Py_Finalize();
     }
 
 }
@@ -2277,28 +2309,27 @@ OpenSurface::runGMSHwithExecutable()
 void
 OpenSurface::runVMTK()
 {
-    std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
-    std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
-
     std::ostringstream __str;
-    __str << pythonExecutable << " ";
-    __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtkendpointextractor ";
+    __str << "vmtkendpointextractor ";
     __str << "-ifile " << this->inputCenterlinesPath() << " "
           << "-radiusarray MaximumInscribedSphereRadius -numberofendpointspheres 1 ";
-    __str << "--pipe ";
-    __str << dirBaseVmtk << "/vmtkbranchclipper "
+    __str << "--pipe vmtkbranchclipper "
           << "-ifile " << this->inputSurfacePath() << " "
           << "-groupidsarray TractIds -blankingarray Blanking -radiusarray MaximumInscribedSphereRadius -insideout 0 -interactive 0 ";
-    __str << "--pipe ";
-    __str << dirBaseVmtk << "/vmtksurfaceconnectivity "
+    __str << "--pipe vmtksurfaceconnectivity "
           << " -cleanoutput 1 ";
-    __str << "--pipe "
-          <<  dirBaseVmtk << "/vmtksurfacewriter "
+    __str << "--pipe vmtksurfacewriter "
           << "-ofile " << this->outputPath();
     std::cout << "---------------------------------------\n"
-              << "run in system : \n" << __str.str() << "\n"
+              << "run vmtk python : \n" << __str.str() << "\n"
               << "---------------------------------------\n";
-    auto err = ::system( __str.str().c_str() );
+    Py_Initialize();
+    PyRun_SimpleString("from vmtk import pypes");
+    std::ostringstream strPypesArg;
+    strPypesArg << "myArguments='" << __str.str() << "'";
+    PyRun_SimpleString(strPypesArg.str().c_str());
+    PyRun_SimpleString("myPype = pypes.PypeRun(myArguments)");
+    Py_Finalize();
 }
 
 
@@ -2441,23 +2472,21 @@ RemeshSurface::runVMTK()
     CHECK( !this->inputSurfacePath().empty() ) << "inputSurfacePath is empty";
 
     std::ostringstream __str;
-    // source ~/packages/vmtk/vmtk.build2/Install/vmtk_env.sh
-    std::string pythonExecutable = BOOST_PP_STRINGIZE( PYTHON_EXECUTABLE );
-    __str << pythonExecutable << " ";
-    //std::string dirBaseVmtk = "/Users/vincentchabannes/packages/vmtk/vmtk.build2/Install/bin/";
-    std::string dirBaseVmtk = BOOST_PP_STRINGIZE( VMTK_BINARY_DIR );
-    __str << dirBaseVmtk << "/vmtk " << dirBaseVmtk << "/vmtksurfaceremeshing ";
+    __str << "vmtksurfaceremeshing ";
     __str << "-ifile " << this->inputSurfacePath() << " ";
     __str << "-ofile " << this->outputPath() << " ";
     __str << "-area " << this->area() << " ";
     __str << "-iterations " << M_vmtkNumberOfIteration << " ";
-
     std::cout << "---------------------------------------\n"
-              << "run in system : \n" << __str.str() << "\n"
+              << "run vmtk python : \n" << __str.str() << "\n"
               << "---------------------------------------\n";
-    auto err = ::system( __str.str().c_str() );
-
-    //std::cout << "hola\n"<< __str.str() <<"\n";
+    Py_Initialize();
+    PyRun_SimpleString("from vmtk import pypes");
+    std::ostringstream strPypesArg;
+    strPypesArg << "myArguments='" << __str.str() << "'";
+    PyRun_SimpleString(strPypesArg.str().c_str());
+    PyRun_SimpleString("myPype = pypes.PypeRun(myArguments)");
+    Py_Finalize();
 }
 
 

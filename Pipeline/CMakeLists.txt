@@ -12,8 +12,10 @@ execute_process(
     STRING(STRIP "${CMAKE_ANGIOTK_VERSION}" CMAKE_ANGIOTK_VERSION )
   endif()
 
-configure_file(runAngioTKPipeline.py.in ${CMAKE_CURRENT_BINARY_DIR}/runAngioTKPipeline.py)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/runAngioTKPipeline.py DESTINATION bin)
+set(ANGIOTK_EXECUTABLE_DIR ${AngioTk_BINARY_DIR}/bin)
+configure_file(angiotk_pipeline_run.py.in ${CMAKE_CURRENT_BINARY_DIR}/angiotk_pipeline_run.py)
+install(PROGRAMS  ${CMAKE_CURRENT_BINARY_DIR}/angiotk_pipeline_run.py
+  DESTINATION bin )  
 
 configure_file(setupAngioTKEnvironment.sh.in ${CMAKE_CURRENT_BINARY_DIR}/setupAngioTKEnvironment.sh)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/setupAngioTKEnvironment.sh DESTINATION bin)
@@ -23,9 +25,6 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/master.py DESTINATION bin)
 
 configure_file(testAngioTKPipeline.py.in ${CMAKE_CURRENT_BINARY_DIR}/testAngioTKPipeline.py)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/testAngioTKPipeline.py DESTINATION bin)
-
-configure_file(createAsciidocDB.py.in ${CMAKE_CURRENT_BINARY_DIR}/createAsciidocDB.py)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/createAsciidocDB.py DESTINATION bin)
 
 configure_file(screenshot.py.in ${CMAKE_CURRENT_BINARY_DIR}/screenshot.py)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/screenshot.py DESTINATION bin)
@@ -46,3 +45,4 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/js
 # copy the css directory
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/css
   DESTINATION bin)
+

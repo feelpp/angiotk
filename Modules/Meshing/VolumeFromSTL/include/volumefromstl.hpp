@@ -5,7 +5,6 @@
 
 #include <feel/feelcore/environment.hpp>
 
-#include <angiotkMeshingConfig.h>
 
 #include <feel/feelfilters/gmsh.hpp>
 
