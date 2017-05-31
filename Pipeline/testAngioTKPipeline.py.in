@@ -565,7 +565,7 @@ def main():
         if not os.path.exists(sfi_cfg):
             sfi_cfg = os.path.join(altcfgpath, "surfacefromimage.cfg")
         sanityCheckFile(sfi_cfg)
-        cmd = "meshing_surfacefromimage --config-file " + sfi_cfg + " " + \
+        cmd = "angiotk_meshing_surfacefromimage --config-file " + sfi_cfg + " " + \
               "--input.image.filename " + AngioTKOutputPath + "/RORPO/" + RORPOOutputPrefix + ".mha " + \
               "--pre-process.resize-from-reference-image.path " + AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha" + " " \
               "--output.path " + AngioTKOutputPath + "/surfacefromimage/model.stl"
@@ -633,7 +633,7 @@ def main():
     #cldata = glob.glob(cfgpath + "/data/pointset*.data")
     for cl in cldataPointSet:
         print "found pointpair file: " + str(clid)
-        cmd = "meshing_centerlines --config-file " + cl_cfg + " "\
+        cmd = "angiotk_meshing_centerlines --config-file " + cl_cfg + " "\
             "--input.surface.filename " + model + " " \
             "--input.pointset.filename " + cl + " " \
             "--output.directory " + AngioTKOutputPath + "/centerlines/part" + str(clid) + " " \
@@ -650,7 +650,7 @@ def main():
 
     #cldata = glob.glob(cfgpath + "/data/pointpair*.data")
     for cl in cldataPointPair:
-        cmd = "meshing_centerlines --config-file " + cl_cfg + " "\
+        cmd = "angiotk_meshing_centerlines --config-file " + cl_cfg + " "\
             "--input.surface.filename " + model + " " \
             "--input.pointpair.filename " + cl + " " \
             "--output.directory " + AngioTKOutputPath + "/centerlines/part" + str(clid) + " " \
@@ -666,7 +666,7 @@ def main():
     # Iterate over geocenterline data
     #cldata = glob.glob(cfgpath + "/data/geocenterlines*.data")
     for cl in cldataGeo:
-        cmd = "meshing_centerlines --config-file " + cl_cfg + " "\
+        cmd = "angiotk_meshing_centerlines --config-file " + cl_cfg + " "\
             "--input.surface.filename " + model + " " \
             "--input.geo-centerlines.filename " + cl + " " \
             "--output.directory " + AngioTKOutputPath + "/centerlines/part" + str(clid) + " " \
@@ -689,7 +689,7 @@ def main():
     if not os.path.exists(clm_cfg):
             clm_cfg = os.path.join(altcfgpath, "centerlinesmanager.cfg")
     sanityCheckFile(clm_cfg)
-    cmd = "meshing_centerlinesmanager --config-file " + clm_cfg + " "
+    cmd = "angiotk_meshing_centerlinesmanager --config-file " + clm_cfg + " "
     cmd = cmd + "--input.surface.filename " + model + " "
     cmd = cmd + "--output.directory " + AngioTKOutputPath + "/centerlinesmanager "
     for i in range(len(cltpool)):
@@ -729,7 +729,7 @@ def main():
     if not os.path.exists(ifcl_cfg):
         ifcl_cfg = os.path.join(altcfgpath, "imagefromcenterlines.cfg")
     sanityCheckFile(ifcl_cfg)
-    cmd = "meshing_imagefromcenterlines --config-file " + ifcl_cfg + " " \
+    cmd = "angiotk_meshing_imagefromcenterlines --config-file " + ifcl_cfg + " " \
         "--input.centerlines.filename " + AngioTKOutputPath + "/centerlinesmanager/model_centerlines_up.vtk " \
         "--output.directory " +  AngioTKOutputPath + "/imagefromcenterlines"
     executeCommand("", cmd, logPath + "/meshing_imagefromcenterlines")
@@ -781,7 +781,7 @@ def main():
     if not os.path.exists(sfi2_cfg):
         sfi2_cfg = os.path.join(altcfgpath, "surfacefromimage2.cfg")
     sanityCheckFile(sfi2_cfg)
-    cmd = "meshing_surfacefromimage --config-file " + sfi2_cfg + " " \
+    cmd = "angiotk_meshing_surfacefromimage --config-file " + sfi2_cfg + " " \
         "--input.image.filename " + newImage + " " + \
         "--output.directory " +  AngioTKOutputPath + "/surfacefromimage2"
     executeCommand("", cmd, logPath + "/meshing_surfacefromimage2")
@@ -820,7 +820,7 @@ def main():
     if not os.path.exists(gmsh_cfg):
         gmsh_cfg = os.path.join(altcfgpath, "remeshstlgmsh.cfg")
     sanityCheckFile(gmsh_cfg)
-    cmd = "meshing_remeshstl --config-file " + gmsh_cfg + " " \
+    cmd = "angiotk_meshing_remeshstl --config-file " + gmsh_cfg + " " \
         "--input.surface.filename " + newSTL + " "  \
         "--gmsh.centerlines.filename " + AngioTKOutputPath + "/centerlinesmanager/model_centerlines_up.vtk " \
         "--output.directory " +  AngioTKOutputPath + "/remeshgmsh"
@@ -859,7 +859,7 @@ def main():
     if not os.path.exists(vfcl_cfg):
         vfcl_cfg = os.path.join(altcfgpath, "volumefromstlandcenterlines.cfg")
     sanityCheckFile(vfcl_cfg)
-    cmd = "meshing_volumefromstlandcenterlines --config-file " + vfcl_cfg + " " \
+    cmd = "angiotk_meshing_volumefromstlandcenterlines --config-file " + vfcl_cfg + " " \
         "--input.surface.filename " + newSTL + " " \
         "--input.centerlines.filename " + AngioTKOutputPath + "/centerlinesmanager/model_centerlines_up.vtk " \
         "--output.directory " + AngioTKOutputPath + "/volumefromstlandcenterlines"
