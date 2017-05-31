@@ -16,16 +16,14 @@ ifdef::env-github,env-browser[:outfilesuffix: .adoc]
 :angiotk: AngioTK
 :feelpp: Feel++
 :cpp: C++
+:toc: left
 Christophe Prud'homme <https://github.com/prudhomm[@prudhomm]>, Vincent Chabannes <https://github.com/vincentchabannes[@vincentchabannes]>, Francois Der Hovsepian
 v0.1, 2017/06/01
 
 
 This is the {angiotk} project.
 
-Gitter: image:https://badges.gitter.im/vivabrain/angiotk.svg["Gitter", "https://gitter.im/vivabrain/angiotk",link="https://gitter.im/vivabrain/angiotk"]
-
-== Build Status
-
+image:https://badges.gitter.im/vivabrain/angiotk.svg["Gitter", "https://gitter.im/vivabrain/angiotk",link="https://gitter.im/vivabrain/angiotk"]
 image:https://badge.buildkite.com/d3849e883f9aa42a088dd5d20290a68846182595a6ffe49858.svg[link=https://buildkite.com/feelpp/angiotk,text="Build Status"]
 
 == Mailing lists
