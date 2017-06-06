@@ -330,7 +330,7 @@ def main():
                 print "Incorrect spacing (" + spacing + ")"
                 print "Attempting to correct spacing"
                 sys.stdout.flush()
-                cmd = "ResampleVolumesToBeIsotropic " + AngioTKOutputPath + "/data/" + inputFileNoExt + ".mha " + \
+                cmd = "angiotk_filtering_ResampleVolumesToBeIsotropic " + AngioTKOutputPath + "/data/" + inputFileNoExt + ".mha " + \
                       AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha 0 255"
                 if(not os.path.exists(AngioTKOutputPath + "/data/" + inputFileNoExt + "_iso.mha")):
                     retcode, _ = executeCommand("", cmd, os.path.join(logPath, "Convert_iso"))
