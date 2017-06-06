@@ -843,7 +843,8 @@ def main():
     screenshotlink = os.path.join(screenshotPath, screenshotFile)
 
     # ------ Add Step Entry
-    addStepEntry(resDBfileEntry, '6 - Surface processing', True, time.time() - tmpTime, screenshotlink, 'Surface Processed.', cmd)
+    relativeLinkToModel = os.path.join('/', os.path.relpath(model, globalOutputPath))
+    addStepEntry(resDBfileEntry, '6 - Surface processing', True, relativeLinkToModel, time.time() - tmpTime, screenshotlink, 'Surface Processed.', cmd)
     # write changes to the database file and closes it.
     dbFile = open(results_json, 'w')
     json.dump(resultsDB, dbFile, indent=4)
