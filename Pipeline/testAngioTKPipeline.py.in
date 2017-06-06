@@ -111,6 +111,22 @@ def saveScreenshot(modelPath, screenshotPath, logPrefix, width, height):
     executeCommand("", screenshotCmd, logPrefix)
     print 'screenshot wall-clock time:' + str(datetime.datetime.now()-startTime)
 
+# print a title block to improve console and log readability
+def printTitleBlock(Title):
+    tLength = len(Title)
+    bLength = 70
+    bLine = ""
+    for i in range( 0, bLength ):
+        bLine += "#"
+    tLine = ""
+    for i in range( 0, ( bLength - tLength ) / 2 ):
+        tLine += " "
+    tLine += Title
+    print bLine
+    print tLine
+    print bLine
+
+
 def main():
     # ------------ 0 - Initialization ------------
 
@@ -280,7 +296,8 @@ def main():
     # ---------------------------------------------
 
 
-    # ------------ 1 Filtering and RORPO ------------
+    # ------------ 1 - Filtering and RORPO ------------
+    printTitleBlock("1 - Filtering and RORPO")
 
     # Skip the whole step if required.
     if(skiptocl):
@@ -433,6 +450,7 @@ def main():
 
 
     # ------------ 1b - Component tree segmentation  ------------
+    printTitleBlock("1.b - Component tree segmentation")
 
     if(skiptocl):
         tmpTime = time.time()
@@ -547,6 +565,7 @@ def main():
 
 
     # ------------ 2 - Surface from image  ------------
+    printTitleBlock("2 - Surface from image")
 
     # Skip the whole step if required.
     if(skiptocl):
@@ -604,6 +623,7 @@ def main():
 
 
     # ------------ 3 - Centerline computing ------------
+    printTitleBlock("3 - Centerline computing")
 
     # Compute centerlines
     # Iterate over pointpair data
@@ -719,6 +739,7 @@ def main():
 
 
     # ------------ 4 - Image generation from centerlines ------------
+    printTitleBlock("4 - Image generation from centerlines")
 
     # Regenerate image from centerlines
     tmpTime = time.time()
@@ -772,6 +793,7 @@ def main():
 
 
     # ------------ 5 - Second surface from image ------------
+    printTitleBlock("5 - Second surface from image")
 
     # Extract the mesh
     tmpTime = time.time()
@@ -811,6 +833,7 @@ def main():
 
 
     # ------------ 6 - Surface processing ------------
+    printTitleBlock("6 - Surface processing")
 
     # Process surface
     tmpTime = time.time()
@@ -852,6 +875,7 @@ def main():
 
 
     # ------------ 7 - Volume mesh processing ------------
+    printTitleBlock("7 - Volume mesh processing")
 
     # Prepare volume data for simulation
     print "Generating volume mesh ... "
