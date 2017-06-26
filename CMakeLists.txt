@@ -151,8 +151,8 @@ endif()
 
 #=========================================================
 # Find Python
-FIND_PACKAGE(PythonLibs 2)
-FIND_PACKAGE(PythonInterp 2)
+FIND_PACKAGE(PythonLibs)
+FIND_PACKAGE(PythonInterp)
 
 #=========================================================
 # Find ITK (required)
