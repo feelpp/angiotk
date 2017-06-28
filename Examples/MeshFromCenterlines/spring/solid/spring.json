@@ -1,0 +1,50 @@
+// -*- mode: javascript -*-
+{
+    "Name": "Solid Mechanics ",
+    "ShortName":"Solid",
+    "Model":"Elasticity",//"Elasticity",//"Hyper-Elasticity",
+    "Materials":
+    {
+        "volumeSpring":{
+            //#acier : http://www.simulationmateriaux.com/ComportementMecanique/comportement_mecanique_Liste_modules_de_Young.php
+            "name":"steel",
+            "E":"210e6",
+            "nu":"0.33",
+            "rho":"7850"
+        }
+    },
+    "Parameters":
+    {
+        "dispImposed":
+        {
+            "value":"8e-3"
+        },
+        "gravity":
+        {
+            "value":"9.80665"
+        }
+    },
+    "BoundaryConditions":
+    {
+        "displacement":
+        {
+            "Dirichlet":
+            {
+                "markerBottom":{ "expr":"{0,0,-dispImposed}:dispImposed" },
+                "markerTop":{ "expr":"{0,0,0}" }
+            },
+            "VolumicForces":
+            {
+                "":
+                {
+                    "expr":"{0,0,-gravity*7850}:gravity"
+                }
+            }
+        }
+    },
+    "PostProcess":
+    {
+        "Fields":["displacement","pressure","pid","Von-Mises"]
+    }
+        
+}
