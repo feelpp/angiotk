@@ -1,4 +1,8 @@
 = Spring Model
+:feelpp: Feel++
+:angiotk: AngioTk
+:stem: asciimath
+Christophe Prud'homme; Vincent Chabannes
 
 == Generating the geometry
 
@@ -22,7 +26,7 @@ image:images/media/image1.png[image,width=207,height=227]
 
 The command to execute the testcase reads
 ----
-mpirun -np 4 feelpp_toolbox_cfd_3d --config-file cfd/cfd.cfg
+mpirun -np 4 feelpp_toolbox_fluid_3d --config-file cfd/cfd.cfg
 ----
 
 === CSM
@@ -52,7 +56,7 @@ We also save the solution to use it in the next testcase
 ====
 
 ----
-mpirun -np 4 feelpp_toolbox_csm_3d --config-file csm/spring.cfg
+mpirun -np 4 feelpp_toolbox_solid_3d --config-file csm/spring.cfg
 ----
 
 ==== Test case 2
@@ -70,14 +74,18 @@ The objective is to study the dynamics of a spring starting from the stretching 
 [NOTE]
 ====
 To define the initial displacement stem:[u] à stem:[t=0] from the saved solution of the previous testcase, you have to add the following option in the config file:
- 
 ----
 solid.time-initial.displacement.files.directory=$repository/angiotk/spring/feelpp/csm/exercise1/P1G1/np_4/solution.displacement
 ----
-You have to use the same partitioned mesh, here we used 4 processors
+You have to use the same partitioned mesh, here we used 4 processors, checkout the code below from the cfg file.
+----
+mshfile=$repository/angiotk/spring/feelpp/csm/exercise1/P1G1/np_4/solid.msh
+----
+Note that the initial mesh from {angiotk} is not partitioned and is sequential.
+====
 
 The command to execute the testcase reads
 ----
-mpirun -np 4 feelpp_toolbox_csm_3d --config-file csm/spring2.cfg
+mpirun -np 4 feelpp_toolbox_solid_3d --config-file csm/spring2.cfg
 ----
 
