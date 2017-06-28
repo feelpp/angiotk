@@ -304,7 +304,7 @@ ENDIF(BUILD_DOXYGEN)
 #=========================================================
 # If choose to build examples, then look into Examples folder.
 IF(BUILD_EXAMPLES)
-  ADD_SUBDIRECTORY(Examples/Python)
+  ADD_SUBDIRECTORY(Examples)
 ENDIF(BUILD_EXAMPLES)
 #=========================================================
 
