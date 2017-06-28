@@ -3,11 +3,6 @@
     "Name": "Fluid Mechanics",
     "ShortName":"Fluid",
     "Model":"Stokes",//"Navier-Stokes",
-    "Parameters":
-    {
-	"ubar":"2",
-	"chi":"t<2:t"
-    },
     "Materials":
     {
 	"lumenVolume":{
@@ -32,7 +27,7 @@
 	{
 	    "inlet":
 	    {
-		"markerLumen0":
+		"markerBottom":
 		{
 		    "expr":"1e-6",
 		    "shape":"parabolic",//constant,parabolic,
