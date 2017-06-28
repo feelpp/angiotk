@@ -5,7 +5,7 @@
     "Model":"Elasticity",//"Elasticity",//"Hyper-Elasticity",
     "Materials":
     {
-        "volumeSpring":{
+        "lumenVolume":{
             //#acier : http://www.simulationmateriaux.com/ComportementMecanique/comportement_mecanique_Liste_modules_de_Young.php
             "name":"steel",
             "E":"210e6",
