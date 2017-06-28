@@ -1,0 +1,49 @@
+// -*- mode: javascript -*-
+{
+    "Name": "Fluid Mechanics",
+    "ShortName":"Fluid",
+    "Model":"Stokes",//"Navier-Stokes",
+    "Parameters":
+    {
+	"ubar":"2",
+	"chi":"t<2:t"
+    },
+    "Materials":
+    {
+	"lumenVolume":{
+	    "name":"Blood",
+	    "rho":1056, // [kg/m^3]
+	    "mu":6e-3 // [Pa.s]
+	}
+    },
+    "BoundaryConditions":
+    {
+	"velocity":
+	{
+	    "Dirichlet":
+	    {
+		"wall":
+		{
+		    "expr":"{0,0,0}"
+		}
+	    }
+	},
+	"fluid":
+	{
+	    "inlet":
+	    {
+		"markerLumen0":
+		{
+		    "expr":"1e-6",
+		    "shape":"parabolic",//constant,parabolic,
+		    "constraint":"flow_rate" //velocity_max,flow_rate
+		}
+	    }
+	}
+    },
+    "PostProcess":
+    {
+	"Fields":["velocity","pressure","pid"]
+    }
+
+}
