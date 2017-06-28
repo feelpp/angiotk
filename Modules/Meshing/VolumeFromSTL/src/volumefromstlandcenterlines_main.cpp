@@ -44,7 +44,7 @@ int main( int argc, char** argv )
 
     /* Create json file path */
     std::string jsonFile = fs::path(myMeshingVolume.outputPath()).stem().string() + ".json";
-    std::string outputJSONPath = fs::path(myMeshingVolume.outputDirectory())/jsonFile;
+    std::string outputJSONPath = (fs::path(myMeshingVolume.outputDirectory())/jsonFile).string();
 
     /* write json file */
     InletOutletDesc ioDesc(myMeshingVolume.inputInletOutletDescPath());
