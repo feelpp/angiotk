@@ -1,0 +1,196 @@
+\documentclass{beamer}
+\usetheme{Warsaw}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+%\usepackage[francais]{babel}
+\usepackage{graphicx}
+\usepackage{default}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{pdfpages} 
+\usepackage{listings}
+\usepackage{color}
+\usepackage{array}
+\usepackage{geometry}
+\usepackage{dsfont}
+\usepackage{amsmath}
+\usepackage{amsfonts, amssymb}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{todonotes}
+\usepackage{url}
+\usepackage{subfigure}
+\usepackage{verbatim}
+\usepackage{ifthen}
+\usepackage{xstring}
+\usepackage{siunitx}
+
+
+% commande pour référencer plus explicitement:
+\newcommand*{\fullref}[1]{\hyperref[{#1}]{\autoref*{#1} \nameref*{#1}}}
+\newcommand*{\titleref}[1]{\hyperref[{#1}]{\ref*{#1} \nameref*{#1}}}
+
+%\usepackage{nameref}
+\usepackage{amsfonts,amssymb}
+\usepackage{amsmath}
+\usepackage{xspace}
+
+
+\lstset{
+language=C,
+basicstyle=\footnotesize,
+numbers=left,
+numberstyle=\normalsize,
+numbersep=15pt,
+}
+
+% bibliographie
+\usepackage[backend=biber,style=alphabetic]{biblatex}
+\providecommand*{\footcite}{\fc}
+\bibliography{bib/bibliography.bib}
+
+% symboles mathématiques
+\newcommand{\N}{{\mathbb{N}}}
+\newcommand{\Z}{{\mathbb{Z}}}
+\newcommand{\R}{{\mathbb{R}}}
+\newcommand{\vecteur}{\overrightarrow}
+\newcommand{\vect}[1]{\boldsymbol{#1}}
+
+
+% abréviations
+\newcommand{\cad}{c'est-à-dire\xspace}
+\newcommand{\ioT}{Formats supportés\xspace}
+\newcommand{\argsT}{Paramètres\xspace}
+\newcommand{\etatg}{État général\xspace}
+
+% 
+\newcommand \sw[1] {\texttt{#1}\xspace}
+\newcommand \sourcepath[1 ]{\path{#1}\xspace}
+\newcommand \rorpo {\sw{RORPO}\xspace}
+\newcommand \vmtk {\sw{VMTK}\xspace}
+\newcommand \gmsh {\sw{Gmsh}\xspace}
+\newcommand \paraview {\sw{Paraview}\xspace}
+\newcommand \cts {\sw{component\_tree\_segmentation}\xspace}
+\newcommand \runpy {\sw{runAngioTKPipeline.py}\xspace}
+\newcommand \masterpy {\sw{master.py}\xspace}
+\newcommand \summaryHtml {\sw{summary.html}\xspace}
+
+
+% marqueurs
+\newcommand \tbv {\textcolor{red}{(?)}\xspace}
+\newcommand \execname[1] {\texttt{#1}\xspace}
+\newcommand \argfont {\texttt}
+\newcommand \argtypefont[1] {\textcolor{olive}{#1}}
+\newcommand \argvaluefont[1] {\textcolor{gray}{#1}}
+\newcommand \argdescriptionfont[1] {\textcolor{teal}{#1}}
+\newcommand {\cfgfont} {\texttt}
+\newcommand \cfgtypefont[1] {\textcolor{olive}{#1}}
+\newcommand \cfgvaluefont[1] {\textcolor{gray}{#1}}
+\newcommand \cfgdescriptionfont[1] {\textcolor{teal}{#1}}
+\newcommand \cfgsectiondescriptionfont[1] {\textcolor{violet}{#1}}
+\newcommand \cfgcommentfont[1] {\textcolor{violet}{#1}}
+
+% formats de fichier
+\newcommand {\mha} {MetaImage (.mha)\xspace}
+\newcommand {\nii} {NIfTI (.nii)\xspace}
+\newcommand {\stl} {STereoLithography (.stl)\xspace}
+\newcommand {\msh} {MSH (.msh)\xspace}
+\newcommand {\desc} {desc (.desc)\xspace}
+\newcommand {\pointpair} {texte contenant des paires de points (.pointpair.data)\xspace}
+\newcommand {\vtk} {VTK (.vtk)\xspace}
+\newcommand {\html} {html\xspace}
+\newcommand {\json} {json\xspace}
+
+% répertoires
+\newcommand {\resultsDataBase} {\textit{resultsDataBase}}
+
+\makeatletter
+% ----------------------------------- commande \iolist ------------------------------------
+% Détail des paramètres d'un programme en ligne de commande: fonction pour l'utilisateur (contient un nombre impair d'arguments: des couples {argument}{description} et un argument  final pour clore la liste: \stoparg
+\newcommand \iolist[2] {% (On commente cette ligne pour pouvoir la sauter.)
+\begin{itemize}
+\item \texttt{Entrée}: {#1}
+\item \texttt{Sortie}: {#2}
+\end{itemize}
+}
+\makeatother
+
+\makeatletter
+% ----------------------------------- commande \args ------------------------------------
+% Détail des paramètres d'un programme en ligne de commande: fonction pour l'utilisateur (contient un nombre impair d'arguments: des couples {argument}{description} et un argument  final pour clore la liste: \stoparg
+\newcommand{\args}{% (On commente cette ligne pour pouvoir la sauter.)
+\begin{itemize}
+\@argstest
+}
+\newcommand \@argstest{%
+\@ifnextchar\stoparg{\@argsend}{\@argscouple}
+}
+\newcommand \@argscouple[4]{%
+\StrLen{#1}[\argLength]% on stocke la longueur d'abord /!\ important, \StrLen ne peut pas être incluse (nested) dans le 'if'
+\ifthenelse{\equal{\argLength}{1}}% On distingue 2 cas:
+{\@argscoupleshort{#1}{#2}{#3}{#4}}% argument court (une seule lettre, comme -i) 
+{\@argscouplelong{#1}{#2}{#3}{#4}}% et argument long (--input)
+\@argstest
+}
+\newcommand \@argscoupleshort[4]{%
+\item[] \argfont{-#1}: \argvaluefont{#2} (\argtypefont{#3}) \argdescriptionfont{#4}
+}
+\newcommand \@argscouplelong[4]{%
+\IfSubStr{#1}{<}% On distingue entre <input> et --input
+{\item[] \argfont{#1>}: \argvaluefont{#2} (\argtypefont{#3}) \argdescriptionfont{#4}}% 
+{\item[] \argfont{-{}-#1}: \argvaluefont{#2} (\argtypefont{#3}) \argdescriptionfont{#4}}
+}
+\newcommand \@argsend[1]{%
+\end{itemize}
+}
+\makeatother
+
+\makeatletter
+% --------------------------------- commande \configfile ------------------------------------
+% Détail des paramètres d'un fichier de configuration: fonction pour l'utilisateur (contient un nombre impair d'arguments: des couples {argument}{description} et un argument  final pour clore la liste: \stopfile
+\newcommand{\configfile}{% (On commente cette ligne pour pouvoir la sauter.)
+\begin{itemize}
+\@configfiletest
+}
+\newcommand\@configfiletest{%
+\@ifnextchar\stopfile{\@configfileend}{\@configfilearg}
+}
+\newcommand\@configfilearg[4]{%
+\IfSubStr{#1}{[}{ \item[] \cfgfont{#1} \# \cfgsectiondescriptionfont{#2}\xspace}% section
+{\IfSubStr{#1}{//}{ \item[] \cfgcommentfont{#1} \xspace}% commentaire
+{ \item[] \cfgfont{#1}=\cfgvaluefont{#2} \# (\cfgtypefont{#3})  \cfgdescriptionfont{#4}\xspace}}% parametre
+\@configfiletest
+}
+\newcommand\@configfileend[1]{%
+\end{itemize}
+}
+\makeatother
+
+
+% raccourcis chemins
+\newcommand{\chpath}{}
+\newcommand{\secpath}{}
+\newcommand{\imgpath}{00-img/}
+
+\title{The AngioTK pipeline: from MRA to vascular 3D model.}
+\titlegraphic{
+	\begin{figure}[H]
+		\includegraphics[height=.3\textheight]{\imgpath front}
+	\end{figure}
+}
+\author{François Der Hovsepian}
+
+
+%--------------------------------------------------begin document----------------------------------------
+
+\begin{document}
+
+\begin{frame}
+\titlepage
+\end{frame}
+
+\renewcommand{\chpath}{0-overview/}
+\include{\chpath overview}
+
+\end{document}
