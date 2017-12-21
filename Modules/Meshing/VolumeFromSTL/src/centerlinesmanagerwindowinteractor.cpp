@@ -1352,6 +1352,8 @@ CenterlinesManagerWindowInteractor::run()//bool fullscreen, int windowWidth, int
     {
         if ( this->inputCenterlinesPath(k).empty() || !Feel::fs::exists( this->inputCenterlinesPath(k) ) ) continue;
 
+        if ( true )
+            {
         vtkSmartPointer<vtkPolyDataReader> readerVTK = vtkSmartPointer<vtkPolyDataReader>::New();
         readerVTK->SetFileName(this->inputCenterlinesPath(k).c_str());
         readerVTK->Update();
@@ -1379,6 +1381,7 @@ CenterlinesManagerWindowInteractor::run()//bool fullscreen, int windowWidth, int
         actorVTK->GetProperty()->SetLineWidth(3.0);
         // Add the actor to the scene
         renderer->AddActor(actorVTK);
+            }
         if ( !centerlinesTool )
         {
             if ( true )
@@ -1394,6 +1397,25 @@ CenterlinesManagerWindowInteractor::run()//bool fullscreen, int windowWidth, int
         }
         centerlinesTool->importFile( this->inputCenterlinesPath(k) );
     }
+
+#if 1
+    if ( false )
+        {
+            //centerlinesTool->addFieldBranchIds();
+            centerlinesTool->writeCenterlinesVTK( "toto.vtk" );
+            vtkSmartPointer<vtkPolyDataReader> readerVTK = vtkSmartPointer<vtkPolyDataReader>::New();
+            readerVTK->SetFileName("toto.vtk");
+            readerVTK->Update();
+            // Create a mapper and actor
+            vtkSmartPointer<vtkPolyDataMapper> mapperVTK = vtkSmartPointer<vtkPolyDataMapper>::New();
+            mapperVTK->SetInputConnection(readerVTK->GetOutputPort());
+            vtkSmartPointer<vtkActor> actorVTK = vtkSmartPointer<vtkActor>::New();
+            actorVTK->SetMapper(mapperVTK);
+            actorVTK->GetProperty()->SetLineWidth(3.0);
+            // Add the actor to the scene
+            renderer->AddActor(actorVTK);
+        }
+#endif
 
     if ( !this->inputPointSetPath().empty() )
     {
