@@ -539,7 +539,7 @@ int maxVerticesIndex( std::vector<BranchDesc> const& edges )
 
 
 
-AngioTkCenterline::AngioTkCenterline(std::string fileName): kdtree(0), kdtreeR(0), M_cutMeshRadiusUncertainty(0.)
+AngioTkCenterline::AngioTkCenterline(std::string fileName): kdtree(nullptr), kdtreeR(nullptr), M_cutMeshRadiusUncertainty(0.)
 {
   recombine = (CTX::instance()->mesh.recombineAll) || (CTX::instance()->mesh.recombine3DAll);
   nbPoints = 25;
@@ -669,7 +669,7 @@ void
 AngioTkCenterline::updateMergeFromExtremities( AngioTkCenterline const& centerlinesMerged,
 					       std::map<MVertex*,std::pair< std::vector<std::pair<MLine*,int> >, MVertex*> > & indexVertexReplaced )
 {
-  std::string fieldPointDataRadius = "RadiusMin";
+  std::string fieldPointDataRadius = "RadiusMin";//"MaximumInscribedSphereRadius";
 
   for ( auto const& extremityPair : centerlinesMerged.centerlinesExtremities() )
     {
@@ -680,7 +680,7 @@ AngioTkCenterline::updateMergeFromExtremities( AngioTkCenterline const& centerli
       std::vector<MLine*> mylines = centerlinesMerged.centerlinesBranch(branchId).lines;
       MLine* myline = mylines[lineIdInBranch];
 
-      double radius = 0.0;
+      double radius = -1.;//0.0;
       if ( fieldPointDataRadius.empty() || !this->hasField( fieldPointDataRadius ) )
 	{
 	  auto itFindRadius = centerlinesMerged.centerlinesRadiusl().find(myline);
@@ -692,27 +692,39 @@ AngioTkCenterline::updateMergeFromExtremities( AngioTkCenterline const& centerli
       else
 	{
 	  int vId = extremityPair.first->getIndex();
-	  auto itFindVertex = this->mapVertexGmshIdToVtkId().find(vId);
-	  if ( itFindVertex == this->mapVertexGmshIdToVtkId().end() )
+	  auto itFindVertex = centerlinesMerged.mapVertexGmshIdToVtkId().find(vId);
+	  if ( itFindVertex == centerlinesMerged.mapVertexGmshIdToVtkId().end() )
 	      Msg::Error("vertex not found in mapVertexGmshIdToVtkId");
 	  else
 	    {
 	      int vVtkId = itFindVertex->second;
 	      radius = centerlinesMerged.M_centerlinesFieldsPointData.find(fieldPointDataRadius)->second[vVtkId][0];
 	    }
-
 	}
+      if ( radius < 0 )
+        continue;
 
       auto ptFoundData = this->foundClosestPointInCenterlines( ptToLocalize );
       MVertex* pointFound = std::get<0>(ptFoundData);
+      if ( !pointFound )
+        continue;
       double dist = std::get<1>(ptFoundData);
-      //if ( dist > 2*(radius+this->minRadiusAtVertex(pointFound) ) )
-      if ( dist > 1*(radius+this->minRadiusAtVertex(pointFound,fieldPointDataRadius) ) )
-	pointFound = NULL;
+      if ( dist > (2./3.)*0.5*(radius+this->minRadiusAtVertex(pointFound,fieldPointDataRadius) ) )
+	continue;
+
+      double ptToLocalize2[3] = { pointFound->x(),pointFound->y(),pointFound->z() };
+      auto ptFoundData2 = centerlinesMerged.foundClosestPointInCenterlines( ptToLocalize2 );
+      MVertex* pointFound2 = std::get<0>(ptFoundData2);
+      if ( !pointFound2 )
+        continue;
+      if ( pointFound2->distance( extremityPair.first ) > 0.1*radius )
+        continue;
 
       if ( pointFound == NULL )
 	continue;
-
+      // std::cout<<"Find a point : " << ptToLocalize[0] << "," << ptToLocalize[1] << "," << ptToLocalize[2] << " vs "
+      //          << pointFound->x() << "," << pointFound->y() << "," << pointFound->z() << " with "
+      //          << dist << " and " << radius << " and " << this->minRadiusAtVertex(pointFound,fieldPointDataRadius) <<"\n";
       // if pointFound is already replaced, use replace point
       if ( indexVertexReplaced.find( pointFound ) != indexVertexReplaced.end() )
 	pointFound = indexVertexReplaced.find( pointFound )->second.second;
@@ -731,6 +743,7 @@ AngioTkCenterline::updateMergeFromExtremities( AngioTkCenterline const& centerli
       bool isForwardSearch = ( lineIdInBranch == 0 );
       double lcTotal = 0;
       int indexSearch = 0;
+      //if ( false )
       for ( int q=1; ( lcTotal < 4*radius && q < (mylines.size()-1) ) ; ++q )
 	{
 	  int newLineId = (isForwardSearch)?lineIdInBranch+q : lineIdInBranch-q;
@@ -4797,19 +4810,26 @@ void AngioTkCenterline::updateRelationMapVertex(std::map<int,int> & _mapVertexGm
 }
 
 std::tuple<MVertex*,double>
-AngioTkCenterline::foundClosestPointInCenterlines( double ptToLocalize[3] )
+AngioTkCenterline::foundClosestPointInCenterlines( double ptToLocalize[3] ) const
 {
-  if ( !kdtree ) this->buildKdTree();//Msg::Error("kdtree not build");
+  // if ( !kdtree ) this->buildKdTree();//Msg::Error("kdtree not build");
+  MVertex* pointFound = NULL;
+  double dist = 0;
+  if ( !kdtree )
+    {
+      Msg::Error("kdtree not build");
+      return std::make_tuple(pointFound, dist);
+    }
+
   ANNidx index[1];
 
   ANNdist distVec[1];
   kdtree->annkSearch(ptToLocalize, 1, index, distVec);
   ANNpointArray nodes = kdtree->thePoints();
-  double dist = distVec[0];
-  MVertex* pointFound = NULL;
+  dist = std::sqrt( distVec[0] );
   if ( index[0] < colorp.size() )
     {
-      std::map<MVertex*, int>::iterator itp = colorp.begin();
+      std::map<MVertex*, int>::const_iterator itp = colorp.begin();
       for (int k=0;k<index[0];++k)
 	++itp;
       pointFound = itp->first;
