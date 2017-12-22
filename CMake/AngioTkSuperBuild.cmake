@@ -83,6 +83,9 @@ if ( NOT ANGIOTK_USE_SYSTEM_VMTK )
   elseif( VTK_FOUND )
     list(APPEND VMTK_SUPERBUILD_CMAKE_ARGS -DUSE_SYSTEM_VTK=ON -DVTK_DIR=${VTK_DIR} )
   endif()
+  if ( PYTHON_EXECUTABLE )
+    list(APPEND VMTK_SUPERBUILD_CMAKE_ARGS -DPYTHON_EXECUTABLE=${PYTHON_EXECUTABLE})
+  endif()
   IF (APPLE)
     list(APPEND VMTK_SUPERBUILD_CMAKE_ARGS -DCMAKE_MACOSX_RPATH=1)
   endif()
@@ -91,7 +94,7 @@ if ( NOT ANGIOTK_USE_SYSTEM_VMTK )
   ExternalProject_Add(AngioTk_ExternalPackages_VMTK    # Name for custom target
     PREFIX "${CMAKE_BINARY_DIR}/ExternalPackages/build/VMTK"
     GIT_REPOSITORY "https://github.com/vmtk/vmtk.git"
-    GIT_TAG v1.3.2
+    GIT_TAG v1.4-beta.0 # v1.3.2
     PATCH_COMMAND git apply ${AngioTk_SOURCE_DIR}/CMake/AngioTk_VMTK_v1.3.2.patch
     CMAKE_ARGS ${VMTK_SUPERBUILD_CMAKE_ARGS}
     #UPDATE_DISCONNECTED 1
