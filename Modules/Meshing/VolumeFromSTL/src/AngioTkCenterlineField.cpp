@@ -709,7 +709,7 @@ AngioTkCenterline::updateMergeFromExtremities( AngioTkCenterline const& centerli
       if ( !pointFound )
         continue;
       double dist = std::get<1>(ptFoundData);
-      if ( dist > (2./3.)*0.5*(radius+this->minRadiusAtVertex(pointFound,fieldPointDataRadius) ) )
+      if ( dist > /*(2./3.)*0.5**/(radius+this->minRadiusAtVertex(pointFound,fieldPointDataRadius) ) )
 	continue;
 
       double ptToLocalize2[3] = { pointFound->x(),pointFound->y(),pointFound->z() };
