@@ -261,7 +261,14 @@ public :
             M_follower->SetMapper( mapper );
             M_follower->GetProperty()->SetColor( 1, 0, 0 );
             M_follower->SetPosition( fpos );
-            M_follower->SetScale(8.0);
+            double * followerBounds = M_follower->GetBounds();
+            double distBetweenPts = std::sqrt( std::pow(pos2[0]-pos1[0],2)+std::pow(pos2[1]-pos1[1],2)+std::pow(pos2[2]-pos1[2],2));
+            double followerDistX = followerBounds[1]-followerBounds[0];
+            if ( followerDistX > 1e-8 )
+                {
+                    double thescaling = (1./10.)*distBetweenPts/(followerBounds[1]-followerBounds[0]);
+                    M_follower->SetScale(thescaling/*8.0*/);
+                }
             M_follower->SetCamera(interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->GetActiveCamera());
 
             // add the follower to the scene
@@ -276,7 +283,7 @@ public :
 
         }
         interactor->GetRenderWindow()->GetRenderers()->GetFirstRenderer()->AddActor(M_lineActor);
-        
+
     }
 
     void
@@ -1352,7 +1359,7 @@ CenterlinesManagerWindowInteractor::run()//bool fullscreen, int windowWidth, int
     {
         if ( this->inputCenterlinesPath(k).empty() || !Feel::fs::exists( this->inputCenterlinesPath(k) ) ) continue;
 
-        if ( true )
+        if ( true/*true*/ )
             {
         vtkSmartPointer<vtkPolyDataReader> readerVTK = vtkSmartPointer<vtkPolyDataReader>::New();
         readerVTK->SetFileName(this->inputCenterlinesPath(k).c_str());
@@ -1399,7 +1406,7 @@ CenterlinesManagerWindowInteractor::run()//bool fullscreen, int windowWidth, int
     }
 
 #if 1
-    if ( false )
+    if ( false/*false*/ )
         {
             //centerlinesTool->addFieldBranchIds();
             centerlinesTool->writeCenterlinesVTK( "toto.vtk" );
