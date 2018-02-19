@@ -1,4 +1,4 @@
-# Using Docker (Preferred method)
+# Using Docker
 
 Using Docker is the easiest way to run AngioTK. Start by installing docker on
 your system (please refer to the docker documentation).
@@ -11,79 +11,120 @@ all the commands below should be executed as root.
 Once docker is installed, pull the AngioTK docker image:
 
 ```
-docker pull feelpp/angiotk:latest
+docker pull feelpp/angiotk:master-v0.104.0-alpha.3-ubuntu-16.10
 ```
 
-WARNING: for now, the image to use is actually `feelpp/angiotk:master-ubuntu-16.10`
-and requires access to a private docker registry. This means you should create
-an account on link:https://hub.docker.com/[docker hub] and request access to the
-feelpp/angiotk registry. Then run
+You could now start to use AngioTK by running:
 
 ```
-docker login
-```
-and type your username and password when prompted. Then
-pull the docker image:
-
-```
-docker pull feelpp/angiotk:master-ubuntu-16.10
+docker run --rm -ti feelpp/angiotk:master-v0.104.0-alpha.3-ubuntu-16.10
 ```
 
-You can now start to use AngioTK by running:
-
-```
-docker run -ti feelpp/angiotk:master-ubuntu-16.10
-```
-
-WARNING: You should mount a writable volume as `/feel` because AngioTK modules need to write results in this path:
+WARNING: You should mount a writable volume as `/feel` because AngioTK modules need to write results in this path. Otherwise, AngioTK modules will crash.
 For example:
 
 ```
-mkdir $HOME/feel
+mkdir $HOME/feel_docker
+docker run --rm -ti -v $HOME/feel_docker:/feel feelpp/angiotk:master-v0.104.0-alpha.3-ubuntu-16.10
 ```
-```
-docker run -ti -v $HOME/feel:/feel feelpp/angiotk:master-ubuntu-16.10
-```
-
 
 NOTE: To be able to use graphical interfaces (such as the center lines tool's),
 you need to provide additional arguments which are platform dependent. For
 example, on Ubuntu:
 
 ```
-docker run --pid=host --ipc=host -it -e DISPLAY=$DISPLAY -v
-/tmp/.X11-unix:/tmp/.X11-unix -v
-/home/<username>/.Xauthority:/home/feelpp/.Xauthority
-feelpp/angiotk:master-ubuntu-16.10
+docker run --rm --pid=host --ipc=host -it -e DISPLAY=$DISPLAY -v $HOME/feel_docker:/feel -v /tmp/.X11-unix:/tmp/.X11-unix -v $HOME/.Xauthority:/home/user/.Xauthority feelpp/angiotk:master-v0.104.0-alpha.3-ubuntu-16.10
 ```
 
-# Using the superbuild (alternative method)
+You also need a few other arguments to run the latest AngioTK image, so here is a complete command:
+
+```
+docker run --rm -h feelpp -e LOCAL_USER_ID=`id -u $USER` --pid=host --ipc=host -it -e DISPLAY=$DISPLAY -v $HOME/feel_docker:/feel -v /tmp/.X11-unix:/tmp/.X11-unix -v $HOME/.Xauthority:/home/user/.Xauthority feelpp/angiotk:master-v0.104.0-alpha.3-ubuntu-16.10
+```
+
+
+# Building AngioTK
 
 ## Requirements
 
+### General requirements
+
 We assume you have the following software installed:
 
-- gcc 6.1.0 or higher clang 4.0.0 or higher CMake 3.6.1 or higher The latest
-- version of the feel++ library installed and the ` FEELPP_DIR` environment
-- variable referencing its install directory.
+- gcc 6.4.0 or higher clang 4.0.1 or higher CMake 3.9.2 or higher
+- The latest version of the feel++ library installed and the ` FEELPP_DIR` environment variable referencing its install directory.
 
-## Downloading sources and building AngioTK
+### On atlas
+
+On atlas, compiling and installing Feel++ is easier. Start by loading the module profile:
+
+```
+module load feelpp.profile
+```
+
+Then create three directories: one for the sources, one for the build and one to install to:
+
+```
+mkdir $HOME/git/
+mkdir -p $HOME/build/feelpp
+mkdir -r $HOME/install/feelpp
+```
+
+Clone the sources:
+
+```
+cd $HOME/git
+git clone http://github.com/feelpp/feelpp.git
+```
+
+Then call CMake:
+
+```
+cmake $HOME/git/feelpp \
+  -DCMAKE_INSTALL_PREFIX=$HOME/install/feelpp \
+  -DFEELPP_ENABLE_NLOPT=OFF \
+  -DCMAKE_BUILD_TYPE=Release
+```
+
+NOTE: Disabling nlopt is necessary until further notice.
+
+You can now build and install Feel++ using make:
+
+```
+make -j 12
+make install
+```
+
+Now, export the `FEELPP_DIR` variable:
+
+```
+export FEELPP_DIR=$HOME/install/feelpp
+```
+
+## Downloading and building AngioTK
 
 When all of the dependencies are installed, building AngioTK is fairly simple.
 You need three directories: one for the sources, one for the building step and
 one to install AngioTK. Start by cloning the sources:
 
 ```
-mkdir $HOME/git cd $HOME/git git clone http://github.com/feelpp/angiotk.git
+mkdir $HOME/git
+cd $HOME/git
+git clone http://github.com/feelpp/angiotk.git
 ```
 Then call CMake, specify the install directory and enable/disable modules.
 
 ```
-mkdir $HOME/build/angiotk cd $HOME/build/angiotk cmake $HOME/git/angiotk
--DCMAKE_INSTALL_PREFIX=$HOME/install/angiotk -DBUILD_MODULE_Filtering=ON
--DBUILD_MODULE_Meshing=ON -DBUILD_MODULE_CFD=OFF
--DBUILD_MODULE_ParticleTracer=OFF -DBUILD_MODULE_CT_Segmentation=OFF
--DCMAKE_BUILD_TYPE=Release
+mkdir -p $HOME/build/angiotk
+mkdir -p $HOME/install/angiotk
+cd $HOME/build/angiotk
+cmake $HOME/git/angiotk \
+  -DCMAKE_INSTALL_PREFIX=$HOME/install/angiotk \
+  -DBUILD_MODULE_Filtering=ON \
+  -DBUILD_MODULE_Meshing=ON \
+  -DBUILD_MODULE_CFD=ON \
+  -DBUILD_MODULE_ParticleTracer=OFF \
+  -DCMAKE_BUILD_TYPE=Release
 ```
 
 Build AngioTK with make:
@@ -92,19 +133,11 @@ Build AngioTK with make:
 make -j 4 make install
 ```
 
-Finally, call the environment setup script before using AngioTK: (it will export
-required environment variables)
+Finally, add AngioTK paths to the relevant environment variables:
 
 ```
-source
-$HOME/build/angiotk/AngioTkSuperBuild/build/src/AngioTkSuperBuild-build/AngioTkSetupEnv.sh
-```
-
-Export two additional environment variables:
-
-```
-export LD_LIBRARY_PATH=$HOME/install/angiotk/lib:$LD_LIBRARY_PATH export
-PATH=$HOME/install/angiotk/bin:$PATH
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/install/angiotk/lib
+export PATH=$PATH:$HOME/install/angiotk/bin
 ```
 
 You can now run the pipeline scripts in:
@@ -116,159 +149,5 @@ $HOME/install/angiotk/bin/
 Or call the modules individually, for example:
 
 ```
-meshing_surfacefromimage <...>
+angiotk_meshing_surfacefromimage <...>
 ```
-
-# Step by step building documentation (older method)
-
-Some dependecies must be installed in order to build and install AngioTK.
-
-## Feel++
-
-AngioTK needs the Feel++ library to be installed, and the `FEELPP_DIR`
-environment variable to reference its install directory (which is defined before
-compiler using the `-DCMAKE_INSTALL_PREFIX=` flag).
-
-### Feel++ requirements
-
-Please refer to the Feel++ documentation for further instructions on how to
-build and/or install Feel++
-
-As of today (may 2017), Feel++ installation has been successfully tested with
-the following environment:
-
-##### Compiling requirements - gcc 6.1.0 - clang 4.0.0 - CMake 3.6.1
-
-##### Other dependencies - openmpi 1.10.2 - boost 1.61 - petsc 3.6.4 - slepc
-##### 3.6.3 - gmsh 2.13.1 - hdf5 1.8.17 - VTK 7.0.0 - ParaView 5.1.0 - fftw
-##### 3.3.4
-
-### Building the Feel++ library
-
-You should set the `CC` and `CXX` environment variables to refer to clang and
-clang++ respectively.
-
-##### Cloning sources (using git)
-
-You need a suitable directory to clone the sources. For example, let's assume
-you clone the sources in a subdirectory in your home directory:
-
-```
-mkdir $HOME/git cd $HOME/git git clone https://github.com/feelpp/feelpp.git
-```
-The sources have been cloned to `$HOME/git/feelpp/`. You also need a build
-directory ***outside*** of the source directory. Let's assume we build in an
-other subdirectory in your home directory:
-
-```
-mkdir $HOME/build mkdir $HOME/build/feelpp cd $HOME/build/feelpp
-```
-Tell
-CMake where the source are, where to install the library (for example
-`$HOME/install/feelpp`) as well as build options.
-
-```
-cmake $HOME/git/feelpp -DCMAKE_INSTALL_PREFIX=$HOME/install/feelpp
--DFEELPP_ENABLE_NLOPT=OFF -DCMAKE_BUILD_TYPE=Release
-```
-
-NOTE: Disabling nlopt is necessary until further notice.
-
-You can now build Feel++ using make:
-
-```
- make install-feelpp-lib -j 4
-```
-
-NOTE: The `-j` flag allows you to define how many compiling processes can run simultaneously. Increasing this value should decrease compiling time, until you reach the CPU core count of your system.
-
-## Compilers
-
-We strongly advise to compile all of AngioTK's dependencies using the same
-versions of GCC, Clang and CMake used to build Feel++.
-
-## ITK 4 or higher
-
-AngioTK requires ITK version 4 or higher to be installed and the `ITK_DIR`
-environment variable to reference its install directory.
-
-As of today (may 2017), AngioTK has been successfully compiled with ITK 4.12.0.
-
-## VMTK 1.3
-
-If you can install VMTK through your package system, you should do it this way,
-it would be easier.
-
-As of today (may 2017), AngioTK has been successfully compiled with VMTK 1.3.
-
-### building VMTK
-
-If you prefer to build VMTK, the easiest way to do it is with the SuperBuild
-option. It will build VMTK and all its dependencies in a single directory, you
-will thus avoid compatibility issues.
-
-First clone vmtk with git and select the version you want:
-
-``` # Cloning vmtk and go into the directory git clone
-https://github.com/vmtk/vmtk.git cd vmtk
-
-# By default, you will be on top of the master branch If you want to switch to a
-# previous release, use the git checkout command To check available releases,
-# use the git show-ref command
-
-# Example: going to VMTK 1.2 git checkout refs/tags/v1.2
-
-# Example: going to VMTK 1.3 git checkout refs/tags/v1.3 ```
-
-By default VMTK will perform a SuperBuild, you can use the following commands
-(in the vmtk directory):
-
-``` # First create a build directory to build outside of the source code  mkdir
-build cd build
-
-# The use the following command template cmake <vmtk_source_dir> You can specify
-# the SuperBuild install prefix with -DSUPERBUILD_INSTALL_PREFIX=... By default,
-# it will be installed in <builddir>/Install cmake .. make -j <njobs> ```
-
-Export the VMTK_DIR or VMTKHOME variable to the install directory to make it
-available to AngioTK.
-
-For all those libraries, you might need to setup `PATH`, `LD_LIBRARY_PATH`,
-`CMAKE_PREFIX_PATH` ... or use the module command.
-
-## Python 2 (and *not* python 3)
-
-Python 2 is also required to run AngioTK. Python 3 will not work with AngioTK
-because it is not supported by VMTK 1.3.
-
-## Building AngioTK
-
-When all of the dependencies are installed, building AngioTK is fairly simple.
-You need three directories: one for the sources, one for the building step and
-one to install AngioTK. Start by cloning the sources:
-
-``` cd $HOME/git git clone http://github.com/feelpp/angiotk.git ``` Then call
-CMake, specify the install directory and enable/disable modules.
-
-``` mkdir $HOME/build/angiotk cd $HOME/build/angiotk cmake $HOME/git/angiotk
--DCMAKE_INSTALL_PREFIX=$HOME/install/angiotk -DBUILD_MODULE_Filtering=OFF
--DBUILD_MODULE_Meshing=ON -DBUILD_MODULE_CFD=OFF
--DBUILD_MODULE_ParticleTracer=OFF -DBUILD_MODULE_CT_Segmentation=ON
--DCMAKE_BUILD_TYPE=Release ```
-
-Build AngioTK with make:
-
-``` make -j 4 make install ```
-
-Finally, call the environment setup script before using AngioTK: (it will export
-required environment variables)
-
-``` source $HOME/install/angiotk/bin/setupAngioTKEnvironment.sh ```
-
-You can now run the pipeline scripts in:
-
-``` $HOME/install/angiotk/bin/ ```
-
-Or call the modules individually, for example:
-
-``` meshing_surfacefromimage <...> ```
