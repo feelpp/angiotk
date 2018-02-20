@@ -1,8 +1,27 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index b6d5309..b3cb5b6 100644
+index b6d5309..0f49168 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -79,10 +79,22 @@ ENDIF (APPLE)
+@@ -2,6 +2,10 @@ if( APPLE AND NOT CMAKE_CXX_COMPILER)
+   set ( CMAKE_CXX_COMPILER "/usr/bin/g++" CACHE STRING "CXX compiler." FORCE)
+ endif( APPLE AND NOT CMAKE_CXX_COMPILER)
+ 
++if ( APPLE )
++  cmake_policy(SET CMP0025 NEW)
++endif()
++
+ PROJECT(VMTK)
+ 
+ CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
+@@ -18,7 +22,6 @@ foreach(p
+     cmake_policy(SET ${p} NEW)
+   endif()
+ endforeach()
+-
+ # vmtk versions number
+ SET(VMTK_VERSION_MAJOR 1)
+ SET(VMTK_VERSION_MINOR 3)
+@@ -79,10 +82,22 @@ ENDIF (APPLE)
  option( USE_SYSTEM_VTK
    "Exclude VTK from SuperBuild and use an existing build instead." OFF )
  if( USE_SYSTEM_VTK )
@@ -13,7 +32,7 @@ index b6d5309..b3cb5b6 100644
 +  FIND_PACKAGE(ParaView QUIET NO_MODULE )
 +  if(ParaView_FOUND)
 +    message(STATUS "[ParaView] Use file: ${PARAVIEW_USE_FILE}")
-+    message( "PARAVIEW_QT_QMAKE_EXECUTABLE=${PARAVIEW_QT_QMAKE_EXECUTABLE}")
++    #message( "PARAVIEW_QT_QMAKE_EXECUTABLE=${PARAVIEW_QT_QMAKE_EXECUTABLE}")
 +    INCLUDE(${PARAVIEW_USE_FILE})
 +    INCLUDE(${VTK_USE_FILE})
 +    set (VTK_VERSION_MAJOR ${VTK_MAJOR_VERSION})

@@ -3,7 +3,7 @@
 
 project(VolumeFromSTL)
 
-if ( Feel++_FOUND AND VMTK_FOUND AND PYTHONINTERP_FOUND )
+if ( Feel++_FOUND AND VMTK_FOUND AND PYTHONLIBS_FOUND )
 
   #include_directories(${VolumeFromSTL_BINARY_DIR})
 

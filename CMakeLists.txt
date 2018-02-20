@@ -1,5 +1,5 @@
 #=========================================================
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.7 FATAL_ERROR)
+cmake_minimum_required (VERSION 3.1.3)
 
 #=========================================================
 #AngioTk = Virtual Angiography Toolkit
@@ -151,8 +151,12 @@ endif()
 
 #=========================================================
 # Find Python
-FIND_PACKAGE(PythonLibs 2)
-FIND_PACKAGE(PythonInterp 2)
+if ( NOT PYTHONLIBS_FOUND )
+  FIND_PACKAGE(PythonLibs)
+endif()
+if ( NOT PYTHONINTERP_FOUND )
+  FIND_PACKAGE(PythonInterp)
+endif()
 
 #=========================================================
 # Find ITK (required)
@@ -300,7 +304,7 @@ ENDIF(BUILD_DOXYGEN)
 #=========================================================
 # If choose to build examples, then look into Examples folder.
 IF(BUILD_EXAMPLES)
-  ADD_SUBDIRECTORY(Examples/Python)
+  ADD_SUBDIRECTORY(Examples)
 ENDIF(BUILD_EXAMPLES)
 #=========================================================
 
