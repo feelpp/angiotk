@@ -1,23 +1,24 @@
 steps:
- - name: ':ubuntu: 16.10,clang++-3.9'
+ - name: ':ubuntu: 16.04,clang++-4.0'
    command: .buildkite/steps/build.sh
    agents:
      docker: true
-     ubuntu: "16.10"
+     ubuntu: "16.04"
    env:
      PROJECT: angiotk
-     CXX: clang++-3.9
+     CXX: clang++-4.0
      BUILD_JOBS: 10
      FROM: feelpp/feelpp-toolboxes
-     TARGET: ubuntu:16.10
+     TARGET: ubuntu:16.04
      FEELPP_BRANCH: develop
      CMAKE_FLAGS: -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-Wno-inconsistent-missing-override" -DBUILD_MODULE_Meshing=ON -DBUILD_MODULE_Filtering=ON -DBUILD_MODULE_Segmentation=ON -DBUILD_MODULE_ParticleTracer=ON -DBUILD_EXAMPLES=ON
- - name: ':rocket: :whale: deploy :ubuntu: 16.10,clang++-3.9'
+ - wait
+ - name: ':rocket: :whale: deploy :ubuntu: 16.04,clang++-4.0'
    command: .buildkite/steps/release.sh
    agents:
      docker: true
-     ubuntu: "16.10"
+     ubuntu: "16.04"
    branches: develop master
    env:
      PROJECT: angiotk
-     TARGET: ubuntu:16.10
+     TARGET: ubuntu:16.04
