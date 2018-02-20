@@ -1,6 +1,6 @@
 # The Centerline Editing Graphical Tool
 
-The Centerline Editing Graphical Tool's (CEGT) purpose is to assist the user in centerlines creation and edition. At this time (May 2016), it essentially remains a manual task, and a critical step in the pipeline (see the Center lines definition section in definitionlink:Meshing_Module_Description.adoc[the Meshing Module Description page].)
+The Centerline Editing Graphical Tool's (CEGT) purpose is to assist the user in centerlines creation and edition. At this time (november 2016), it essentially remains a manual task, and a critical step in the pipeline (see the Center lines definition section in link:Meshing_Module_Description.adoc[the Meshing Module Description page].)
 
 ## Overview
 
