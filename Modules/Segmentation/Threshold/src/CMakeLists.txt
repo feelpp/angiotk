@@ -1,2 +1,2 @@
-angiotk_add_component( ThresholdFilter ThresholdFilter.cxx )
+angiotk_add_component( angiotk_segmentation_ThresholdFilter ThresholdFilter.cxx )
 

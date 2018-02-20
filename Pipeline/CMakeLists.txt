@@ -1,6 +1,6 @@
 
-configure_file(runAngioTKPipeline.py.in ${CMAKE_CURRENT_BINARY_DIR}/runAngioTKPipeline.py)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/runAngioTKPipeline.py DESTINATION bin)
+set(ANGIOTK_EXECUTABLE_DIR ${AngioTk_BINARY_DIR}/bin)
+configure_file(angiotk_pipeline_run.py.in ${CMAKE_CURRENT_BINARY_DIR}/angiotk_pipeline_run.py)
 
-configure_file(setupAngioTKEnvironment.sh.in ${CMAKE_CURRENT_BINARY_DIR}/setupAngioTKEnvironment.sh)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/setupAngioTKEnvironment.sh DESTINATION bin)
+install(PROGRAMS  ${CMAKE_CURRENT_BINARY_DIR}/angiotk_pipeline_run.py
+  DESTINATION bin )  

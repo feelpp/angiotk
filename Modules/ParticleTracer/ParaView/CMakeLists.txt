@@ -1,18 +1,23 @@
 # Module ParticleTracer
 # Label volume to Mesh for CFD
+if ( NOT ( FEELPP_FOUND AND FEELPP_HAS_PARAVIEW AND FEELPP_HAS_HDF5 ) )
+  return()
+endif()
 
 project(PVParticleTracer)
 
 message(STATUS "Configuring ParticleTracer (ParaView) Module")
 
+
 # reset all include directories to avoid errors with different VTK versions
 # We want to use the version provided by ParaView
-set_property(DIRECTORY . PROPERTY INCLUDE_DIRECTORIES "")
+#set_property(DIRECTORY . PROPERTY INCLUDE_DIRECTORIES "")
 
 # Don't use the basic FindHDF5.cmake package
 # It often ends up mixing custom installations and system installations
 #FIND_PACKAGE(HDF5 REQUIRED)
 
+if (0)
 find_path(HDF5_INCLUDE_DIR hdf5.h
     PATHS $ENV{HDF5_DIR}/include
     NO_SYSTEM_PATH
@@ -40,6 +45,10 @@ FIND_PACKAGE(ParaView REQUIRED
     PATHS $ENV{PARAVIEW_DIR} ${MACHINE_PARAVIEW_DIR})
 
 INCLUDE(${PARAVIEW_USE_FILE})
+endif()
+
+
+
 
 include_directories(include)
 
