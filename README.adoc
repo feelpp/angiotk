@@ -1,9 +1,7 @@
 = AngioTK Project
 :toc: 
 
-This is the AngioTk project: a collaboration within the <a
-href=http://icube-vivabrain.unistra.fr/index.php/Presentation>ANR MN
-Vivabrain</a>
+This is the AngioTk project: a collaboration within the link:http://icube-vivabrain.unistra.fr/index.php/Presentation[ANR MN Vivabrain].
 
 == The VIVABRAIN project
 The Vivabrain project was a french publicly funded research project
@@ -19,6 +17,17 @@ The project is no longer funded but development continues. The main software out
 this repository. This document describes how to obtain it and compile it.
 
 == Downloading the software
+
+=== From Docker
+
+AngioTK comes fully compiled in docker, use the following command to download the AngioTK docker image
+[source,sh]
+----
+docker pull feelpp/angiotk
+----
+
+=== From source
+
 You can download a ZIP archive of the projet by clicking the green button at the top right of this page, or just by
 following <a href=https://github.com/feelpp/angiotk/archive/doc/building.zip>this link</a>. However, the
 recommended way to get the software is to *clone* it using git.
