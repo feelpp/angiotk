@@ -1,4 +1,15 @@
 
+set(ANGIOTK_MODULE_MESHING_EXTERNAL_LIBRARIES)
+if ( FEELPP_FOUND )
+  list(APPEND ANGIOTK_MODULE_MESHING_EXTERNAL_LIBRARIES ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES})
+endif()
+if ( VMTK_FOUND )
+  list(APPEND ANGIOTK_MODULE_MESHING_EXTERNAL_LIBRARIES ${VMTK_LIBRARIES})
+endif()
+if ( VTK_FOUND )
+  list(APPEND ANGIOTK_MODULE_MESHING_EXTERNAL_LIBRARIES ${VTK_LIBRARIES})
+endif()
+
 add_library( angiotk_meshing_volumefromstl
   SHARED
   volumefromstl.cpp
@@ -8,68 +19,57 @@ add_library( angiotk_meshing_volumefromstl
   centerlinesmanagerwindowinteractor.cpp
   centerlinesmanageriodata.cpp
   )
-target_link_libraries( angiotk_meshing_volumefromstl ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} ${VMTK_LIBRARIES} )
+target_link_libraries( angiotk_meshing_volumefromstl ${ANGIOTK_MODULE_MESHING_EXTERNAL_LIBRARIES}) # ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} ${VMTK_LIBRARIES} )
+target_include_directories(angiotk_meshing_volumefromstl BEFORE PUBLIC ${VolumeFromSTL_SOURCE_DIR}/include/gmshHeadersMissing )
+install(TARGETS angiotk_meshing_volumefromstl LIBRARY DESTINATION lib/ COMPONENT Libs)
 
-install(TARGETS angiotk_meshing_volumefromstl
-    LIBRARY DESTINATION Modules/Meshing/lib
-)
+set(ANGIOTK_MODULE_MESHING_LIBRARIES angiotk_meshing_volumefromstl ) # ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
 
 if(APPLE)
-  add_executable(meshing_centerlinesmanagergui MACOSX_BUNDLE centerlinesmanagergui_main.cpp )
-  target_link_libraries( meshing_centerlinesmanagergui  ${VTK_LIBRARIES} angiotk_meshing_volumefromstl)
+  add_executable(angiotk_meshing_centerlinesmanagergui MACOSX_BUNDLE centerlinesmanagergui_main.cpp )
+  target_link_libraries( angiotk_meshing_centerlinesmanagergui ${ANGIOTK_MODULE_MESHING_LIBRARIES} )
 else()
-  angiotk_add_component( meshing_centerlinesmanagergui centerlinesmanagergui_main.cpp )
-  #target_link_libraries( meshing_centerlinesmanagergui ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
-  target_link_libraries( meshing_centerlinesmanagergui ${VTK_LIBRARIES} angiotk_meshing_volumefromstl)
+  angiotk_add_component( angiotk_meshing_centerlinesmanagergui centerlinesmanagergui_main.cpp )
+  target_link_libraries( angiotk_meshing_centerlinesmanagergui ${ANGIOTK_MODULE_MESHING_LIBRARIES})
 endif()
 
-angiotk_add_component( meshing_createinletoutletdesc createinletoutletdesc_main.cpp )
-target_link_libraries( meshing_createinletoutletdesc ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
+angiotk_add_component( angiotk_meshing_createinletoutletdesc createinletoutletdesc_main.cpp )
+target_link_libraries( angiotk_meshing_createinletoutletdesc ${ANGIOTK_MODULE_MESHING_LIBRARIES} )
 
-angiotk_add_component( meshing_centerlines centerlines_main.cpp )
-target_link_libraries( meshing_centerlines ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
-configure_file( centerlines.cfg ${AngioTk_BINARY_DIR}/cfg/meshing/test_centerlines.cfg )
+angiotk_add_component( angiotk_meshing_centerlines centerlines_main.cpp )
+target_link_libraries( angiotk_meshing_centerlines ${ANGIOTK_MODULE_MESHING_LIBRARIES} )
 
-angiotk_add_component( meshing_remeshstl remeshstl_main.cpp )
-target_link_libraries( meshing_remeshstl ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
-configure_file( remeshstlvmtk.cfg ${AngioTk_BINARY_DIR}/cfg/meshing/test_remeshstlvmtk.cfg )
-configure_file( remeshstlgmsh.cfg ${AngioTk_BINARY_DIR}/cfg/meshing/test_remeshstlgmsh.cfg )
+angiotk_add_component( angiotk_meshing_remeshstl remeshstl_main.cpp )
+target_link_libraries( angiotk_meshing_remeshstl ${ANGIOTK_MODULE_MESHING_LIBRARIES} )
 
-angiotk_add_component( meshing_volumefromstlandcenterlines volumefromstlandcenterlines_main.cpp )
-target_link_libraries( meshing_volumefromstlandcenterlines ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
-configure_file( volumefromstlandcenterlines.cfg ${AngioTk_BINARY_DIR}/cfg/meshing/test_volumefromstlandcenterlines.cfg )
+angiotk_add_component( angiotk_meshing_volumefromstlandcenterlines volumefromstlandcenterlines_main.cpp )
+target_link_libraries( angiotk_meshing_volumefromstlandcenterlines ${ANGIOTK_MODULE_MESHING_LIBRARIES} )
 
-angiotk_add_component( meshing_volumefromstl volumefromstl_main.cpp )
-target_link_libraries( meshing_volumefromstl ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
-configure_file( volumefromstl.cfg ${AngioTk_BINARY_DIR}/cfg/meshing/test_volumefromstl.cfg )
+angiotk_add_component( angiotk_meshing_pipeline_volumefromstl volumefromstl_main.cpp )
+target_link_libraries( angiotk_meshing_pipeline_volumefromstl ${ANGIOTK_MODULE_MESHING_LIBRARIES} )
 
-angiotk_add_component( meshing_imagefromcenterlines imagefromcenterlines_main.cpp )
-target_link_libraries( meshing_imagefromcenterlines ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
+angiotk_add_component( angiotk_meshing_imagefromcenterlines imagefromcenterlines_main.cpp )
+target_link_libraries( angiotk_meshing_imagefromcenterlines ${ANGIOTK_MODULE_MESHING_LIBRARIES} )
 
-angiotk_add_component( meshing_surfacefromimage surfacefromimage_main.cpp )
-target_link_libraries( meshing_surfacefromimage ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
+angiotk_add_component( angiotk_meshing_surfacefromimage surfacefromimage_main.cpp )
+target_link_libraries( angiotk_meshing_surfacefromimage ${ANGIOTK_MODULE_MESHING_LIBRARIES} )
 
-angiotk_add_component( meshing_imagesmanager imagesmanager_main.cpp )
-target_link_libraries( meshing_imagesmanager ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
+angiotk_add_component( angiotk_meshing_imagesmanager imagesmanager_main.cpp )
+target_link_libraries( angiotk_meshing_imagesmanager ${ANGIOTK_MODULE_MESHING_LIBRARIES} )
 
-angiotk_add_component( meshing_opensurface opensurface_main.cpp )
-target_link_libraries( meshing_opensurface ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
+angiotk_add_component( angiotk_meshing_opensurface opensurface_main.cpp )
+target_link_libraries( angiotk_meshing_opensurface ${ANGIOTK_MODULE_MESHING_LIBRARIES} )
 
-angiotk_add_component( meshing_smoothsurface smoothsurface_main.cpp )
-target_link_libraries( meshing_smoothsurface ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
+angiotk_add_component( angiotk_meshing_smoothsurface smoothsurface_main.cpp )
+target_link_libraries( angiotk_meshing_smoothsurface ${ANGIOTK_MODULE_MESHING_LIBRARIES} )
 
-angiotk_add_component( meshing_subdividesurface subdividesurface_main.cpp )
-target_link_libraries( meshing_subdividesurface ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
+angiotk_add_component( angiotk_meshing_subdividesurface subdividesurface_main.cpp )
+target_link_libraries( angiotk_meshing_subdividesurface ${ANGIOTK_MODULE_MESHING_LIBRARIES} )
 
-angiotk_add_component( meshing_centerlinesmanager centerlinesmanager_main.cpp )
-target_link_libraries( meshing_centerlinesmanager ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
+angiotk_add_component( angiotk_meshing_centerlinesmanager centerlinesmanager_main.cpp )
+target_link_libraries( angiotk_meshing_centerlinesmanager ${ANGIOTK_MODULE_MESHING_LIBRARIES} )
 
-angiotk_add_component( meshing_tubularextension tubularextension_main.cpp )
-target_link_libraries( meshing_tubularextension ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)
+angiotk_add_component( angiotk_meshing_tubularextension tubularextension_main.cpp )
+target_link_libraries( angiotk_meshing_tubularextension ${ANGIOTK_MODULE_MESHING_LIBRARIES} )
 
 
-ExternalData_expand_arguments( angioTkData testArgs DATA{${VolumeFromSTL_SOURCE_DIR}/simpleTbifurcation.stl} )
-ExternalData_expand_arguments( angioTkData testArgs DATA{${VolumeFromSTL_SOURCE_DIR}/simpleTbifurcation_remeshVMTKarea0.005.stl} )
-ExternalData_expand_arguments( angioTkData testArgs DATA{${VolumeFromSTL_SOURCE_DIR}/simpleTbifurcation_remeshVMTKarea0.005_centerlines.vtk} )
-ExternalData_expand_arguments( angioTkData testArgs DATA{${VolumeFromSTL_SOURCE_DIR}/simpleTbifurcation.inletoutlet.desc} )
-add_dependencies( meshing_volumefromstl angioTkData)
