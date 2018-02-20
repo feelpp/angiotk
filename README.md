@@ -7,18 +7,27 @@ Vivabrain</a>
 
 # The VIVABRAIN project
 The Vivabrain project was a french publicly funded research project
-involving*
+involving:
 
-- University of Reims
-- University of Grenoble
-- University of Strasbourg
-- University Paris-Est ESIEE
+- the University of Reims;
+- the University of Grenoble;
+- the University of Strasbourg;
+- the University Paris-Est ESIEE;
 - Kitware SAS.
 
 The project is no longer funded but development continues. The main software outcome of this project is contained in
-this repository. The software is under development. This document describes how to obtain it and compile it.
+this repository. This document describes how to obtain it and compile it.
 
 ## Downloading the software
+You can download a ZIP archive of the projet by clicking the green button at the top right of this page. However, the
+recommended way to get the software is to *clone* it using git.
+
+<a href=https://git-scm.com/>Git</a> is a source-code management platform that was initially proposed by Linus Thovalds, the creator of the Linux kernel,
+for the express purpose of the Linux kernel source code management. Git has now become the de-facto standard for
+source code management, and github is the de-facto open-source platform for git project deployment.
+
+Please read this <a href=https://services.github.com/on-demand/downloads/github-git-cheat-sheet.pdf>short document</a>
+to get started.
 
 [![Join the chat at https://gitter.im/vivabrain/angiotk](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vivabrain/angiotk?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
