@@ -1,7 +1,24 @@
 AngioTK Project
 ===============
 
-This is the AngioTk project: a collaboration within the ANR MN Vivabrain.
+This is the AngioTk project: a collaboration within the <a
+href=http://icube-vivabrain.unistra.fr/index.php/Presentation>ANR MN
+Vivabrain</a>
+
+# The VIVABRAIN project
+The Vivabrain project was a french publicly funded research project
+involving*
+
+- University of Reims
+- University of Grenoble
+- University of Strasbourg
+- University Paris-Est ESIEE
+- Kitware SAS.
+
+The project is no longer funded but development continues. The main software outcome of this project is contained in
+this repository. The software is under development. This document describes how to obtain it and compile it.
+
+## Downloading the software
 
 
 [![Join the chat at https://gitter.im/vivabrain/angiotk](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vivabrain/angiotk?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
