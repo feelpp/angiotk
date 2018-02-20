@@ -1,7 +1,7 @@
-// Gmsh - Copyright (C) 1997-2017 C. Geuzaine, J.-F. Remacle
+// Gmsh - Copyright (C) 1997-2014 C. Geuzaine, J.-F. Remacle
 //
 // See the LICENSE.txt file for license information. Please report all
-// bugs and problems to the public mailing list <gmsh@onelab.info>.
+// bugs and problems to the public mailing list <gmsh@geuz.org>.
 
 #ifndef _MESH_GREGION_H_
 #define _MESH_GREGION_H_
@@ -35,13 +35,13 @@ class meshGRegionExtruded {
 // Optimize the mesh of the region using gmsh's algo
 class optimizeMeshGRegionGmsh {
  public :
-  void operator () (GRegion *, bool always=false);
+  void operator () (GRegion *);
 };
 
 // Optimize the mesh of the region using netgen's algo
 class optimizeMeshGRegionNetgen {
  public :
-  void operator () (GRegion *, bool always=false);
+  void operator () (GRegion *);
 };
 
 // destroy the mesh of the region
