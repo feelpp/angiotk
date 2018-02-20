@@ -19,7 +19,8 @@ The project is no longer funded but development continues. The main software out
 this repository. This document describes how to obtain it and compile it.
 
 ## Downloading the software
-You can download a ZIP archive of the projet by clicking the green button at the top right of this page. However, the
+You can download a ZIP archive of the projet by clicking the green button at the top right of this page, or just by
+following <a href=https://github.com/feelpp/angiotk/archive/doc/building.zip>this link</a>. However, the
 recommended way to get the software is to *clone* it using git.
 
 <a href=https://git-scm.com/>Git</a> is a source-code management platform that was initially proposed by Linus Thovalds, the creator of the Linux kernel,
