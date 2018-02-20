@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Asciidoctor 1.5.2">
+<title>AngioTK Pipeline Runs History</title>
+
+<link rel="stylesheet" href="../../css/results.css">
+<link rel="stylesheet" href="../../css/results2.css">
+
+</head>
+
+<body>
+  <div id="header" class="w3-container w3-center">
+  </div>
+  <div id="pageTitle", class="w3-container w3-center paragraph">
+    <p>AngioTK pipeline results</p>
+  </div>
+  <div id="statsSection", class="paragraph runEnvironment">
+    <p id="statsTitle">Statistics:</p>
+  </div>
+  <div id="configSection", class="paragraph runEnvironment">
+    <p id="configTitle">Configuration:</p>
+  </div>
+  <div id="resultsSection", class="paragraph">
+    <p>Results table</p>
+  </div>
+  <table id="results table"> <!-- This table will be expanded and filled dynamically by javascript (js/resultsDB_populate_from_json.js) -->
+    <thead>
+        <tr id="results table head">
+          <th>Pipeline steps</th>
+    </tr>
+    </thead>
+    <tbody id="results table body"> <!-- This table will be expanded and filled dynamically by javascript (js/populate_from_json.js) -->
+    </tbody>
+</table>
+</body>
+
+<script src="../../js/jquery-3.1.0.min.js"></script>
+<script src="../../js/jquery-ui-1.12.1.custom/jquery-ui.min.js"></script>
+<script src="../../js/results_populate_from_json.js"></script>
+
+</html>

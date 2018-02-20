@@ -1,12 +1,12 @@
-# Testing Examples
+# Running AngioTK
 
-At this time (May 2016), AngioTK testing relies on a handful of datasets. Please note that due to legal restrictions, these are not available in the git repository.
+At this time (november 2016), AngioTK testing relies on a handful of MRI files. Please note that due to legal restrictions, these are not available in the git repository.
 
-Our examples consists of three sets of actual patients MRIs - two of them being split, showing arteries and veins in disctinct datasets - and one plastic pipe MRI (Phantom). The latter is the simplest test case.
+Our examples consists of three sets of actual patients MRIs - two of them being split, showing arteries and veins in disctinct MRI files - and one plastic pipe MRI (Phantom). The latter is the simplest test case.
 
-## Configuration files 
+## Configuration files and centerline files
 
-To process a given MRI dataset, AngioTK needs configuration files tailored for this dataset. These files are used by the different pipeline modules and have the following default names:
+To process a given MRI file, AngioTK needs configuration files tailored for this MRI. These files are used by the different pipeline modules and have the following default names:
 
     Filtering:
         rorpo.cfg
@@ -24,9 +24,11 @@ To process a given MRI dataset, AngioTK needs configuration files tailored for t
         remeshstlgmsh.cfg
         volumefromstlandcenterlines.cfg 
 
-TIP: To allow the pipeline script to process the dataset, these files should all stay in the same directory (which path will be used as _inputpath_, see below)
+The centerline files are also needed, and should be placed in a subdirectory named `data`. See link:The_Centerlines_Editing_Graphical_Tool.adoc[Using the centerlines editing graphical tool] for further information.
 
-## Running AngioTK
+TIP: To allow the pipeline script to process the MRI, these files should all stay in the same directory (which path will be used as _inputpath_, see below)
+
+## Arguments
 
 AngioTK is launched using a python script with three paths as parameters:
 
@@ -34,13 +36,13 @@ AngioTK is launched using a python script with three paths as parameters:
 - _inputpath_ (where all the .cfg files are)
 - _outputpath_ (where the output should be written)
 
-The whole command line used to process each dataset as well as the needed corresponding configuration files path are detailed below.
+The whole command line used to process each MRI file as well as the needed corresponding configuration files path are detailed below.
 
 Because users working environment may differ, we will use the following variables to refer to the needed paths. Please replace them accordingly.
 
 - `INSTALL` refers to the path where AngioTK was installed (see link:Building.adoc[the building page])
 - `image.mha` is the original MRI.
-- `OUTPUT`is where you wish to write results.
+- `OUTPUT` is where you wish to write results.
 
 ## Example
 
