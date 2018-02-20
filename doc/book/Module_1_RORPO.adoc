@@ -1,17 +1,20 @@
-# RORPO
+= RORPO
+:toc:
 
 RORPO is an image filtering software which highlight tubular structures. In our context, the targeted tubular structures are the blood vessels. The executable we use is named `RORPO_multiscale_usage`.
 
 NOTE: This page was written using the complete RORPO documentation which is available link:http://path-openings.github.io/RORPO/[on the official website].
 
-## Supported file formats
+== Supported file formats
 
 - input: a 3D isotropic image in NIfTI (.nii) format, accepted types: int8, uint8, int16, uint16, int32, uint32, float
 - output: a 3D isotropic image in  NIfTI (.nii) format
 
-## Parameters : 
+== Parameters :
 
-<imagePath>: path to .nii image (string).
+[source,sh]
+----
+<imagePath>: path to .nii image (string)
 <outputPath>: path to write the resulting image (string).
 <scaleMin>: Minimum path length (int)
 <factor>: factor for the geometric sequence of scales; scale_(n+1) = factor * scale_(n) (float)
@@ -23,11 +26,19 @@ Options:
 --core:       Number of CPUs used for RPO computation (int)
 --mask or :   Path to a mask image (0 for the background and 1 for the foreground). RORPO will only be computed in this mask.               The mask image type must be uint8.
 --verbose:    Activation of a verbose mode.
+----
 
-Usage Example : ./RORPO_multiscale_usage input.nii output.nii 40 1.32 4 
-Usage Example : ./RORPO_multiscale_usage input.nii output.nii 40 1.32 4 --window 0,255 --verbose --core 4
-
-## Troubleshooting
+Usage Example :
+[source,sh]
+----
+./RORPO_multiscale_usage input.nii output.nii 40 1.32 4
+----
+Usage Example :
+[source,sh]
+----
+./RORPO_multiscale_usage input.nii output.nii 40 1.32 4 --window 0,255 --verbose --core 4
+----
+== Troubleshooting
 
 There is no known bug for this module. Please report any problem you may encounter.
 
