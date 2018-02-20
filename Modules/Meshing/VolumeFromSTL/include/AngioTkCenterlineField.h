@@ -257,7 +257,7 @@ class AngioTkCenterline : public Field{
   std::vector<BranchDesc> const& centerlinesBranch() const { return edges; }
   BranchDesc const& centerlinesBranch(int k) const { return edges[k]; }
 
-  std::tuple<MVertex*,double> foundClosestPointInCenterlines( double ptToLocalize[3]);
+  std::tuple<MVertex*,double> foundClosestPointInCenterlines( double ptToLocalize[3]) const;
   std::tuple< std::vector<MLine*> , double > pathBetweenVertex( MVertex* vertexA, MVertex* vertexB );
 
 std::tuple< bool,std::vector<MLine*> , double >
