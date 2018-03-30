@@ -1,10 +1,12 @@
-# Running AngioTK
+= Run AngioTK
 
-At this time (november 2016), AngioTK testing relies on a handful of MRI files. Please note that due to legal restrictions, these are not available in the git repository.
+AngioTK tests rely on a handful of MRI files.
+Please note that due to legal restrictions, these are not available in the git repository.
 
 Our examples consists of three sets of actual patients MRIs - two of them being split, showing arteries and veins in disctinct MRI files - and one plastic pipe MRI (Phantom). The latter is the simplest test case.
 
-## Configuration files and centerline files
+== Input files
+=== Configuration files
 
 To process a given MRI file, AngioTK needs configuration files tailored for this MRI. These files are used by the different pipeline modules and have the following default names:
 
@@ -22,13 +24,15 @@ To process a given MRI file, AngioTK needs configuration files tailored for this
         surfacefromimage2.cfg
     Mesh reconstruction :
         remeshstlgmsh.cfg
-        volumefromstlandcenterlines.cfg 
+        volumefromstlandcenterlines.cfg
+
+=== Centerline files
 
 The centerline files are also needed, and should be placed in a subdirectory named `data`. See link:The_Centerlines_Editing_Graphical_Tool.adoc[Using the centerlines editing graphical tool] for further information.
 
 TIP: To allow the pipeline script to process the MRI, these files should all stay in the same directory (which path will be used as _inputpath_, see below)
 
-## Arguments
+== Running AngioTK
 
 AngioTK is launched using a python script with three paths as parameters:
 
@@ -44,45 +48,44 @@ Because users working environment may differ, we will use the following variable
 - `image.mha` is the original MRI.
 - `OUTPUT` is where you wish to write results.
 
-## Example
+== Examples
 
-### Example 1: Base1_000 
+=== Example 1: Base1_000
 
-	.cfg files path: $INSTALL/share/AngioTK/Examples/MeshFromMRI/
-	
-	python $INSTALL/bin/runAngioTKPipeline.py --inputfile image.mha --inputpath $INSTALL/share/AngioTK/Examples/MeshFromMRI/Base1_000/ --outputpath $OUTPUT 
+    .cfg files path: $INSTALL/share/AngioTK/Examples/MeshFromMRI/
+
+    python $INSTALL/bin/runAngioTKPipeline.py --inputfile image.mha --inputpath $INSTALL/share/AngioTK/Examples/MeshFromMRI/Base1_000/ --outputpath $OUTPUT
 
 
-### Example 2.a: Base2_FOA42 arterial
+=== Example 2.a: Base2_FOA42 arterial
 
-	.cfg files path: $INSTALL/share/AngioTK/Examples/MeshFromMRI/Base2_FOA42/artery
-	
+    .cfg files path: $INSTALL/share/AngioTK/Examples/MeshFromMRI/Base2_FOA42/artery
+
     python $INSTALL/bin/runAngioTKPipeline.py --inputfile image.mha --inputpath $INSTALL/share/AngioTK/Examples/MeshFromMRI/Base2_FOA42/artery/ --outputpath $OUTPUT
-   
-
-### Example 2.b: Base2_FOA42 venous
-
-	.cfg files path: $INSTALL/share/AngioTK/Examples/MeshFromMRI/Base2_FOA42/veinous
-	
-    python $INSTALL/bin/runAngioTKPipeline.py --inputfile image.mha --inputpath $INSTALL/share/AngioTK/Examples/MeshFromMRI/Base2_FOA42/veinous/ --outputpath $OUTPUT 
 
 
-### Example 3.a: Base2_GEO26 arterial
+=== Example 2.b: Base2_FOA42 venous
 
-	.cfg files path: $INSTALL/share/AngioTK/Examples/MeshFromMRI/Base2_GEO26/artery
-	
-    python $INSTALL/bin/runAngioTKPipeline.py --inputfile image.mha --inputpath $INSTALL/share/AngioTK/Examples/MeshFromMRI/Base2_GEO26/artery/ --outputpath $OUTPUT 
+    .cfg files path: $INSTALL/share/AngioTK/Examples/MeshFromMRI/Base2_FOA42/veinous
+
+    python $INSTALL/bin/runAngioTKPipeline.py --inputfile image.mha --inputpath $INSTALL/share/AngioTK/Examples/MeshFromMRI/Base2_FOA42/veinous/ --outputpath $OUTPUT
+
+=== Example 3.a: Base2_GEO26 arterial
+
+    .cfg files path: $INSTALL/share/AngioTK/Examples/MeshFromMRI/Base2_GEO26/artery
+
+    python $INSTALL/bin/runAngioTKPipeline.py --inputfile image.mha --inputpath $INSTALL/share/AngioTK/Examples/MeshFromMRI/Base2_GEO26/artery/ --outputpath $OUTPUT
 
 
-### Example 3.b: Base2_GEO26 venous
+=== Example 3.b: Base2_GEO26 venous
 
-	.cfg files path: $INSTALL/share/AngioTK/Examples/MeshFromMRI/Base2_GEO26/veinous
-	
-    python $INSTALL/bin/runAngioTKPipeline.py --inputfile image.mha --inputpath $INSTALL/share/AngioTK/Examples/MeshFromMRI/Base2_GEO26/veinous/ --outputpath $OUTPUT 
+    .cfg files path: $INSTALL/share/AngioTK/Examples/MeshFromMRI/Base2_GEO26/veinous
+
+    python $INSTALL/bin/runAngioTKPipeline.py --inputfile image.mha --inputpath $INSTALL/share/AngioTK/Examples/MeshFromMRI/Base2_GEO26/veinous/ --outputpath $OUTPUT
 
 
-### Example 4: Phantom (plastic tube)
-    
+=== Example 4: Phantom (plastic tube)
+
     .cfg files path: $INSTALL/share/AngioTK/Examples/MeshFromMRI/Phantom
-	
-    python $INSTALL/bin/runAngioTKPipeline.py --inputfile image.mha --inputpath $INSTALL/share/AngioTK/Examples/MeshFromMRI/Phantom --outputpath $OUTPUT 
+
+    python $INSTALL/bin/runAngioTKPipeline.py --inputfile image.mha --inputpath $INSTALL/share/AngioTK/Examples/MeshFromMRI/Phantom --outputpath $OUTPUT

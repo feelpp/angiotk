@@ -1,0 +1,34 @@
+= Angiotk
+
+
+
+This is the {angiotk} project.
+
+image:https://badges.gitter.im/vivabrain/angiotk.svg["Gitter", "https://gitter.im/vivabrain/angiotk",link="https://gitter.im/vivabrain/angiotk"]
+image:https://badge.buildkite.com/d3849e883f9aa42a088dd5d20290a68846182595a6ffe49858.svg[link=https://buildkite.com/feelpp/angiotk,text="Build Status"]
+
+
+== Get {angiotk}
+
+{angiotk} is available via Docker
+
+----
+docker pull feelpp/angiotk
+docker run -it feelpp/angiotk
+----
+
+== How to contribute
+
+=== GitHub
+
+=== Slack
+
+=== Twitter
+
+=== Mailing lists
+
+ - angiotk@cemosis.fr  (discussions)
+
+== Programming environment
+
+{angiotk} requires a complex environment to build, please see link:{uri-www}/build for more details
