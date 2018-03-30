@@ -1,15 +1,15 @@
-# Building AngioTK
+= Building AngioTK
 
-## Requirements
+== Requirements
 
-### General requirements
+=== General requirements
 
 We assume you have the following software installed:
 
 - gcc 6.4.0 or higher clang 4.0.1 or higher CMake 3.9.2 or higher
 - The latest version of the feel++ library installed and the ` FEELPP_DIR` environment variable referencing its install directory.
 
-### On atlas
+=== On atlas
 
 On atlas, compiling and installing Feel++ is easier. Start by loading the module profile:
 
@@ -56,7 +56,7 @@ Now, export the `FEELPP_DIR` variable:
 export FEELPP_DIR=$HOME/install/feelpp
 ```
 
-## Downloading and building AngioTK
+== Downloading and building AngioTK
 
 When all of the dependencies are installed, building AngioTK is fairly simple.
 You need three directories: one for the sources, one for the building step and

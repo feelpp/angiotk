@@ -2,8 +2,8 @@
 
 == Using Docker
 
-Using Docker is the easiest way to run AngioTK. Start by installing docker on
-your system (please refer to the docker documentation).
+Docker is the easiest way to run AngioTK.
+Start by installing link:https://docs.docker.com/install/[docker] on your system.
 
 WARNING: The official docker documentation offers optional post-install steps
 which among other things, allow to run docker as a non-root user. For
@@ -12,23 +12,26 @@ all the commands below should be executed as root.
 
 Once docker is installed, pull the AngioTK docker image:
 
-```
+[source,sh]
+----
 docker pull feelpp/angiotk:master-v0.104.0-alpha.3-ubuntu-16.10
-```
+----
 
 You could now start to use AngioTK by running:
 
-```
+[source,sh]
+----
 docker run --rm -ti feelpp/angiotk:master-v0.104.0-alpha.3-ubuntu-16.10
-```
+----
 
 WARNING: You should mount a writable volume as `/feel` because AngioTK modules need to write results in this path. Otherwise, AngioTK modules will crash.
 For example:
 
-```
+[source,sh]
+----
 mkdir $HOME/feel_docker
 docker run --rm -ti -v $HOME/feel_docker:/feel feelpp/angiotk:master-v0.104.0-alpha.3-ubuntu-16.10
-```
+----
 
 NOTE: To be able to use graphical interfaces (such as the center lines tool's),
 you need to provide additional arguments which are platform dependent. For
@@ -46,4 +49,6 @@ You also need a few other arguments to run the latest AngioTK image, so here is 
 docker run --rm -h feelpp -e LOCAL_USER_ID=`id -u $USER` --pid=host --ipc=host -it -e DISPLAY=$DISPLAY -v $HOME/feel_docker:/feel -v /tmp/.X11-unix:/tmp/.X11-unix -v $HOME/.Xauthority:/home/user/.Xauthority feelpp/angiotk:master-v0.104.0-alpha.3-ubuntu-16.10
 ----
 
+== From sources
 
+NOTE: Documentation pending.
