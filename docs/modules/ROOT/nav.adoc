@@ -12,7 +12,7 @@
 ** xref:module-filtering.adoc#_rorpo[Using RORPO]
 
 * xref:module-meshing.adoc[Meshing Module]
-** xref:meshing/odule-2-surface-from-image.adoc[Surface from Image]
+** xref:meshing/module-2-surface-from-image.adoc[Surface from Image]
 ** xref:meshing/module-3-centerlines-gui-tool.adoc[Centerline GUI Tool]
 ** xref:meshing/module-4-centerlines.adoc[Centerlines]
 ** xref:meshing/module-5-image-generation.adoc[Image generation]
@@ -23,4 +23,4 @@
 ** xref:toolboxes:cfd:index.adoc[Computational Fluid Dynamics]
 ** xref:toolboxes:fsi:index.adoc[Fluid Structure Interaction]
 
-* xref:master-script.adoc[Images batch processing]
+* xref:image-batch-processing.adoc[Image batch processing]
