@@ -1,15 +1,17 @@
-= RORPO
+= Image Filtering Modules
+
+== RORPO
 
 RORPO is an image filtering software which highlight tubular structures. In our context, the targeted tubular structures are the blood vessels. The executable we use is named `RORPO_multiscale_usage`.
 
 NOTE: This page was written using the complete RORPO documentation which is available link:http://path-openings.github.io/RORPO/[on the official website].
 
-== Supported file formats
+=== Supported file formats
 
 - input: a 3D isotropic image in NIfTI (.nii) format, accepted types: int8, uint8, int16, uint16, int32, uint32, float
 - output: a 3D isotropic image in  NIfTI (.nii) format
 
-== Parameters :
+=== Parameters :
 
 [source,sh]
 ----
@@ -38,7 +40,7 @@ Usage Example :
 ./RORPO_multiscale_usage input.nii output.nii 40 1.32 4 --window 0,255 --verbose --core 4
 ----
 
-== Troubleshooting
+=== Troubleshooting
 
 There is no known bug for this module.
 Please report any problem you may encounter.

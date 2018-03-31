@@ -1,39 +1,36 @@
-# The Meshing Module
+= The Meshing Module
 
 The goal here is to generate a 3D mesh of the blood vessels visible in the MRI. In order to reach this goal, the MRI must undergo several processing steps which are detailed below.
 
-## Segmentation & Surface extraction (VMTK)
+== Segmentation & Surface extraction (VMTK)
 Image segmentation is used to detect blood vessels in the MRIs. Blood vessels surfaces are extracted (using a level-set method). See link:Module_2_SurfaceFromImage.adoc[Surface extraction] for details.
 
-## Center lines definition (VTK)
-Blood vessels center lines are defined and can be corrected by hand using a graphical tool. For each center line point, the inscribed sphere is also stored. 
+== Center lines definition (VTK)
+Blood vessels center lines are defined and can be corrected by hand using a graphical tool. For each center line point, the inscribed sphere is also stored.
 
 For more informations, refer to link:Module_3_CenterlinesGUITool.adoc[The centerlines editing tool.]
 
-## Center lines processing (VMTK,VTK)
+== Center lines processing (VMTK,VTK)
 A 3D-mesh is created, defining the center lines. Smoothing of the mesh is performed using splines. See link:Module_4_Centerlines.adoc[Center lines computing] for more informations.
 
-## Image reconstruction (VMTK,VTK)
+== Image reconstruction (VMTK,VTK)
 Using the center lines and a computed signed distance function, we generate a high quality, artifact-free image with controlled precision. See link:Module_5_ImageGeneration.adoc[Image generation] for more informations.
 
-## Surface extraction (VMTK)
+== Surface extraction (VMTK)
 Here we extract the blood vessels surfaces based on the zero level of the distance function. This process is the same we used in the first step (Segmentation & surface extraction), except we work on the 3D image generated using the center lines only, which is cleaner and smoother. See link:Module_2_SurfaceFromImage.adoc[Surface extraction] for more details.
 
-## Numerical simulation mesh construction (GMSH)
+== Numerical simulation mesh construction (GMSH)
 
 The mesh is prepared to be used in computer simulation:
 
-### Part 1: Surface processing
+=== Part 1: Surface processing
 * The ends of the tubular structure are opened.
 * Its surface is then remeshed using the center lines.
 See link:Module_6_SurfaceMeshing.adoc[Surface processing and remeshing] for more details.
 
 
-### Part 2: Volume processing
+=== Part 2: Volume processing
 * The volume is meshed using the center lines.
 * Optionnally, the blood vessels thickness is taken into account by extruding de boundary layer according to a given percentage of the blood vessels radius.
 * The Mesh is partitioned for numerical simulation.
 See link:Module_7_VolumeMeshing.adoc[Volume meshing] for more details.
-
-
-link:Overview.adoc[Go back to Overview]

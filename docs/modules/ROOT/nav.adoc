@@ -1,6 +1,5 @@
 * xref:index.adoc[Introduction]
 * xref:how-angiotk-works.adoc[How AngioTK works]
-* xref:Meshing_Module_Description.adoc[Meshing Module Description]
 * xref:get-angiotk.adoc[Get AngioTK]
 ** xref:get-angiotk.adoc#_using_docker[Using Docker]
 * xref:build-angiotk.adoc[Build AngioTK]
@@ -8,14 +7,20 @@
 ** xref:run-angiotk.adoc#_input_files[Input files]
 ** xref:run-angiotk.adoc#_command_line[Command line]
 ** xref:run-angiotk.adoc#_examples[Examples]
-* xref:The_Centerlines_Editing_Graphical_Tool.adoc[Using the centerlines editing graphical tool]
-* xref:Master_script.adoc[Master script (experimental features)]
 
-* Modules
-** xref:module-1-rorpo.adoc[RORPO]
-** xref:module-2-surface-from-image.adoc[Surface from Image]
-** xref:module-3-centerlines-gui-tool.adoc[Centerline GUI Tool]
-** xref:module-4-centerlines.adoc[Centerlines]
-** xref:module-5-image-generation.adoc[Image generation]
-** xref:module-6-surface-remeshing.adoc[Surface remeshing]
-** xref:module-7-volume-meshing.adoc[Volume meshing]
+* xref:module-filtering.adoc[Image Filtering Module]
+** xref:module-filtering.adoc#_rorpo[Using RORPO]
+
+* xref:module-meshing.adoc[Meshing Module]
+** xref:meshing/odule-2-surface-from-image.adoc[Surface from Image]
+** xref:meshing/module-3-centerlines-gui-tool.adoc[Centerline GUI Tool]
+** xref:meshing/module-4-centerlines.adoc[Centerlines]
+** xref:meshing/module-5-image-generation.adoc[Image generation]
+** xref:meshing/module-6-surface-remeshing.adoc[Surface remeshing]
+** xref:meshing/module-7-volume-meshing.adoc[Volume meshing]
+
+* xref:module-flow.adoc[Fluid Flow Module ({feelpp})]
+** xref:toolboxes:cfd:index.adoc[Computational Fluid Dynamics]
+** xref:toolboxes:fsi:index.adoc[Fluid Structure Interaction]
+
+* xref:master-script.adoc[Images batch processing]
