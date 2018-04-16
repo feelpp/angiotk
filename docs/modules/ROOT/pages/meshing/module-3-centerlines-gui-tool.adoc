@@ -1,6 +1,7 @@
 = The Center line Editing Graphical Tool
 
-The Centerline Editing Graphical Tool's (CEGT) purpose is to assist the user in centerlines creation and edition. At this time (november 2016), it essentially remains a manual task, and a critical step in the pipeline (see the Center lines definition section in link:Meshing_Module_Description.adoc[the Meshing Module Description page].)
+The Centerline Editing Graphical Tool's (CEGT) purpose is to assist the user in centerlines creation and edition.
+At this time (november 2016), it essentially remains a manual task, and a critical step in the pipeline (see the Center lines definition section in link:Meshing_Module_Description.adoc[the Meshing Module Description page].)
 
 == Overview
 
@@ -8,7 +9,8 @@ Although the CEGT is started using command line (and outputs useful messages the
 
 The user is presented with the initial blood vessels mesh generated in the previous step.
 
-The goal is to define center lines for each vein/artery. To define a center line, the user has to define key points along the desired center line, and pair them along the way, in order to create a polygonal chain through the blood vessel.
+The goal is to define center lines for each vein/artery.
+To define a center line, the user has to define key points along the desired center line, and pair them along the way, in order to create a polygonal chain through the blood vessel.
 
 During this process, the user also adjusts the radius of the inscribed sphere for each key point.
 
@@ -16,7 +18,8 @@ When all the center lines keypoints are well defined, the next pipeline module g
 
 == Starting command line
 
-The CEGT is located in `$INSTALL/Modules/Meshing/bin/meshing_centerlinesmanagergui`. An optional but helping first step is to export all environment variables using the appropriate supplied bash script located at `$INSTALL/bin/setupAngioTKEnvironment.sh.`
+The CEGT is located in `$INSTALL/Modules/Meshing/bin/meshing_centerlinesmanagergui`.
+An optional but helping first step is to export all environment variables using the appropriate supplied bash script located at `$INSTALL/bin/setupAngioTKEnvironment.sh.`
 
 Here again,`INSTALL` refers to the path where AngioTK was installed (see link:Building.adoc[the building page])
 
@@ -44,7 +47,8 @@ IMPORTANT: when no point-pair file is specified, saving your progress will resul
 
 == Recommended workflow
 
-At this time (May 2016), center line generation is completely dependent and very sensitive to the provided pointsets. Therefore, a cautious stepwise workflow is strongly advised, and you should frequently check you progress with the center line generator and ParaView:
+At this time (May 2016), center line generation is completely dependent and very sensitive to the provided pointsets.
+Therefore, a cautious stepwise workflow is strongly advised, and you should frequently check you progress with the center line generator and ParaView:
 
 - (optional) Prepare 2 different terminals, one for the CEGT, one for the center line generator.
 
@@ -84,7 +88,8 @@ At this time (May 2016), center line generation is completely dependent and very
         `vtkvmtkSteepestDescentLineTracer (0x24ef850): `
         `Degenerate descent detected. Target not reached.`
 
-        This means the center line is invalid and won't be used. Try changing the positions of the input points or adding more points in between.
+        This means the center line is invalid and won't be used.
+        Try changing the positions of the input points or adding more points in between.
 
 
 === In ParaView

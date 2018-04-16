@@ -2,7 +2,9 @@
 
 == RORPO
 
-RORPO is an image filtering software which highlight tubular structures. In our context, the targeted tubular structures are the blood vessels. The executable we use is named `RORPO_multiscale_usage`.
+RORPO is an image filtering software which highlight tubular structures.
+In our context, the targeted tubular structures are the blood vessels.
+The executable we use is named `RORPO_multiscale_usage`.
 
 NOTE: This page was written using the complete RORPO documentation which is available link:http://path-openings.github.io/RORPO/[on the official website].
 
@@ -23,9 +25,9 @@ NOTE: This page was written using the complete RORPO documentation which is avai
 
 Options:
 --window:     Intensity range from the input image (2 int: window_min, window_max)
-              Convert input image to uint8. Intensities inferior to window_min become 0, intensities superior to 		      window_max become 255; Linear transformation between window_min and window_max
+              Convert input image to uint8. Intensities inferior to window_min become 0, intensities superior to window_max become 255; Linear transformation between window_min and window_max
 --core:       Number of CPUs used for RPO computation (int)
---mask or :   Path to a mask image (0 for the background and 1 for the foreground). RORPO will only be computed in this mask.               The mask image type must be uint8.
+--mask or :   Path to a mask image (0 for the background and 1 for the foreground). RORPO will only be computed in this mask. The mask image type must be uint8.
 --verbose:    Activation of a verbose mode.
 ----
 
