@@ -13,48 +13,54 @@ We assume you have the following software installed:
 
 On atlas, compiling and installing Feel++ is easier. Start by loading the module profile:
 
-```
+[source, sh]
+----
 module load feelpp.profile
-```
+----
 
 Then create three directories: one for the sources, one for the build and one to install to:
 
-```
+[source, sh]
+----
 mkdir $HOME/git/
 mkdir -p $HOME/build/feelpp
 mkdir -r $HOME/install/feelpp
-```
+----
 
 Clone the sources:
 
-```
+[source, sh]
+----
 cd $HOME/git
 git clone http://github.com/feelpp/feelpp.git
-```
+----
 
 Then call CMake:
 
-```
+[source, sh]
+----
 cmake $HOME/git/feelpp \
   -DCMAKE_INSTALL_PREFIX=$HOME/install/feelpp \
   -DFEELPP_ENABLE_NLOPT=OFF \
   -DCMAKE_BUILD_TYPE=Release
-```
+----
 
 NOTE: Disabling nlopt is necessary until further notice.
 
 You can now build and install Feel++ using make:
 
-```
+[source, sh]
+----
 make -j 12
 make install
-```
+----
 
 Now, export the `FEELPP_DIR` variable:
 
-```
+[source, sh]
+----
 export FEELPP_DIR=$HOME/install/feelpp
-```
+----
 
 == Downloading and building AngioTK
 
@@ -62,14 +68,17 @@ When all of the dependencies are installed, building AngioTK is fairly simple.
 You need three directories: one for the sources, one for the building step and
 one to install AngioTK. Start by cloning the sources:
 
-```
+[source, sh]
+----
 mkdir $HOME/git
 cd $HOME/git
 git clone http://github.com/feelpp/angiotk.git
-```
+----
+
 Then call CMake, specify the install directory and enable/disable modules.
 
-```
+[source, sh]
+----
 mkdir -p $HOME/build/angiotk
 mkdir -p $HOME/install/angiotk
 cd $HOME/build/angiotk
@@ -80,29 +89,33 @@ cmake $HOME/git/angiotk \
   -DBUILD_MODULE_CFD=ON \
   -DBUILD_MODULE_ParticleTracer=OFF \
   -DCMAKE_BUILD_TYPE=Release
-```
+----
 
 Build AngioTK with make:
 
-```
+[source, sh]
+----
 make -j 4 make install
-```
+----
 
 Finally, add AngioTK paths to the relevant environment variables:
 
-```
+[source, sh]
+----
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/install/angiotk/lib
 export PATH=$PATH:$HOME/install/angiotk/bin
-```
+----
 
 You can now run the pipeline scripts in:
 
-```
+[source, sh]
+----
 $HOME/install/angiotk/bin/
-```
+----
 
 Or call the modules individually, for example:
 
-```
+[source, sh]
+----
 angiotk_meshing_surfacefromimage <...>
-```
+----

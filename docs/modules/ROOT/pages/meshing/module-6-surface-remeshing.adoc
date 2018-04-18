@@ -1,6 +1,10 @@
 = Surface processing and remeshing
 
-This module allows 3D model surface processing and remeshing. First of all, Gmsh is used to cut off tubular ends. This is needed to perform numerical simulations later. Then, surface remeshing takes place using either VTMK or Gmsh. The module executable is named `meshing_remeshstl`.
+This module allows 3D model surface processing and remeshing. 
+First of all, Gmsh is used to cut off tubular ends.
+This is needed to perform numerical simulations later.
+Then, surface remeshing takes place using either VTMK or Gmsh.
+The module executable is named `meshing_remeshstl`.
 
 
 == Supported file formats

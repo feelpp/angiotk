@@ -1,10 +1,13 @@
 = Surface extraction
 
-The goal here is to extract and create a 3D model of the surface of the blood vessels, using a level set method. The level sets are initialiazed using either the isosurface of a given intensity value (*isosurface* method) or a given intensity range (*threshold* method). A marching cube algorithm then extracts the surface.
+The goal here is to extract and create a 3D model of the surface of the blood vessels, using a level set method.
+The level sets are initialiazed using either the isosurface of a given intensity value (*isosurface* method) or a given intensity range (*threshold* method).
+A marching cube algorithm then extracts the surface.
 
 === Surface subdivision
 
-The resulting surface can be sudivided using 3 methods: *linear* (original points are preserved and linear subdivisions are created in between), *butterfly* (original points are preserved and new points are added) or *loop* (original points are displaced and new points are added). The difference between the last two is the smoothness they tend to bend the surface to: C^1 for *butterfly*, C^2 for *loop*.
+The resulting surface can be sudivided using 3 methods: *linear* (original points are preserved and linear subdivisions are created in between), *butterfly* (original points are preserved and new points are added) or *loop* (original points are displaced and new points are added).
+The difference between the last two is the smoothness they tend to bend the surface to: C^1 for *butterfly*, C^2 for *loop*.
 
 The executable we use is named `meshing_surfacefromimage`.
 
@@ -28,7 +31,8 @@ The executable we use is named `meshing_surfacefromimage`.
 
 == Troubleshooting
 
-There is no known bug for this module. Please report any problem you may encounter.
+There is no known bug for this module.
+Please report any problem you may encounter.
 
 
 
