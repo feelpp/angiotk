@@ -339,6 +339,6 @@ ExternalData_Add_Target(angioTkData)
 
 add_subdirectory(Data)
 add_subdirectory(Pipeline)
-add_subdirectory(Examples/MeshFromMRI)
+#add_subdirectory(Examples/MeshFromMRI)
 
 include(CMake/AngioTkDirective.cmake)
