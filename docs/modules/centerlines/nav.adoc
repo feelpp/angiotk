@@ -1,2 +1,2 @@
-* xref:index.adoc[Introduction]
-* xref:spring.adoc[Spring]
+* xref:index.adoc[Mesh Generation From Centerlines]
+** xref:spring.adoc[Spring]
