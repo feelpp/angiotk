@@ -304,8 +304,8 @@ ENDIF(BUILD_DOXYGEN)
 #=========================================================
 # If choose to build examples, then look into Examples folder.
 IF(BUILD_EXAMPLES)
-  add_subdirectory(docs/modules/centerlines CATEGORY angiotk )
-  add_subdirectory(docs/modules/mri CATEGORY angiotk )
+  add_subdirectory(docs/modules/centerlines )
+  add_subdirectory(docs/modules/mri )
 ENDIF(BUILD_EXAMPLES)
 #=========================================================
 
