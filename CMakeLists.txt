@@ -304,8 +304,8 @@ ENDIF(BUILD_DOXYGEN)
 #=========================================================
 # If choose to build examples, then look into Examples folder.
 IF(BUILD_EXAMPLES)
-  add_subdirectory(docs/modules/centerlines )
-  add_subdirectory(docs/modules/mri )
+  #add_subdirectory(docs/modules/centerlines )
+  add_subdirectory(docs/modules/mri/examples )
 ENDIF(BUILD_EXAMPLES)
 #=========================================================
 
