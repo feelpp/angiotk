@@ -1,24 +1,3 @@
-= Center lines computing
-
-We first need to compute each center line using both the extracted surface and the corresponding point pairs (which shoud have been defined in the first place, using link:Module_3_CenterlinesGUITool.adoc[the center lines editing tool])
-
-The executable we use is named `meshing_centerlines`.
-
-== Supported file formats
-
-- input: a 3 model in STereoLithography (.stl) and a text file containing point pairs (pointpair.data) or a gmsh-readable file (.geo or 1D mesh (.msh))
-- output: a VTK file (.vtk)
-
-== Parameters
-
-- `--input.surface.filename`: (string) Input surface
-- `--input.pointpair.filename`: (string) Input point pairs text file
-- `--output.directory`: (string) Output directory for the VTK file
-- `--config-file`: (string) Configuration file
-- `--force-rebuild=1`: (int) 0 to avoid computing if target file already exists, 1 to overwrite it
-- `--delaunay-tessellation.output.directory`: (string) Output directory for the Delaunay tessellation
-- `--delaunay-tessellation.force-rebuild=1`: (int) 0 to avoid computing if target file already exists, 1 to overwrite it
-
 = Center lines merging
 
 The center lines can now be merged.
