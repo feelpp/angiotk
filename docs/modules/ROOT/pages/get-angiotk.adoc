@@ -14,40 +14,49 @@ Once docker is installed, pull the AngioTK docker image:
 
 [source,sh]
 ----
-docker pull feelpp/angiotk:master-v0.104.0-alpha.3-ubuntu-16.10
+docker pull feelpp/angiotk:master
 ----
 
-You could now start to use AngioTK by running:
-
-[source,sh]
-----
-docker run --rm -ti feelpp/angiotk:master-v0.104.0-alpha.3-ubuntu-16.10
-----
-
-WARNING: You should mount a writable volume as `/feel` because AngioTK modules need to write results in this path. Otherwise, AngioTK modules will crash.
-For example:
+You start using AngioTK docker image as follows:
 
 [source,sh]
 ----
-mkdir $HOME/feel_docker
-docker run --rm -ti -v $HOME/feel_docker:/feel feelpp/angiotk:master-v0.104.0-alpha.3-ubuntu-16.10
+docker run --rm -ti -e LOCAL_USER_ID=`id -u` -v $HOME/feel:/feel feelpp/angiotk:master
 ----
 
-NOTE: To be able to use graphical interfaces (such as the center lines tool's),
+Some explanations:
+[source,sh]
+----
+docker run --rm -ti  <1>
+-e LOCAL_USER_ID=`id -u` <2>
+-v $HOME/feel:/feel <3>
+feelpp/angiotk:master <4>
+----
+<1> runs the`docker` application in interactive mode (`-it`) and upon exit the container is removed (`--rm`)
+<2> indicates to docker the user id to use inside the docker container. This is needed to avoid permission issues. Usually the user id is the one who uses docker.
+<3> mounts the directory `$HOME/feel` to `/feel` inside the docker container. Docker container are read-only, the only way to save work done with these containers is to mount a host directory (_e.g._`$HOME/feel`) to a container directory (here `/feel/`)
+<4> is the name of the docker image
+
+[NOTE]
+====
+To be able to use graphical interfaces (such as the center lines tool's),
 you need to provide additional arguments which are platform dependent. For
 example, on Ubuntu:
 
 [source,sh]
 ----
-docker run --rm --pid=host --ipc=host -it -e DISPLAY=$DISPLAY -v $HOME/feel_docker:/feel -v /tmp/.X11-unix:/tmp/.X11-unix -v $HOME/.Xauthority:/home/user/.Xauthority feelpp/angiotk:master-v0.104.0-alpha.3-ubuntu-16.10
+docker run --rm --pid=host --ipc=host -it -e DISPLAY=$DISPLAY -v $HOME/feel_docker:/feel -v /tmp/.X11-unix:/tmp/.X11-unix -v $HOME/.Xauthority:/home/user/.Xauthority feelpp/angiotk:master
 ----
+====
 
 You also need a few other arguments to run the latest AngioTK image, so here is a complete command:
 
 [source,sh]
 ----
-docker run --rm -h feelpp -e LOCAL_USER_ID=`id -u $USER` --pid=host --ipc=host -it -e DISPLAY=$DISPLAY -v $HOME/feel_docker:/feel -v /tmp/.X11-unix:/tmp/.X11-unix -v $HOME/.Xauthority:/home/user/.Xauthority feelpp/angiotk:master-v0.104.0-alpha.3-ubuntu-16.10
+docker run --rm -h feelpp -e LOCAL_USER_ID=`id -u` --pid=host --ipc=host -it -e DISPLAY=$DISPLAY -v $HOME/feel_docker:/feel -v /tmp/.X11-unix:/tmp/.X11-unix -v $HOME/.Xauthority:/home/user/.Xauthority feelpp/angiotk:master
 ----
+
+We suggest that this command line is stored in a script so that it is easier to run that type the command each time.
 
 == From sources
 
