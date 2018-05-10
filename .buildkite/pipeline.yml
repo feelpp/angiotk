@@ -1,5 +1,8 @@
 steps:
- - name: ':ubuntu: 16.04,clang++-4.0'
+ - trigger: "book-dot-feelpp-dot-org"
+   label: ":package: Generate :book:"
+   async: true
+ - name: ':$TARGET ${CXX}'
    command: .buildkite/steps/build.sh
    agents:
      docker: true
@@ -13,7 +16,7 @@ steps:
      FEELPP_BRANCH: develop
      CMAKE_FLAGS: -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-Wno-inconsistent-missing-override" -DBUILD_MODULE_Meshing=ON -DBUILD_MODULE_Filtering=ON -DBUILD_MODULE_Segmentation=ON -DBUILD_MODULE_ParticleTracer=ON -DBUILD_EXAMPLES=ON
  - wait
- - name: ':rocket: :whale: deploy :ubuntu: 16.04,clang++-4.0'
+ - name: ':rocket: :whale: deploy :$TARGET'
    command: .buildkite/steps/release.sh
    agents:
      docker: true
