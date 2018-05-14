@@ -1,34 +1,63 @@
-= Angiotk
+= {angiotk} documentation
+
+Welcome to the {angiotk} documentation !
+
+Here, you will find a general presentation of {angiotk}, details on each of our
+pipeline modules and a guided tour of the whole pipeline based on a simple
+test image, with step-by-step explanations.
+
+NOTE: If you are new to {angiotk}, we suggest reading this brief introduction to
+get to know the framework, and then embarking on our
+xref:guided-tour.adoc[guided tour] to better understand what AngioTK is capable
+of as well as to learn the important concepts and jargon.
+
+TIP: Our docker images are quite heavy (4GB+ compressed) and compiling from
+source could be quite long.
+For these reasons, you are encouraged to start downloading the docker image
+(or compiling the source code) right now, and then continue reading this
+documentation.
+This way, when you are done reading, the software will be ready and waiting for
+you - and not the other way around ;-)
 
 
+== What is {angiotk} ?
 
-This is the {angiotk} project.
+=== Framework
 
-image:https://badges.gitter.im/vivabrain/angiotk.svg["Gitter", "https://gitter.im/vivabrain/angiotk",link="https://gitter.im/vivabrain/angiotk"]
-image:https://badge.buildkite.com/d3849e883f9aa42a088dd5d20290a68846182595a6ffe49858.svg[link=https://buildkite.com/feelpp/angiotk,text="Build Status"]
+{angiotk} was created as part of the Vivabrain project.
+
+It is a set of tools developed to create 3D meshes of blood vessels
+tailored for blood flow physics numerical experiments.
+
+More precisely, {angiotk} aims at processing medical images (3D angiographs),
+extracting the surfaces of their vascular structures - or blood vessels
+networks - and creating suitable 3D meshes out of these surfaces.
+
+Then, computational fluid dynamics (or even fluid-structure interaction)
+simulations can be run using these meshes to replicate blood flow (and blood
+vessels deformations in the case of FSI).
+
+=== Pipeline structure
+
+Because of its typical workflow, {angiotk} was designed as a software pipeline:
+each major processing step is accomplished by a distinct tool.
+
+These tools are independent computer programs and we call them "modules" from
+now on.
+
+The pipeline structure means that modules are daisy-chained:
+a module's output is the next module's input.
 
 
-== Get {angiotk}
+=== Modules functionalities
 
-{angiotk} is available via Docker
+Thanks to its aforementioned architecture, which offers a lot of flexibility,
+{angiotk}'s modules can be and have been used in different ways:
 
-----
-docker pull feelpp/angiotk
-docker run -it feelpp/angiotk
-----
+- as a complete pipeline: fed with a 3D-image, it will produce a mesh;
+- as a shorter pipeline: we can skip modules by using input from other sources;
+- as a toolbox: we can use any individual module as a stand alone application.
 
-== How to contribute
-
-=== GitHub
-
-=== Slack
-
-=== Twitter
-
-=== Mailing lists
-
- - angiotk@cemosis.fr  (discussions)
-
-== Programming environment
-
-{angiotk} requires a complex environment to build, please see link:{uri-www}/build for more details
+To discover {angiotk}'s modules, try our xref:guided-tour.adoc[guided tour]. A more
+complete documentation is also available in the
+xref:modules.adoc[modules section].

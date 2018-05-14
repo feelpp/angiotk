@@ -1,8 +1,44 @@
-= Get AngioTK
+= Getting AngioTK
+
+IMPORTANT: AngioTK is an open source toolbox, which means anyone has access to
+its source code.
+However, unless you want to modify the code or use AngioTK on an unsupported
+architecture, we *strongly* advise you to use Docker to get AngioTK.
+If you still want to compile from source, check out
+xref:build-angiotk.adoc[the building page].
 
 == Using Docker
 
-Docker is the easiest way to run AngioTK.
+=== What is Docker
+
+==== Containers
+
+In a nutshell, Docker is a virtualization computer program that lets you run
+other (precompiled) computer programs - such as {angiotk} - in an *isolated
+environment* called a _container_.
+
+=== Docker Images
+
+This means you can try {angiotk} without having to deal with its sources, and
+even without actually installing it on your system.
+Instead, you need to download what is called a Docker _image_ of {angiotk}.
+To put it simply, the Docker image packs every file, library and program needed
+to run {angiotk}.
+
+=== Mounting volumes
+
+Because {angiotk} will be running in a _container_ - which is isolated from the system -
+and because we want to supply input and retreive output from it, we need some
+way to exchange data with the container.
+This is the purpose of _volumes_: a _volume_ is a shared directory accessible
+both by the container and your system.
+
+
+You can read more about Docker in its own
+link:https://docs.docker.com/get-started/[official documentation].
+
+=== Get Docker
+
 Start by installing link:https://docs.docker.com/install/[docker] on your system.
 
 WARNING: The official docker documentation offers optional post-install steps
@@ -10,27 +46,34 @@ which among other things, allow to run docker as a non-root user. For
 simplicity, we assume you went through with this particular option. Otherwise,
 all the commands below should be executed as root.
 
+IMPORTANT: Before going any further
+
+=== Get AngioTK via Docker
+
 Once docker is installed, pull the AngioTK docker image:
 
 [source,sh]
 ----
-docker pull feelpp/angiotk:master-v0.104.0-alpha.3-ubuntu-16.10
+docker pull feelpp/angiotk:stable
 ----
 
 You could now start to use AngioTK by running:
 
 [source,sh]
 ----
-docker run --rm -ti feelpp/angiotk:master-v0.104.0-alpha.3-ubuntu-16.10
+docker run --rm -ti feelpp/angiotk:stable
 ----
 
-WARNING: You should mount a writable volume as `/feel` because AngioTK modules need to write results in this path. Otherwise, AngioTK modules will crash.
+WARNING: You should mount a writable volume as `/feel` because AngioTK modules
+need to write results in this path. Otherwise, AngioTK modules will crash.
 For example:
 
 [source,sh]
 ----
 mkdir $HOME/feel_docker
-docker run --rm -ti -v $HOME/feel_docker:/feel feelpp/angiotk:master-v0.104.0-alpha.3-ubuntu-16.10
+docker run --rm -ti \
+  -v $HOME/feel_docker:/feel \
+  feelpp/angiotk:
 ----
 
 NOTE: To be able to use graphical interfaces (such as the center lines tool's),
@@ -39,16 +82,29 @@ example, on Ubuntu:
 
 [source,sh]
 ----
-docker run --rm --pid=host --ipc=host -it -e DISPLAY=$DISPLAY -v $HOME/feel_docker:/feel -v /tmp/.X11-unix:/tmp/.X11-unix -v $HOME/.Xauthority:/home/user/.Xauthority feelpp/angiotk:master-v0.104.0-alpha.3-ubuntu-16.10
+docker run --rm -ti \
+  --pid=host \
+  --ipc=host \
+  -e DISPLAY=$DISPLAY \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
+  -v $HOME/.Xauthority:/home/user/.Xauthority \
+  -v $HOME/feel_docker:/feel \
+  feelpp/angiotk:stable
 ----
 
-You also need a few other arguments to run the latest AngioTK image, so here is a complete command:
+You also need a few other arguments to run the latest AngioTK image, so here is
+a complete command:
 
 [source,sh]
 ----
-docker run --rm -h feelpp -e LOCAL_USER_ID=`id -u $USER` --pid=host --ipc=host -it -e DISPLAY=$DISPLAY -v $HOME/feel_docker:/feel -v /tmp/.X11-unix:/tmp/.X11-unix -v $HOME/.Xauthority:/home/user/.Xauthority feelpp/angiotk:master-v0.104.0-alpha.3-ubuntu-16.10
+docker run --rm --ti\
+  -h feelpp \
+  -e LOCAL_USER_ID=`id -u $USER` \
+  --pid=host \
+  --ipc=host \
+  -e DISPLAY=$DISPLAY \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
+  -v $HOME/.Xauthority:/home/user/.Xauthority \
+  -v $HOME/feel_docker:/feel \
+  feelpp/angiotk:stable
 ----
-
-== From sources
-
-NOTE: Documentation pending.
