@@ -2,7 +2,6 @@
 :feelpp: Feel++
 :angiotk: AngioTk
 :stem: asciimath
-:imagesdir: ../assets/images
 Christophe Prud'homme; Vincent Chabannes; François Der Hovsepian
 
 This is an example of mesh generation using {angiotk}.
@@ -87,7 +86,7 @@ This means generating the mesh is very easy:
 
 [source, sh]
 ----
-$ clone https://github.com/feelpp/angiotk #
+$ git clone https://github.com/feelpp/angiotk #
 $ cd angiotk/docs/modules/centerlines/examples/spring
 $ ./
 ----
