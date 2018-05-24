@@ -297,7 +297,7 @@ double angiotkPolyBallLine::EvaluateFunction(double x[3])
       {
       this->Input->GetPoint(pts[i],point0);
 
-      double distPt0 = std::pow(x[0] - point0[0],2)+std::pow(x[1] - point0[1],2)+std::pow(x[2] - point0[2],2);
+      double distPt0 = std::sqrt( std::pow(x[0] - point0[0],2)+std::pow(x[1] - point0[1],2)+std::pow(x[2] - point0[2],2) );
       if ( distPt0 > 2*radiusMax )
 	continue;
 
