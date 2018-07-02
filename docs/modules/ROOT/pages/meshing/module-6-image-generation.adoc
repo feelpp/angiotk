@@ -1,6 +1,7 @@
 = Image generation
 
-This module generates a 3D isotropic image using the center lines file, which is both cleaner and smoother than the original MRI.
+This module generates a 3D isotropic image using the center lines file, which is
+ both cleaner and smoother than the original MRI.
 The executable we use is named `meshing_imagefromcenterlines`.
 
 
@@ -14,6 +15,11 @@ The executable we use is named `meshing_imagefromcenterlines`.
 - `--input.centerlines.filename`: (string) Input VTK file
 - `--output.directory`: (string) Output directory
 - `--config-file`: (string) Configuration file
-- `--force-rebuild=1`: (int) 0 to avoid computing if target file already exists, 1 to overwrite it
-- `--dim.x`: (int) |- `--dim.y`: (int) } Output image dimensions (in voxels)- `--dim.z`: (int) |- `--dim.spacing=0.0`: (double) spacing between points
-- `--radius-array-name=MaximumInscribedSphereRadius`: (string) Inscribed sphere radius array name
+- `--force-rebuild=1`: (int) 0 to avoid computing if target file already exists,
+ 1 to overwrite it
+- `--dim.x`: (int) |
+- `--dim.y`: (int) | Output image dimensions (in voxels)
+- `--dim.z`: (int) |
+- `--dim.spacing=0.0`: (double) spacing between points
+- `--radius-array-name=MaximumInscribedSphereRadius`: (string) Inscribed sphere
+radius array name
