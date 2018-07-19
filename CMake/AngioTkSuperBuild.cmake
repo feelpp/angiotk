@@ -143,6 +143,7 @@ if ( NOT ANGIOTK_USE_SYSTEM_RORPO )
     ExternalProject_Add(AngioTk_ExternalPackages_RORPO
       PREFIX "${CMAKE_BINARY_DIR}/ExternalPackages/build/RORPO"
       GIT_REPOSITORY "https://github.com/path-openings/RORPO"
+      GIT_TAG "v1.0"
       CMAKE_ARGS ${RORPO_SUPERBUILD_CMAKE_ARGS}
       UPDATE_COMMAND ""
       )
