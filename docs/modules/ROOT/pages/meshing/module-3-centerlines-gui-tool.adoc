@@ -4,7 +4,7 @@ The Centerline Editing Graphical Tool's (CEGT) purpose is to assist the user in
 centerlines creation and edition.
 At this time (November 2016), it essentially remains a manual task, and a
 critical step in the pipeline (see the Center lines definition section in
-  link:Meshing_Module_Description.adoc[the Meshing Module Description page].)
+  xref:Meshing_Module_Description.adoc[the Meshing Module Description page].)
 
 == Overview
 
@@ -34,12 +34,14 @@ using the appropriate supplied bash script located at
 `$INSTALL/bin/setupAngioTKEnvironment.sh.`
 
 Here again,`INSTALL` refers to the path where AngioTK was installed
-(see link:Building.adoc[the building page])
+(see xref:Building.adoc[the building page])
 
-Simply run this command or put it in your `.bashrc` (which is more convenient
-  for repeated use).
+Run the following command or add it to `$HOME/.bashrc`
 
-`source $INSTALL/bin/setupAngioTKEnvironment.sh`
+[source, sh]
+----
+source $INSTALL/bin/setupAngioTKEnvironment.sh
+----
 
 Now, the exectutable `meshing_centerlinesmanagergui` can be launched directly.
 
@@ -49,18 +51,30 @@ The arguments to provide are:
 - `--input.point-pair.path` (optional) specifies the point pairs file
 (typically: previously saved work)
 
-Thus, the typical command shoud be:
+Thus, the typical command reads:
 
-`meshing_centerlinesmanagergui --input.surface.path model.stl --input.point-pair.path pointpair.data`
+[source, sh]
+----
+meshing_centerlinesmanagergui \
+  --input.surface.path model.stl \
+  --input.point-pair.path pointpair.data
+----
 
 for example, using the provided Phantom example:
 
-`meshing_centerlinesmanagergui --input.surface.path Phantom/angiotk/surfacefromimage/model.stl --input.point-pair.path pointpair.data`
+[source, sh]
+----
+meshing_centerlinesmanagergui \
+  --input.surface.path Phantom/angiotk/surfacefromimage/model.stl \
+  --input.point-pair.path pointpair.data
+----
 
-IMPORTANT: When no point-pair file is specified, saving your progress will
-result is creation of two files:
+IMPORTANT: Saving your progress will result in the creation of two files:
 `<home>/feel/meshing_centerlinesmanagergui/np_1/<model-name>_pointpair.data`
 `<home>/feel/meshing_centerlinesmanagergui/np_1/<model-name>_pointset.data`
+*This means that your original file will NOT be modified, unless you manually
+replace it!*
+
 
 == Recommended workflow
 

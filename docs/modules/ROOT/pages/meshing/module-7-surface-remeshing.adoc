@@ -67,4 +67,4 @@ Two bugs could arise:
 `open-surface.radius-uncertainty` and `gmsh.nb-points-in-circle`
 - (Very rarely) A crash of unknown cause.
 
-link:Meshing_Module_Description.adoc[Go back to The Meshing Module]
+xref:Meshing_Module_Description.adoc[Go back to The Meshing Module]

@@ -1,8 +1,8 @@
 = Surface extraction
 
-The goal here is to extract and create a 3D model of the surface of the blood
+The goal of this module is to extract and create a 3D model of the surface of the blood
 vessels, using a level set method.
-The level sets are initialiazed using either the isosurface of a given intensity
+The level sets are initialized using either the isosurface of a given intensity
 value (*isosurface* method) or a given intensity range (*threshold* method).
 A marching cube algorithm then extracts the surface.
 
@@ -35,13 +35,13 @@ The executable we use is named `meshing_surfacefromimage`.
 - `--pre-process.resize-from-reference-image.path`: (string) Reference image to
  resize.
 - `--method=threshold` (string) method to use for level set initialization
-among: threshold or isosurface-
+among: threshold or isosurface.
 - `--image-fusion.operator=max` (string) method operator among : max, min,
-multiply, substract.
+multiply, substract.
 - `--threshold.lower` (double) lower bound for the threshold limit.
 - `--threshold.higher` (double) higher bound for the threshold limit.
 - `--apply-connectivity.largest-region=1` (bool) 1 to keep the *n* largest
-connected regions, 0 to keep everything.
+connected regions, 0 to keep everything.
 - `--apply-connectivity.number=1` (int) Number *n* used above.
 - `--post-process.subdivide-surface` (bool) 1 to enable surface subdivision,
 0 to disable it
@@ -49,10 +49,10 @@ connected regions, 0 to keep everything.
 disable it
 - `--subdivide-surface.method=butterfly` (string) Name of the surface
 subdivision method to use, among: linear, butterfly, loop.
-- `--subdivide-surface.subdivisions=1` (int) Number of subdivisions.
+- `--subdivide-surface.subdivisions=1` (int) Number of subdivisions.
 - `--smooth-surface.method=taubin` (string) Name of the surface smoothing
-method to use, among : taubin, laplace.
-- `--smooth-surface.iterations=30` (int) Number of iterations.
+method to use, among : taubin, laplace.
+- `--smooth-surface.iterations=30` (int) Number of iterations.
 - `--smooth-surface.taubin.passband=0.1` (double) Low-pass filter threshold for
 the Taubin method.
 - `--smooth-surface.laplace.relaxation=0.01` (double) Relaxation factor for the
@@ -67,4 +67,4 @@ Please report any problem you may encounter.
 
 
 
-link:Meshing_Module_Description.adoc[Go back to The Meshing Module]
+xref:Meshing_Module_Description.adoc[Go back to The Meshing Module]

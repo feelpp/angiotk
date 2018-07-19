@@ -41,4 +41,4 @@ Collisions may happen depending on blood vessels radius and proximity.
 Adjusting `avoid-tubular-colision.radius-min` and
 `avoid-tubular-colision.distance-min` should solve the problem.
 
-link:Meshing_Module_Description.adoc[Go back to The Meshing Module]
+xref:Meshing_Module_Description.adoc[Go back to The Meshing Module]

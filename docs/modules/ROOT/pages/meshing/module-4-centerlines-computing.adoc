@@ -1,10 +1,9 @@
 = Center lines computing
 
 We first need to compute each center line using both the extracted surface and
-the corresponding point pairs (which shoud have been defined in the first place,
- using link:Module_3_CenterlinesGUITool.adoc[the center lines editing tool]).
+the corresponding point pairs (which have been defined using xref:Module_3_CenterlinesGUITool.adoc[the center lines editing tool]).
 
-The executable we use is named `meshing_centerlines`.
+The executable we use is named `angiotk_meshing_centerlines`.
 
 == Supported file formats
 

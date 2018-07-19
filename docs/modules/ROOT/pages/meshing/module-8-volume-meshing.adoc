@@ -6,7 +6,7 @@ account for its thickness in future fluid-structure interation numerical
 simulations.
 We will also generate mesh input and output markers in a description file
 (.desc).
-The executable we use is named `meshing_volumefromstlandcenterlines`.
+The executable is named `meshing_volumefromstlandcenterlines`.
 
 
 == Supported file formats
@@ -40,4 +40,12 @@ the algorithm will enter an infinite loop.
 A solution is to split each connected component apart and to process them all
 separately.
 
-link:Meshing_Module_Description.adoc[Go back to The Meshing Module]
+xref:Meshing_Module_Description.adoc[Go back to The Meshing Module]
+
+== What's next
+
+You should be able to run numerical simulations using your newly created mesh.
+Have a look at the
+xref:docs.feelpp.org[Feel++ documentation]
+and have fun experimenting with the
+xref:http://docs.feelpp.org/docs/stable/#_feel_toolboxes[Feel++ CFD and FSI toolboxes]
