@@ -1,18 +1,22 @@
 = Surface extraction
 
-The goal here is to extract and create a 3D model of the surface of the blood vessels, using a level set method.
-The level sets are initialiazed using either the isosurface of a given intensity value (*isosurface* method) or a given intensity range (*threshold* method).
+The goal of this module is to extract and create a 3D model of the surface of the blood
+vessels, using a level set method.
+The level sets are initialized using either the isosurface of a given intensity
+value (*isosurface* method) or a given intensity range (*threshold* method).
 A marching cube algorithm then extracts the surface.
 
 == Surface subdivision
 
 The resulting surface can be subdivided using 3 methods:
 
-*linear*:: (original points are preserved and linear subdivisions are created in between),
+*linear*:: (original points are preserved and linear subdivisions are created in
+  between),
 *butterfly*:: (original points are preserved and new points are added)
 *loop*:: (original points are displaced and new points are added).
 
-NOTE: The difference between the last two is the smoothness they tend to bend the surface to: C^1 for *butterfly*, C^2 for *loop*.
+NOTE: The difference between the last two is the smoothness they tend to bend
+the surface to: C^1 for *butterfly*, C^2 for *loop*.
 
 The executable we use is named `meshing_surfacefromimage`.
 
@@ -26,12 +30,33 @@ The executable we use is named `meshing_surfacefromimage`.
 - `--input.image.filename`: (string) Input image
 - `--output.path`: (string) Output file
 - `--config-file`: (string) Configuration file
-- `--force-rebuild=1` :(int) 0 to avoid computing if target file already exists, 1 to overwrite it
-- `--pre-process.resize-from-reference-image.path`: (string) Reference image to resize.
-- `--method=threshold` (string) method to use for level set initialization among: threshold or isosurface- `--image-fusion.operator=max` (string) method operator among : max, min, multiply, substract- `--threshold.lower` (double) lower bound for the threshold limit- `--threshold.higher` (double) higher bound for the threshold limit- `--apply-connectivity.largest-region=1` (bool) 1 to keep the *n* largest connected regions, 0 to keep everything- `--apply-connectivity.number=1` (int) Number *n* used above.
-- `--post-process.subdivide-surface` (bool) 1 to enable surface subdivision, 0 to disable it
-- `--post-process.smooth-surface` (bool) 1 to enable surface smoothing, 0 to disable it
-- `--subdivide-surface.method=butterfly` (string) Name of the surface subdivision method to use, among: linear, butterfly, loop- `--subdivide-surface.subdivisions=1` (int) Number of subdivisions- `--smooth-surface.method=taubin` (string) Name of the surface smoothing method to use, among : taubin, laplace- `--smooth-surface.iterations=30` (int) Number of iterations- `--smooth-surface.taubin.passband=0.1` (double) Low-pass filter threshold for the Taubin method- `--smooth-surface.laplace.relaxation=0.01` (double) Relaxation factor for the Laplace method
+- `--force-rebuild=1` :(int) 0 to avoid computing if target file already exists,
+ 1 to overwrite it
+- `--pre-process.resize-from-reference-image.path`: (string) Reference image to
+ resize.
+- `--method=threshold` (string) method to use for level set initialization
+among: threshold or isosurface.
+- `--image-fusion.operator=max` (string) method operator among : max, min,
+multiply, substract.
+- `--threshold.lower` (double) lower bound for the threshold limit.
+- `--threshold.higher` (double) higher bound for the threshold limit.
+- `--apply-connectivity.largest-region=1` (bool) 1 to keep the *n* largest
+connected regions, 0 to keep everything.
+- `--apply-connectivity.number=1` (int) Number *n* used above.
+- `--post-process.subdivide-surface` (bool) 1 to enable surface subdivision,
+0 to disable it
+- `--post-process.smooth-surface` (bool) 1 to enable surface smoothing, 0 to
+disable it
+- `--subdivide-surface.method=butterfly` (string) Name of the surface
+subdivision method to use, among: linear, butterfly, loop.
+- `--subdivide-surface.subdivisions=1` (int) Number of subdivisions.
+- `--smooth-surface.method=taubin` (string) Name of the surface smoothing
+method to use, among : taubin, laplace.
+- `--smooth-surface.iterations=30` (int) Number of iterations.
+- `--smooth-surface.taubin.passband=0.1` (double) Low-pass filter threshold for
+the Taubin method.
+- `--smooth-surface.laplace.relaxation=0.01` (double) Relaxation factor for the
+Laplace method
 
 
 == Troubleshooting
@@ -42,4 +67,4 @@ Please report any problem you may encounter.
 
 
 
-link:Meshing_Module_Description.adoc[Go back to The Meshing Module]
+xref:Meshing_Module_Description.adoc[Go back to The Meshing Module]

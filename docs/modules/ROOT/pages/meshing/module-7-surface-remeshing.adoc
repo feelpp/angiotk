@@ -1,6 +1,6 @@
 = Surface processing and remeshing
 
-This module allows 3D model surface processing and remeshing. 
+This module allows 3D model surface processing and remeshing.
 First of all, Gmsh is used to cut off tubular ends.
 This is needed to perform numerical simulations later.
 Then, surface remeshing takes place using either VTMK or Gmsh.
@@ -14,28 +14,48 @@ The module executable is named `meshing_remeshstl`.
 
 == Parameters
 
-- `--input.suface.filename`: (string) Input 3D model in STereoLithography (.stl) format
+- `--input.suface.filename`: (string) Input 3D model in STereoLithography (.stl)
+ format
 - `--gmsh.centerlines.filename`: (string) Input center lines VTK file (.vtk)
 - `--output.directory`: (string) Output directory
 - `--config-file`: (string) Configuration file
-- `--force-rebuild=1`: (int) 0 to avoid computing if target file already exists, 1 to overwrite it
-- `--output.save-binary=1` (bool) Defines the type of STereoLithography (.stl) file to write: 1 for binary, 0 for ASCII.- `--package-type=vmtk` (string) Package to use for surface remeshing : vtmk, gmsh, gmsh-executable - `--pre-process.open-surface` (bool) 1 to open tubular ends (by cutting them off), 0 to leave them untouched.- `--vmtk.area=0.5` (double) Desired surface of a triangle in the final mesh.
-- `--vtmk.n-iteration=10` (int) Maximum number of iterations.- `--gmsh.nb-points-in-circle=15` (int) Desired number of point on the circular section of any tubular surface in the final mesh
-- `--gmsh.radius-uncertainty=0.0` (double) Radius uncertainty, this value should be set close to the pixel precision (image voxel size) of the image used in the last surface extraction.- `--gmsh.remesh-partition.force-rebuild=true` (bool) 1 to force partition remeshing (and overwrite any existing file), 0 to avoid it if output exists.- `--open-surface.force-rebuild=1` (bool) 1 to force tubular ends opening (and overwrite any existing file), 0 to avoid it if output exists.
-
-`--open-surface.output.save-binary=1` (bool)::
- Defines the type of STereoLithography (.stl) file to write after tubular ends opening:
+- `--force-rebuild=1`: (int) 0 to avoid computing if target file already exists,
+1 to overwrite it
+- `--output.save-binary=1` (bool) Defines the type of STereoLithography (.stl)
+file to write: 1 for binary, 0 for ASCII.
+- `--package-type=vmtk` (string) Package to use for surface remeshing : vtmk,
+gmsh, gmsh-executable
+- `--pre-process.open-surface` (bool) 1 to open tubular ends (by cutting them
+  off), 0 to leave them untouched.
+- `--vmtk.area=0.5` (double) Desired surface of a triangle in the final mesh.
+- `--vtmk.n-iteration=10` (int) Maximum number of iterations.
+- `--gmsh.nb-points-in-circle=15` (int) Desired number of point on the circular
+section of any tubular surface in the final mesh
+- `--gmsh.radius-uncertainty=0.0` (double) Radius uncertainty, this value should
+be set close to the pixel precision (image voxel size) of the image used in the
+last surface extraction.
+- `--gmsh.remesh-partition.force-rebuild=true` (bool) 1 to force partition
+remeshing (and overwrite any existing file), 0 to avoid it if output exists.
+- `--open-surface.force-rebuild=1` (bool) 1 to force tubular ends opening (and
+  overwrite any existing file), 0 to avoid it if output exists.
+- `--open-surface.output.save-binary=1` (bool)::
+ Defines the type of STereoLithography (.stl) file to write after tubular ends
+ opening:
   * 1 for binary,
   * 0 for ASCII.
 
-`--open-surface.radius-uncertainty=0.0` (double)::
-Radius uncertainty, this value should be set close to the pixel precision (image voxel size) of the image used in the last surface extraction.
+- `--open-surface.radius-uncertainty=0.0` (double)::
+Radius uncertainty, this value should be set close to the pixel precision (image
+  voxel size) of the image used in the last surface extraction.
 
-`--open-surface.distance-clip.scaling-factor=0.0` (double)::
+- `--open-surface.distance-clip.scaling-factor=0.0` (double)::
 Potentially increases the length of tubular ends to cut off.
-The value defined here will be added to the default offset, resulting in the cut to happen further from the end - this means the final tube will be shorter.
-This is useful to avoir cutting too close to the end, where the radius shrinks.
-The image below is a comparison of the surface before ends opening and after, using the default offset (`open-surface.distance-clip.scaling-factor=0.0`) and an increased one (`open-surface.distance-clip.scaling-factor=2.0`).
+The value defined here will be added to the default offset, resulting in the cut
+to happen further from the end - this means the final tube will be shorter.
+This is useful to avoid cutting too close to the end, where the radius shrinks.
+The image below is a comparison of the surface before ends opening and after,
+using the default offset (`open-surface.distance-clip.scaling-factor=0.0`) and
+an increased one (`open-surface.distance-clip.scaling-factor=2.0`).
 
 .Distance comparison
 image::distance_comparison.jpg[]
@@ -43,7 +63,8 @@ image::distance_comparison.jpg[]
 == Troubleshooting
 
 Two bugs could arise:
-- (Rarely) A partition remeshing failure: This can be fixed by adjusting *--open-surface.radius-uncertainty* and *gmsh.nb-points-in-circle=15*
+- (Rarely) A partition remeshing failure: This can be fixed by adjusting
+`open-surface.radius-uncertainty` and `gmsh.nb-points-in-circle`
 - (Very rarely) A crash of unknown cause.
 
-link:Meshing_Module_Description.adoc[Go back to The Meshing Module]
+xref:Meshing_Module_Description.adoc[Go back to The Meshing Module]

@@ -11,23 +11,34 @@ This is done by `meshing_centerlinesmanager`
 == Parameters
 
 - `--input.surface.filename`: (string) Input surface
-- `--input.centerlines.filename`: (string) Input center line (add this once for each center line file to merge)
+- `--input.centerlines.filename`: (string) Input center line (add this once for
+  each center line file to merge)
 - `--output.directory`: (string) Output directory for the VTK file
 - `--config-file`: (string) Configuration file
-- `--force-rebuild=1`: (int) 0 to avoid computing if target file already exists, 1 to overwrite it
-- `--delaunay-tessellation.output.directory`: (string) Output directory for the Delaunay tessellation
-- `--delaunay-tessellation.force-rebuild=1`: (int) 0 to avoid computing if target file already exists, 1 to overwrite it
+- `--force-rebuild=1`: (int) 0 to avoid computing if target file already exists,
+ 1 to overwrite it
+- `--delaunay-tessellation.output.directory`: (string) Output directory for the
+Delaunay tessellation
+- `--delaunay-tessellation.force-rebuild=1`: (int) 0 to avoid computing if
+target file already exists, 1 to overwrite it
 - `remove-branch-ids` (vector of int) Optional, branch IDs to remove
-- `--threshold-radius.min=-1`: (double) minimum radius- `--threshold-radius.max=-1`: (double) maximum radius- `--avoid-tubular-colision.apply=0`: (bool) 1 to enable tubular collisions avoidance mechanism, 0 to disable it
-- `--avoid-tubular-colision.distance-min=0.4`: (double) minimum distance between tubular branches (to avoid collisions)
-- `--avoid-tubular-colision.radius-min=0.4`: (double) minimum radius (to avoid collisions)
-- `--smooth-resample.apply=1`: (bool) 1 to enable smoothing resampling, 0 to disable it
+- `--threshold-radius.min=-1`: (double) minimum radius
+- `--threshold-radius.max=-1`: (double) maximum radius
+- `--avoid-tubular-colision.apply=0`: (bool) 1 to enable tubular collisions
+avoidance mechanism, 0 to disable it
+- `--avoid-tubular-colision.distance-min=0.4`: (double) minimum distance between
+ tubular branches (to avoid collisions)
+- `--avoid-tubular-colision.radius-min=0.4`: (double) minimum radius (to avoid
+   collisions)
+- `--smooth-resample.apply=1`: (bool) 1 to enable smoothing resampling, 0 to
+disable it
 - `--smooth-resample.geo-points-spacing=4.0`: (double) spacing between points
 - `--smooth-resample.mesh-size=1.0`: (double)
 
 == Troubleshooting
 
 Collisions may happen depending on blood vessels radius and proximity.
-Adjusting *avoid-tubular-colision.radius-min* and *avoid-tubular-colision.distance-min* should solve the problem.
+Adjusting `avoid-tubular-colision.radius-min` and
+`avoid-tubular-colision.distance-min` should solve the problem.
 
-link:Meshing_Module_Description.adoc[Go back to The Meshing Module]
+xref:Meshing_Module_Description.adoc[Go back to The Meshing Module]
