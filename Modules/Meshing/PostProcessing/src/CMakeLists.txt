@@ -3,7 +3,7 @@ add_library( angiotk_meshing_postprocessing
   SHARED
   postprocessing.cpp
   )
-target_link_libraries( angiotk_meshing_postprocessing ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} )
+target_link_libraries( angiotk_meshing_postprocessing Feelpp::feelpp)
 install(TARGETS angiotk_meshing_postprocessing LIBRARY DESTINATION lib/ COMPONENT Libs)
 
 angiotk_add_component( angiotk_meshing_extractsubmesh extractsubmesh_main.cpp )

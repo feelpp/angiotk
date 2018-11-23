@@ -182,7 +182,7 @@ MeshPartitioner::run()
       // partioning mesh
       Gmsh gmsh( 3,//mesh_fluid_type::nDim,
 		 1,//mesh_fluid_type::nOrder,
-		 this->worldComm() );
+		 this->worldCommPtr() );
       gmsh.setNumberOfPartitions( this->nPartitions(k) );
       gmsh.setPartitioner( (GMSH_PARTITIONER)this->partitioner() );
 
@@ -344,10 +344,10 @@ ExtractSubMeshFromFSIMesh<MeshType>::run()
 
       //-----------------------------------------------------------------------//
       std::cout << "[ExtractSubMeshFromFSIMesh] : load fsi mesh (start)\n";
-      auto meshFSI = loadMesh(_mesh=new mesh_type(this->worldComm().subWorldCommSeq()),
+      auto meshFSI = loadMesh(_mesh=new mesh_type(this->worldComm().subWorldCommSeqPtr()),
 			      _filename=this->inputPath(),
 			      _straighten=false,
-			      _worldcomm=this->worldComm().subWorldCommSeq(),
+			      _worldcomm=this->worldComm().subWorldCommSeqPtr(),
 			      _rebuild_partitions=false );
       std::cout << "[ExtractSubMeshFromFSIMesh] : load fsi mesh (finish)\n";
       //-----------------------------------------------------------------------//

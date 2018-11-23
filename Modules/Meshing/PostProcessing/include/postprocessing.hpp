@@ -19,6 +19,7 @@ public :
 
     std::string prefix() const { return M_prefix; }
     WorldComm const& worldComm() const { return Environment::worldComm(); }
+    worldcomm_ptr_t const& worldCommPtr() const { return Environment::worldCommPtr(); }
     std::string inputPath() const { return M_inputPath; }
     std::vector<std::string> const& outputPath() const { return M_outputPath; }
     std::string const& outputPath(int k) const { return M_outputPath[k]; }
@@ -55,7 +56,7 @@ class ExtractSubMeshFromFSIMesh
 public :
 
     typedef MeshType mesh_type;
-    typedef boost::shared_ptr<mesh_type> mesh_ptrtype;
+    typedef std::shared_ptr<mesh_type> mesh_ptrtype;
     typedef typename mesh_type::shape_type shape_type;
 
     ExtractSubMeshFromFSIMesh( std::string prefix );
