@@ -1,27 +1,8 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index b6d5309..0f49168 100644
+index 033dab3..fe86a5e 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -2,6 +2,10 @@ if( APPLE AND NOT CMAKE_CXX_COMPILER)
-   set ( CMAKE_CXX_COMPILER "/usr/bin/g++" CACHE STRING "CXX compiler." FORCE)
- endif( APPLE AND NOT CMAKE_CXX_COMPILER)
- 
-+if ( APPLE )
-+  cmake_policy(SET CMP0025 NEW)
-+endif()
-+
- PROJECT(VMTK)
- 
- CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
-@@ -18,7 +22,6 @@ foreach(p
-     cmake_policy(SET ${p} NEW)
-   endif()
- endforeach()
--
- # vmtk versions number
- SET(VMTK_VERSION_MAJOR 1)
- SET(VMTK_VERSION_MINOR 3)
-@@ -79,10 +82,22 @@ ENDIF (APPLE)
+@@ -68,10 +68,22 @@ SET(VMTK_RENDERING_BACKEND "OpenGL2" CACHE STRING "Graphic backend for VTK")
  option( USE_SYSTEM_VTK
    "Exclude VTK from SuperBuild and use an existing build instead." OFF )
  if( USE_SYSTEM_VTK )

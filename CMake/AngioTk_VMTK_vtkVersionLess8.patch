@@ -1,0 +1,65 @@
+diff --git a/vtkVmtk/ComputationalGeometry/vtkvmtkPolyBall.h b/vtkVmtk/ComputationalGeometry/vtkvmtkPolyBall.h
+index 73a44eb..69cce05 100644
+--- a/vtkVmtk/ComputationalGeometry/vtkvmtkPolyBall.h
++++ b/vtkVmtk/ComputationalGeometry/vtkvmtkPolyBall.h
+@@ -31,6 +31,7 @@ Version:   $Revision: 1.3 $
+ #include "vtkPolyData.h"
+ //#include "vtkvmtkComputationalGeometryWin32Header.h"
+ #include "vtkvmtkWin32Header.h"
++#include "vtkVersion.h"
+ 
+ class VTK_VMTK_COMPUTATIONAL_GEOMETRY_EXPORT vtkvmtkPolyBall : public vtkImplicitFunction
+ {
+@@ -43,7 +44,11 @@ class VTK_VMTK_COMPUTATIONAL_GEOMETRY_EXPORT vtkvmtkPolyBall : public vtkImplici
+   // Description
+   // Evaluate polyball.
+   double EvaluateFunction(double x[3]) VTK_OVERRIDE;
++#if (VTK_MAJOR_VERSION < 8)
++  double EvaluateFunction(double x, double y, double z)
++#else
+   double EvaluateFunction(double x, double y, double z) VTK_OVERRIDE
++#endif
+   {return this->vtkImplicitFunction::EvaluateFunction(x, y, z); } ;
+ 
+   // Description
+diff --git a/vtkVmtk/ComputationalGeometry/vtkvmtkPolyBallLine.h b/vtkVmtk/ComputationalGeometry/vtkvmtkPolyBallLine.h
+index ba33759..4c2338e 100644
+--- a/vtkVmtk/ComputationalGeometry/vtkvmtkPolyBallLine.h
++++ b/vtkVmtk/ComputationalGeometry/vtkvmtkPolyBallLine.h
+@@ -32,6 +32,7 @@ Version:   $Revision: 1.4 $
+ #include "vtkIdList.h"
+ //#include "vtkvmtkComputationalGeometryWin32Header.h"
+ #include "vtkvmtkWin32Header.h"
++#include "vtkVersion.h"
+ 
+ class VTK_VMTK_COMPUTATIONAL_GEOMETRY_EXPORT vtkvmtkPolyBallLine : public vtkImplicitFunction
+ {
+@@ -44,7 +45,11 @@ class VTK_VMTK_COMPUTATIONAL_GEOMETRY_EXPORT vtkvmtkPolyBallLine : public vtkImp
+   // Description
+   // Evaluate polyball.
+   double EvaluateFunction(double x[3]) VTK_OVERRIDE;
+-  double EvaluateFunction(double x, double y, double z) VTK_OVERRIDE
++#if (VTK_MAJOR_VERSION < 8)
++  double EvaluateFunction(double x, double y, double z)
++#else
++    double EvaluateFunction(double x, double y, double z) VTK_OVERRIDE
++#endif
+   {return this->vtkImplicitFunction::EvaluateFunction(x, y, z); } ;
+ 
+   // Description
+diff --git a/vtkVmtk/Misc/vtkvmtkRBFInterpolation.h b/vtkVmtk/Misc/vtkvmtkRBFInterpolation.h
+index 9c7b9e9..5cd89f4 100644
+--- a/vtkVmtk/Misc/vtkvmtkRBFInterpolation.h
++++ b/vtkVmtk/Misc/vtkvmtkRBFInterpolation.h
+@@ -42,7 +42,11 @@ class VTK_VMTK_MISC_EXPORT vtkvmtkRBFInterpolation : public vtkImplicitFunction
+   // Description
+   // Evaluate polyball.
+   double EvaluateFunction(double x[3]) VTK_OVERRIDE;
++#if (VTK_MAJOR_VERSION < 8)
++  double EvaluateFunction(double x, double y, double z)
++#else
+   double EvaluateFunction(double x, double y, double z) VTK_OVERRIDE
++#endif
+   {return this->vtkImplicitFunction::EvaluateFunction(x, y, z); } ;
+ 
+   // Description
