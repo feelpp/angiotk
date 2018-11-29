@@ -35,6 +35,16 @@
 
 #include <vtkvmtkBoundaryReferenceSystems.h>
 
+
+AngioTkEnvironment::~AngioTkEnvironment()
+{
+    //std::cout << "use_count() " << S_feelEnvironment.use_count()  <<"\n";
+    S_feelEnvironment.reset();
+
+    if ( Py_IsInitialized() != 0 )
+        Py_Finalize();
+}
+
 Feel::fs::path AngioTkEnvironment::S_pathInitial;
 boost::shared_ptr<Feel::Environment> AngioTkEnvironment::S_feelEnvironment;
 
@@ -741,13 +751,13 @@ CenterlinesFromSurface::run()
             std::cout << "---------------------------------------\n"
                       << "run vmtk python : \n" << __str.str() << "\n"
                       << "---------------------------------------\n";
-            Py_Initialize();
+            if ( Py_IsInitialized() == 0 )
+                Py_Initialize();
             PyRun_SimpleString("from vmtk import pypes");
             std::ostringstream strPypesArg;
             strPypesArg << "myArguments='" << __str.str() << "'";
             PyRun_SimpleString(strPypesArg.str().c_str());
             PyRun_SimpleString("myPype = pypes.PypeRun(myArguments)");
-            Py_Finalize();
         }
     }
     else
@@ -774,13 +784,13 @@ CenterlinesFromSurface::run()
         std::cout << "---------------------------------------\n"
                   << "run vmtk python : \n" << ostrView.str() << "\n"
                   << "---------------------------------------\n";
-        Py_Initialize();
+        if ( Py_IsInitialized() == 0 )
+            Py_Initialize();
         PyRun_SimpleString("from vmtk import pypes");
         std::ostringstream strPypesArg;
         strPypesArg << "myArguments='" << ostrView.str() << "'";
         PyRun_SimpleString(strPypesArg.str().c_str());
         PyRun_SimpleString("myPype = pypes.PypeRun(myArguments)");
-        Py_Finalize();
     }
     std::cout << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n";
 
@@ -1439,13 +1449,13 @@ SurfaceFromImage::run()
             std::cout << "---------------------------------------\n"
                       << "run vmtk python : \n" << ostrImageFusion.str() << "\n"
                       << "---------------------------------------\n";
-            Py_Initialize();
+            if ( Py_IsInitialized() == 0 )
+                Py_Initialize();
             PyRun_SimpleString("from vmtk import pypes");
             std::ostringstream strPypesArg;
             strPypesArg << "myArguments='" << ostrImageFusion.str() << "'";
             PyRun_SimpleString(strPypesArg.str().c_str());
             PyRun_SimpleString("myPype = pypes.PypeRun(myArguments)");
-            Py_Finalize();
             // use new image generated as input
             inputImagePath = outputPathImageFusion;
         }
@@ -1485,13 +1495,15 @@ SurfaceFromImage::run()
         std::cout << "---------------------------------------\n"
                   << "run vmtk python : \n" <<__str.str() << "\n"
                   << "---------------------------------------\n";
-        Py_Initialize();
+
+
+        if ( Py_IsInitialized() == 0 )
+            Py_Initialize();
         PyRun_SimpleString("from vmtk import pypes");
         std::ostringstream strPypesArg;
         strPypesArg << "myArguments='" << __str.str() << "'";
         PyRun_SimpleString(strPypesArg.str().c_str());
         PyRun_SimpleString("myPype = pypes.PypeRun(myArguments)");
-        Py_Finalize();
 
 #if 0
         std::ostringstream __str2;
@@ -1522,13 +1534,15 @@ SurfaceFromImage::run()
         std::cout << "---------------------------------------\n"
                   << "run vmtk python : \n" <<__str2.str() << "\n"
                   << "---------------------------------------\n";
-        Py_Initialize();
+        //Py_Initialize();
+        PyRun_SimpleString("from vmtk import pypeserver");
         PyRun_SimpleString("from vmtk import pypes");
         std::ostringstream strPypesArg2;
-        strPypesArg2 << "myArguments='" << __str2.str() << "'";
+        //strPypesArg2 << "myArguments='" << __str2.str() << "'";
+        strPypesArg2 << "myArguments=['" << __str2.str() << "']";
         PyRun_SimpleString(strPypesArg2.str().c_str());
-        PyRun_SimpleString("myPype = pypes.PypeRun(myArguments)");
-        Py_Finalize();
+        //PyRun_SimpleString("myPype = pypes.PypeRun(myArguments)");
+        PyRun_SimpleString("pypeserver.PypeServer(myArguments,None,None,returnIfEmptyQueue=True)");
 
         // read image obtained by levelset segmentation
         vtkSmartPointer<vtkXMLImageDataReader> readerSegmentation = vtkSmartPointer<vtkXMLImageDataReader>::New();
@@ -1994,13 +2008,13 @@ SubdivideSurface::run()
         std::cout << "---------------------------------------\n"
                   << "run vmtk python : \n" << __str.str() << "\n"
                   << "---------------------------------------\n";
-        Py_Initialize();
+        if ( Py_IsInitialized() == 0 )
+            Py_Initialize();
         PyRun_SimpleString("from vmtk import pypes");
         std::ostringstream strPypesArg;
         strPypesArg << "myArguments='" << __str.str() << "'";
         PyRun_SimpleString(strPypesArg.str().c_str());
         PyRun_SimpleString("myPype = pypes.PypeRun(myArguments)");
-        Py_Finalize();
     }
 
 }
@@ -2116,13 +2130,13 @@ SmoothSurface::run()
         std::cout << "---------------------------------------\n"
                   << "run vmtk python : \n" << __str.str() << "\n"
                   << "---------------------------------------\n";
-        Py_Initialize();
+        if ( Py_IsInitialized() == 0 )
+            Py_Initialize();
         PyRun_SimpleString("from vmtk import pypes");
         std::ostringstream strPypesArg;
         strPypesArg << "myArguments='" << __str.str() << "'";
         PyRun_SimpleString(strPypesArg.str().c_str());
         PyRun_SimpleString("myPype = pypes.PypeRun(myArguments)");
-        Py_Finalize();
     }
 
 }
@@ -2323,13 +2337,13 @@ OpenSurface::runVMTK()
     std::cout << "---------------------------------------\n"
               << "run vmtk python : \n" << __str.str() << "\n"
               << "---------------------------------------\n";
-    Py_Initialize();
+    if ( Py_IsInitialized() == 0 )
+        Py_Initialize();
     PyRun_SimpleString("from vmtk import pypes");
     std::ostringstream strPypesArg;
     strPypesArg << "myArguments='" << __str.str() << "'";
     PyRun_SimpleString(strPypesArg.str().c_str());
     PyRun_SimpleString("myPype = pypes.PypeRun(myArguments)");
-    Py_Finalize();
 }
 
 
@@ -2480,13 +2494,13 @@ RemeshSurface::runVMTK()
     std::cout << "---------------------------------------\n"
               << "run vmtk python : \n" << __str.str() << "\n"
               << "---------------------------------------\n";
-    Py_Initialize();
+    if ( Py_IsInitialized() == 0 )
+        Py_Initialize();
     PyRun_SimpleString("from vmtk import pypes");
     std::ostringstream strPypesArg;
     strPypesArg << "myArguments='" << __str.str() << "'";
     PyRun_SimpleString(strPypesArg.str().c_str());
     PyRun_SimpleString("myPype = pypes.PypeRun(myArguments)");
-    Py_Finalize();
 }
 
 
