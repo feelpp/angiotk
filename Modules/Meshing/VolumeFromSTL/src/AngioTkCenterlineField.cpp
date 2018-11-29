@@ -3127,15 +3127,15 @@ void AngioTkCenterline::runClipMesh()
 		      v1 = curLine->getVertex(0);
 		      v2 = curLine->getVertex(1);
 		    }
+
+                  MVertex *thept = v1;//v2;
+                  std::map<MLine*,double>::iterator itr = radiusl.find(curLine);
+                  double radius = 1.1*itr->second;
+
+                  cutDesc2[vB].push_back( std::make_tuple( SVector3(thept->x(),thept->y(),thept->z()),
+                                                           normalPlanDir,
+                                                           radius ) );
 		}
-	      MVertex *thept = v1;//v2;
-	      std::map<MLine*,double>::iterator itr = radiusl.find(curLine);
-	      double radius = 1.1*itr->second;
-
-	      cutDesc2[vB].push_back( std::make_tuple( SVector3(thept->x(),thept->y(),thept->z()),
-						       normalPlanDir,
-						       radius ) );
-
 	    }
 	}
       if ( !vEndConnected )
@@ -3257,10 +3257,12 @@ void AngioTkCenterline::runClipMesh()
 	  double radius =  std::get<2>(cutDesc);
 	  radius+=M_cutMeshRadiusUncertainty;//(0.5/2.);
 
-	  fileWrited << 0 << " " << pt[0] << " " << pt[1] << " " << pt[2] << " " << radius << "\n";
+          //std::cout << cptRealCut << " " << pt[0] << " " << pt[1] << " " << pt[2] << " " << radius << "\n";
+	  //fileWrited << 0 << " " << pt[0] << " " << pt[1] << " " << pt[2] << " " << radius << "\n";
 	  cutSucess = cutByDisk(pt, dir, radius, cptRealCut+1);
 	  if (cutSucess)
 	    {
+              fileWrited << cptRealCut << " " << pt[0] << " " << pt[1] << " " << pt[2] << " " << radius << "\n";
 	      ++cptRealCut;
 	      break;
 	    }
