@@ -36,11 +36,7 @@ public :
                                                        Feel::_desc=args[Feel::_desc|Feel::feel_nooptions()],
                                                        Feel::_about=args[Feel::_about| Feel::makeAboutDefault/*detail::makeAbout*/( args[Feel::_argv][0] )] ) );
     }
-    ~AngioTkEnvironment()
-    {
-        //std::cout << "use_count() " << S_feelEnvironment.use_count()  <<"\n";
-        S_feelEnvironment.reset();
-    }
+    ~AngioTkEnvironment();
     static Feel::fs::path pathInitial() { return S_pathInitial; }
     static Feel::Environment const& feelEnvironment() { return *S_feelEnvironment; }
 
