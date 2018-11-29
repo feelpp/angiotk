@@ -3413,8 +3413,21 @@ void AngioTkCenterline::cutMesh(std::string const& remeshPartitionMeshFile)
 	  } // for ( ii
 	  if ( applyCut )
 	    {
-	      cutDiskToPerform[i][j] = std::make_tuple(pt,radius,lcTotal );
-	      lc = 0.0;
+#if 1 // NEW METHOD
+              SVector3 dir(v2->x()-v1->x(),v2->y()-v1->y(),v2->z()-v1->z());
+              bool cutHasSucess = cutByDisk(pt, dir, radius);
+              if ( cutHasSucess )
+                {
+                  cutDiskToPerform[i][j] = std::make_tuple(pt,radius,lcTotal );
+                  lc = 0.0;
+                }
+              else
+                applyCut = false;
+#else // OLD METHOD
+             cutDiskToPerform[i][j] = std::make_tuple(pt,radius,lcTotal );
+             lc = 0.0;
+#endif
+
 	    }
 	} // if ( lc > li && nbSplit > 1)
 	if ( !applyCut )
@@ -3429,9 +3442,11 @@ void AngioTkCenterline::cutMesh(std::string const& remeshPartitionMeshFile)
 
       } // for (unsigned int j= 0; j < lines.size(); j++)
     }
+    Msg::Info("AngioTkCenterline: ->> cut branch %d/%d done in %d  parts",i,(edges.size()-1), cutDiskToPerform[i].size());
+
   } // end first for ( i
 
-
+#if 0 // OLD METHOD
   // apply cut from cutDiskToPerform container
   for(unsigned int i = 0; i < edges.size(); i++){
     std::vector<MLine*> lines = edges[i].lines;
@@ -3457,8 +3472,8 @@ void AngioTkCenterline::cutMesh(std::string const& remeshPartitionMeshFile)
 #endif
       }
     Msg::Info("AngioTkCenterline: ->> cut branch %d/%d done in %d (planned %d) parts",i,(edges.size()-1), cptRealCut,cutDiskToPerform[i].size());
-
   }
+#endif
 
   //create discreteFaces
   createFaces();
