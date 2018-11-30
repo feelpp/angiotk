@@ -2,6 +2,10 @@
 
 #include "centerlinesmanagerwindowinteractor.hpp"
 
+#include <vtkPointData.h>
+#include <vtkLookupTable.h>
+//#include <vtkFieldData.h>
+
 class vtkMyCallback : public vtkCommand
 {
 public:
@@ -1359,7 +1363,27 @@ CenterlinesManagerWindowInteractor::run()//bool fullscreen, int windowWidth, int
     {
         if ( this->inputCenterlinesPath(k).empty() || !Feel::fs::exists( this->inputCenterlinesPath(k) ) ) continue;
 
-        if ( true/*true*/ )
+        if ( !centerlinesTool )
+            {
+                if ( true )
+                    {
+                        CTX::instance()->terminal = 1;
+                        int verbosityLevel = 5;
+                        Msg::SetVerbosity( verbosityLevel );
+                    }
+                centerlinesTool.reset( new AngioTkCenterline );
+                centerlinesTool->importSurfaceFromFile( this->inputSurfacePath() );
+                style->setAngioTkCenterlines(centerlinesTool);
+                //centerlinesTool->importFile( this->inputCenterlinesPath(k) );
+            }
+        centerlinesTool->importFile( this->inputCenterlinesPath(k) );
+    }
+
+    for ( int k=0;k<this->inputCenterlinesPath().size();++k)
+        {
+            if ( this->inputCenterlinesPath(k).empty() || !Feel::fs::exists( this->inputCenterlinesPath(k) ) ) continue;
+
+            if ( centerlinesTool /*true*/ )
             {
         vtkSmartPointer<vtkPolyDataReader> readerVTK = vtkSmartPointer<vtkPolyDataReader>::New();
         readerVTK->SetFileName(this->inputCenterlinesPath(k).c_str());
@@ -1367,9 +1391,29 @@ CenterlinesManagerWindowInteractor::run()//bool fullscreen, int windowWidth, int
         // Create a mapper and actor
         vtkSmartPointer<vtkPolyDataMapper> mapperVTK = vtkSmartPointer<vtkPolyDataMapper>::New();
         mapperVTK->SetInputConnection(readerVTK->GetOutputPort());
+
+        mapperVTK->ScalarVisibilityOn();
+        mapperVTK->SetScalarModeToUsePointFieldData();
+        mapperVTK->SelectColorArray( "BranchIds" ); // "RadiusMin","BranchIds"
+#if 0 // V1
+        mapperVTK->SetScalarRange( mapperVTK->GetInput()->GetPointData()->GetScalars("BranchIds")->GetRange() );
+#else
+        vtkSmartPointer<vtkLookupTable> lut = vtkSmartPointer<vtkLookupTable>::New();
+        lut->SetNumberOfTableValues( centerlinesTool->centerlinesTree().size() );
+        mapperVTK->SetScalarRange( mapperVTK->GetInput()->GetPointData()->GetScalars("BranchIds")->GetRange() );
+        lut->SetTableRange( mapperVTK->GetInput()->GetPointData()->GetScalars("BranchIds")->GetRange() );
+        mapperVTK->SetLookupTable(lut);
+        mapperVTK->UseLookupTableScalarRangeOn();
+
+#endif
+        //mapperVTK->CreateDefaultLookupTable();
+        //vtkAbstractArray * abc = mapperVTK->GetInput()->GetFieldData()->GetAbstractArray();
+        //mapperVTK->SetScalarRange( vtkDataArray::SafeDownCast( abc/*array*/ )->GetRange() );
+        //mapperVTK->SetScalarRange(0, 40);
+        //mapperVTK->UseLookupTableScalarRangeOn();
         vtkSmartPointer<vtkActor> actorVTK = vtkSmartPointer<vtkActor>::New();
         actorVTK->SetMapper(mapperVTK);
-
+#if 0
         if (k%8==0)
             actorVTK->GetProperty()->SetColor(0.0, 1.0, 0.0); //(R,G,B)
         if (k%8==1)
@@ -1384,25 +1428,11 @@ CenterlinesManagerWindowInteractor::run()//bool fullscreen, int windowWidth, int
             actorVTK->GetProperty()->SetColor(0.0, 0.5, 0.5); //(R,G,B)
         if (k%8==7)
             actorVTK->GetProperty()->SetColor(0.5, 0.5, 0.5); //(R,G,B)
-
+#endif
         actorVTK->GetProperty()->SetLineWidth(3.0);
         // Add the actor to the scene
         renderer->AddActor(actorVTK);
             }
-        if ( !centerlinesTool )
-        {
-            if ( true )
-            {
-                CTX::instance()->terminal = 1;
-                int verbosityLevel = 5;
-                Msg::SetVerbosity( verbosityLevel );
-            }
-            centerlinesTool.reset( new AngioTkCenterline );
-            centerlinesTool->importSurfaceFromFile( this->inputSurfacePath() );
-            style->setAngioTkCenterlines(centerlinesTool);
-            //centerlinesTool->importFile( this->inputCenterlinesPath(k) );
-        }
-        centerlinesTool->importFile( this->inputCenterlinesPath(k) );
     }
 
 #if 1
