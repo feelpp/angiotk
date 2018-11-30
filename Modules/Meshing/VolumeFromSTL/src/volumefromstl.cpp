@@ -2809,8 +2809,14 @@ VolumeMeshing::VolumeMeshing( std::string const& prefix )
     M_extrudeWall( boption(_name="extrude-wall",_prefix=this->prefix() ) ),
     M_extrudeWallNbElemLayer( ioption(_name="extrude-wall.nb-elt-layer",_prefix=this->prefix() ) ),
     M_extrudeWallhLayer( doption(_name="extrude-wall.h-layer",_prefix=this->prefix()) ),
+    M_extrudeWallStrategy( soption(_name="extrude-wall.strategy",_prefix=this->prefix()) ),
     M_saveOutputVolumeBinary( boption(_name="output.save-binary",_prefix=this->prefix() ) )
 {
+    if ( !( M_extrudeWallStrategy == "radius-percent" || M_extrudeWallStrategy == "constant" ) )
+        {
+            std::cout << "WARNING : incorrect extrude-wall.strategy :" <<  M_extrudeWallStrategy << " (revert to radius-percent)\n";
+            M_extrudeWallStrategy = "radius-percent";
+        }
     if ( !this->inputSurfacePath().empty() && this->outputPath().empty() )
     {
         this->updateOutputPathFromInputFileName();
@@ -2865,7 +2871,7 @@ VolumeMeshing::run()
               << "inletoutlet desc path   : " << this->inputInletOutletDescPath() << "\n"
               << "extrude arterial wall   : " << std::boolalpha << M_extrudeWall << "\n";
     if ( M_extrudeWall )
-        std::cout << "arterial wall thickness (radius percent) : " << M_extrudeWallhLayer << "\n"
+        std::cout << "arterial wall thickness (" << M_extrudeWallStrategy << ") : " << M_extrudeWallhLayer << "\n"
                   << "arterial wall number of layer            : " << M_extrudeWallNbElemLayer <<"\n";
     std::cout << "output path             : " << this->outputPath() << "\n"
               << "output file type        : " << std::string((M_saveOutputVolumeBinary)? "binary" : "ascii") << "\n"
@@ -2964,6 +2970,7 @@ VolumeMeshing::generateGeoFor3dVolumeFromSTLAndCenterlines(std::string const& ge
         {
             geodesc << "Field[1].nbElemLayer = "<< this->extrudeWall_nbElemLayer() <<"; //number of layers\n";
             geodesc << "Field[1].hLayer = "<< this->extrudeWall_hLayer() <<";// extrusion thickness given as percent of vessel radius\n";
+            geodesc << "Field[1].extrudeStrategy = \""<< M_extrudeWallStrategy <<"\";\n";
         }
 
     // identify inlets/outlets boundaries
@@ -2992,6 +2999,7 @@ VolumeMeshing::options( std::string const& prefix )
         ( prefixvm(prefix,"extrude-wall").c_str(),po::value<bool>()->default_value( false ), "extrude-wall" )
         ( prefixvm(prefix,"extrude-wall.nb-elt-layer").c_str(), po::value<int>()->default_value( 2 ), "nb-elt-layer" )
         ( prefixvm(prefix,"extrude-wall.h-layer").c_str(), po::value<double>()->default_value( 0.2 ), "h-layer" )
+        ( prefixvm(prefix,"extrude-wall.strategy").c_str(), po::value<std::string>()->default_value( "radius-percent" ), "values : radius-percent, constant" )
         ;
     return myMeshVolumeOptions.add( super_type::options( prefix ) );
 }

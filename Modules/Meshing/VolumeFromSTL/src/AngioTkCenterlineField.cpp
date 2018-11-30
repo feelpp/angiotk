@@ -547,6 +547,7 @@ AngioTkCenterline::AngioTkCenterline(std::string fileName): kdtree(nullptr), kdt
   hSecondLayer = 0.3;
   nbElemLayer = 3;
   nbElemSecondLayer = 0;
+  M_extrudeStrategy = "radius-percent";
   useGmshExecutable = false;
   is_cut = 0;
   is_closed = 0;
@@ -602,13 +603,13 @@ AngioTkCenterline::AngioTkCenterline(): kdtree(0), kdtreeR(0), M_cutMeshRadiusUn
     (nbElemSecondLayer, "Number of mesh elements the second extruded layer");
   options["hSecondLayer"] = new FieldOptionDouble
     (hSecondLayer, "Thickness (% of radius) of the second extruded layer");
+  options["extrudeStrategy"] = new FieldOptionString
+    (M_extrudeStrategy, "values : radius-percent, constant");
 
   //double * outlet0= new double(0);//outlet0CenterX
   //double SavehLayer = hLayer;
   options["descInletOutlet"] = new FieldOptionString
     (descInletOutlet, "descInletOutlet");
-
-
 }
 
 AngioTkCenterline::~AngioTkCenterline()
@@ -2864,6 +2865,12 @@ void AngioTkCenterline::extrudeBoundaryLayerWall(GEdge* gin, std::vector<GEdge*>
 {
   Msg::Info("AngioTkCenterline: extrude boundary layer wall (%d, %g%%R) ", nbElemLayer,  hLayer);
 
+  int extrudeStrategyFlag = -1;
+  if ( M_extrudeStrategy == "radius-percent" )
+    extrudeStrategyFlag = -5;
+  else if ( M_extrudeStrategy == "constant")
+    extrudeStrategyFlag = -1;
+
   //orient extrude direction outward
 #if 1
   int dir = 0;
@@ -2905,7 +2912,7 @@ void AngioTkCenterline::extrudeBoundaryLayerWall(GEdge* gin, std::vector<GEdge*>
 
     //view -5 to scale hLayer by radius in BoundaryLayers.cpp
     std::vector<GEntity*> extrudedE = current->extrudeBoundaryLayer
-      (gfc, nbElemLayer,  hLayer, dir, -5);
+      (gfc, nbElemLayer,  hLayer, dir, extrudeStrategyFlag/* -5*/);
     GFace *eFace = (GFace*) extrudedE[0];
     int currentPhysicalTag = current->getMaxPhysicalNumber(-1)+1;
     eFace->addPhysicalEntity(currentPhysicalTag);
