@@ -120,6 +120,7 @@ class AngioTkCenterline : public Field{
   double hSecondLayer;
   int nbElemLayer;
   int nbElemSecondLayer;
+  std::string M_extrudeStrategy;
   std::string descInletOutlet;
   std::map<int,std::string> mapBoundEdgeIdToPhysicalMarkerLumen;
   std::map<int,std::string> mapBoundEdgeIdToPhysicalMarkerArerialWall;
@@ -223,6 +224,9 @@ class AngioTkCenterline : public Field{
   void updateFieldsDataAfterReduction( std::map<int,int> const& _previousMapVertexGmshIdToVtkId );
 
  public:
+  //the stuctured tree of the centerlines
+  std::vector<BranchDesc> const& centerlinesTree() { return edges; }
+
   void updateCenterlinesFieldsFromFile(std::string fileName);
 
   void removeBranchIds( std::set<int> const& _removeBranchIds );

@@ -542,6 +542,7 @@ private :
     bool M_extrudeWall;
     int M_extrudeWallNbElemLayer;
     double M_extrudeWallhLayer;
+    std::string M_extrudeWallStrategy;
 
     bool M_saveOutputVolumeBinary;
 };
