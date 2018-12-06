@@ -151,9 +151,28 @@ static void orderMLines(std::vector<MLine*> &lines, MVertex *vB, MVertex *vE)
 
   // loop over all segments to order segments and store it in the list _m
   _m.push_back(firstLine);
+#if 0
   _orientation.push_back(1);
   MVertex *first = _m[0]->getVertex(0);
   MVertex *last = _m[0]->getVertex(1);
+#else
+  MVertex *first = _m[0]->getVertex(0);
+  MVertex *last = _m[0]->getVertex(1);
+  //_orientation.push_back(1);
+  if ( _m[0]->getVertex(0) == vB )
+    {
+      _orientation.push_back(1);
+    }
+  if ( _m[0]->getVertex(1) == vB )
+    {
+      _orientation.push_back(0);
+      //_orientation.back() = 0;
+      first = _m[0]->getVertex(1);
+      last = _m[0]->getVertex(0);
+    }
+  else if ( _m[0]->getVertex(0) != vB )
+    Msg::Error("not found vB");
+#endif
   while (first != last){
     if (segments.empty())break;
     bool found = false;
@@ -192,9 +211,24 @@ static void orderMLines(std::vector<MLine*> &lines, MVertex *vB, MVertex *vE)
     }
   }
 
+#if 1
+  for ( int k=0;k<_m.size();++k )
+    {
+      if ( _orientation[k] == 0 )
+        {
+          MVertex * v0 = _m[k]->getVertex(0);
+          MVertex * v1 = _m[k]->getVertex(1);
+          _m[k]->setVertex(0,v1);
+          _m[k]->setVertex(1,v0);
+        }
+    }
+#endif
+
+  
   //lines is now a list of ordered MLines
   lines = _m;
 
+#if 0
   //special case reverse orientation
   if (lines.size() < 2) return;
   if (_orientation[0] && lines[0]->getVertex(1) != lines[1]->getVertex(1)
@@ -202,6 +236,7 @@ static void orderMLines(std::vector<MLine*> &lines, MVertex *vB, MVertex *vE)
     for (unsigned int i = 0; i < lines.size(); i++)
       _orientation[i] = !_orientation[i];
   }
+#endif
 }
 
 
@@ -678,6 +713,7 @@ AngioTkCenterline::updateMergeFromExtremities( AngioTkCenterline const& centerli
 
       int branchId = extremityPair.second.first;
       int lineIdInBranch = extremityPair.second.second;
+      BranchDesc const& branchCM = centerlinesMerged.centerlinesBranch(branchId);
       std::vector<MLine*> mylines = centerlinesMerged.centerlinesBranch(branchId).lines;
       MLine* myline = mylines[lineIdInBranch];
 
@@ -705,6 +741,132 @@ AngioTkCenterline::updateMergeFromExtremities( AngioTkCenterline const& centerli
       if ( radius < 0 )
         continue;
 
+      double radiusCM = radius;
+      double maxRadisuCM = branchCM.maxRad;
+      bool isForwardSearch = ( lineIdInBranch == 0 );
+      if (!isForwardSearch && lineIdInBranch != (mylines.size()-1) )
+        Msg::Error("invalid lineIdInBranch \n");
+
+      MVertex* pointFusionCM = NULL;
+      MVertex* pointFusionCI = NULL;
+      
+      double lcTotalCM = 0;
+
+      double distFusionMin = 0;
+      int indexLineFusionCM = 0;
+
+      bool findFusion = false;
+
+      //double lengthToSearch = 2*maxRadisuCM;
+      double lengthToSearch = std::min(radiusCM,(1./4.)*branchCM.length);
+
+      // bool vBisExtremity = centerlinesMerged.centerlinesExtremities().find( branchCM.vB ) != centerlinesMerged.centerlinesExtremities().end();
+      // bool vEisExtremity = centerlinesMerged.centerlinesExtremities().find( branchCM.vE ) != centerlinesMerged.centerlinesExtremities().end();
+      // if ( vBisExtremity && vEisExtremity )
+      //   {
+      //     //if ( branchCM.length <= 2*maxRadisuCM )
+      //       if ( extremityPair.first ==  branchCM.vE )
+      //         continue;
+      //       //lengthToSearch = std::min(2*maxRadisuCM,(1./3.)*branchCM.length );
+      //   }
+      
+      //std::unordered_set<int> vertexDone;
+      //for ( int q=0; ( lcTotalCM < /*2*/4*maxRadisuCM && q < (mylines.size()-1) ) ; ++q )
+      for ( int q=0; lcTotalCM < /*2*//*4*/  /*2*maxRadisuCM*/lengthToSearch && q < mylines.size() ; ++q )
+        {
+          int newLineId = (isForwardSearch)?lineIdInBranch+q : lineIdInBranch-q;
+	  MLine* mylineSearch = mylines[newLineId];
+	  //int vIdInLine = (isForwardSearch)?0 : 1;
+          for ( int vIdInLine : std::vector<int>{0,1} )
+            {
+              MVertex * newV = mylineSearch->getVertex( vIdInLine );
+              double newVabc[3] = { newV->x(),newV->y(),newV->z() };
+
+              auto ptFoundDataCI = this->foundClosestPointInCenterlines( newVabc );
+              MVertex* pointFoundCI = std::get<0>(ptFoundDataCI);
+              double distCI = std::get<1>(ptFoundDataCI);
+
+              double _radiusCI = this->minRadiusAtVertex(pointFoundCI,fieldPointDataRadius );
+              double _radiusCM = centerlinesMerged.minRadiusAtVertex(newV,fieldPointDataRadius );
+              if ( distCI < 0.75*0.5*(_radiusCI + _radiusCM ) )
+                {
+                  if ( !findFusion )
+                    {
+                      distFusionMin = distCI;
+                      //radiusCM = _radiusCM;
+                      pointFusionCM = newV;
+                      pointFusionCI = pointFoundCI;
+                      indexLineFusionCM = newLineId;
+                      findFusion = true;
+                    }
+                  else if ( distCI < distFusionMin)
+                    {
+                      distFusionMin = distCI;
+                      //radiusCM = _radiusCM;
+                      pointFusionCM = newV;
+                      pointFusionCI = pointFoundCI;
+                      indexLineFusionCM = newLineId;
+                    }
+                }
+            }
+	  lcTotalCM += mylineSearch->getLength();
+        }
+
+      if ( !findFusion )
+        continue;
+
+      double pointFusionTabCI[3] = { pointFusionCI->x(),pointFusionCI->y(),pointFusionCI->z() };
+      auto ptFoundDataCM = centerlinesMerged.foundClosestPointInCenterlines( pointFusionTabCI );
+      pointFusionCM = std::get<0>(ptFoundDataCM);
+
+
+      std::vector<std::pair<MLine*,int> > myvecLine;
+      for ( BranchDesc const& thebranch : centerlinesMerged.centerlinesBranch() )
+        {
+          // TODO ignore branch when pointFusionCM is not inside bounding box
+          for ( MLine* theline : thebranch.lines )
+            {
+              if ( theline->getVertex(0) == pointFusionCM )
+                myvecLine.push_back( std::make_pair(theline,0) );
+              if ( theline->getVertex(1) == pointFusionCM )
+                myvecLine.push_back( std::make_pair(theline,1) );
+            }
+        }
+
+#if 0
+      std::vector<std::pair<MLine*,int> > myvecLine;
+      for ( int q : std::vector<int>{0,-1,+1} )
+        {
+          int _indexLine = indexLineFusionCM + q;
+          if ( _indexLine < 0 || _indexLine >= mylines.size() )
+            continue;
+          MLine* mylineFusion = mylines[_indexLine];
+          if ( mylineFusion->getVertex(0) == pointFusionCM )
+            myvecLine.push_back( std::make_pair(mylineFusion,0) );
+          if ( mylineFusion->getVertex(1) == pointFusionCM )
+            myvecLine.push_back( std::make_pair(mylineFusion,1) );
+        }
+#endif 
+
+      // insert new vertex to replace
+      auto itFindVertexReplaced = indexVertexReplaced.find( pointFusionCM );
+      if ( itFindVertexReplaced == indexVertexReplaced.end() )
+	indexVertexReplaced[ pointFusionCM ] = std::make_pair( myvecLine, pointFusionCI );
+      else
+	{
+	  MVertex* ptUsed = itFindVertexReplaced->second.second;
+	  if ( pointFusionCI != ptUsed )
+	    Msg::Error("points must identical");
+	  //indexVertexReplaced[ pointFusionCM ].first.insert( itFindVertexReplaced->second.first.end(), myvecLine.begin(), myvecLine.end() );
+          auto & lineListReplaced = indexVertexReplaced[ pointFusionCM ].first;
+          for (auto const&  newLineToReplace : myvecLine )
+            {              
+              if ( std::find(lineListReplaced.begin(),lineListReplaced.end(), newLineToReplace ) == lineListReplaced.end() )
+                lineListReplaced.push_back( newLineToReplace );
+            }    
+	}
+
+#if 0
       auto ptFoundData = this->foundClosestPointInCenterlines( ptToLocalize );
       MVertex* pointFound = std::get<0>(ptFoundData);
       if ( !pointFound )
@@ -718,11 +880,13 @@ AngioTkCenterline::updateMergeFromExtremities( AngioTkCenterline const& centerli
       MVertex* pointFound2 = std::get<0>(ptFoundData2);
       if ( !pointFound2 )
         continue;
-      if ( pointFound2->distance( extremityPair.first ) > 0.1*radius )
+      double radius2 = centerlinesMerged.minRadiusAtVertex( pointFound2,fieldPointDataRadius );
+        //if ( pointFound2->distance( extremityPair.first ) > 0.1*radius )
+      //if ( pointFound2->distance( extremityPair.first ) > 0.75*0.5*(radius+radius2) )
+      if ( pointFound2->distance( extremityPair.first ) > std::max(radius,radius2) )
         continue;
 
-      if ( pointFound == NULL )
-	continue;
+
       // std::cout<<"Find a point : " << ptToLocalize[0] << "," << ptToLocalize[1] << "," << ptToLocalize[2] << " vs "
       //          << pointFound->x() << "," << pointFound->y() << "," << pointFound->z() << " with "
       //          << dist << " and " << radius << " and " << this->minRadiusAtVertex(pointFound,fieldPointDataRadius) <<"\n";
@@ -740,11 +904,11 @@ AngioTkCenterline::updateMergeFromExtremities( AngioTkCenterline const& centerli
       MVertex* _mylink = ( _ptToReplaced == myline->getVertex(0) )? myline->getVertex(1) : myline->getVertex(0);
 
       // search other point closer (close to the extremity point) 
-      double curMinDist = dist/*[0]*/;
-      bool isForwardSearch = ( lineIdInBranch == 0 );
+      double curMinDist = dist;
+      //bool isForwardSearch = ( lineIdInBranch == 0 );
       double lcTotal = 0;
       int indexSearch = 0;
-      //if ( false )
+
       for ( int q=1; ( lcTotal < 4*radius && q < (mylines.size()-1) ) ; ++q )
 	{
 	  int newLineId = (isForwardSearch)?lineIdInBranch+q : lineIdInBranch-q;
@@ -798,7 +962,7 @@ AngioTkCenterline::updateMergeFromExtremities( AngioTkCenterline const& centerli
 	    Msg::Error("points must identical");
 	  indexVertexReplaced[_ptToReplaced].first.insert( itFindVertexReplaced->second.first.end(), myvecLine.begin(), myvecLine.end() );
 	}
-
+#endif
     } // for ( auto const& extremityPair ... )
 }
 
@@ -919,7 +1083,12 @@ void AngioTkCenterline::importFile(std::string fileName)
 				{
 				  indexVertexReplaced[myvertex] = std::make_pair( myvecLine ,pointFound );
 				}
-			      else indexVertexReplaced[myvertex].first.push_back( std::make_pair(mylineSearch,locVertexId) );
+			      else
+                                {
+                                  // if ( indexVertexReplaced[myvertex].second != pointFound/*myvertex*/ )
+                                  //   Msg::Error("AIEIAIAIA %i \n");
+                                  indexVertexReplaced[myvertex].first.push_back( std::make_pair(mylineSearch,locVertexId) );
+                                }
 			    }
 			}
 		    } // if ( dist ... )
@@ -928,9 +1097,57 @@ void AngioTkCenterline::importFile(std::string fileName)
 
 	}
     }
+
   if ( nDuplicatePt>0 )
     Msg::Info("AngioTkCenterline: find and remove %d duplicate points in merging",nDuplicatePt);
 
+
+  std::map<MVertex*,std::vector<std::pair<MLine*,int> /*, MVertex**/ > > indexVertexReplacedNEW;
+  std::map<MVertex*,MVertex*> vertexReplace;
+  for ( auto const& idReplacePair : indexVertexReplaced )
+    {
+      MVertex* vr1 = idReplacePair.first;
+      MVertex* vr2 = idReplacePair.second.second;
+
+      auto itfvr1 = indexVertexReplacedNEW.find( vr1 );
+      if ( itfvr1 != indexVertexReplacedNEW.end() )
+        {
+          vr1 = idReplacePair.second.second;
+          vr2 = idReplacePair.first;
+        }
+      if ( indexVertexReplacedNEW.find( vr1 ) != indexVertexReplacedNEW.end() ) //??
+        continue;
+      if ( vr1 == vr2 )
+        continue;
+
+      vertexReplace[vr1] = vr2;
+      
+      if ( indexVertexReplacedNEW.find( vr2 ) == indexVertexReplacedNEW.end() )
+        indexVertexReplacedNEW[vr2] = idReplacePair.second.first;
+      else
+        {
+          // push_back
+          auto & lineListReplaced = indexVertexReplacedNEW[ vr2 ];
+          for (auto const& newLineToReplace : idReplacePair.second.first )
+            {              
+              if ( std::find(lineListReplaced.begin(),lineListReplaced.end(), newLineToReplace ) == lineListReplaced.end() )
+                lineListReplaced.push_back( newLineToReplace );
+            }
+
+        }
+
+      for ( auto & idReplacePair2 : indexVertexReplaced )
+        {
+          MVertex* vr2b = idReplacePair.second.second;
+          if ( vr2b == vr1 )
+            {
+              vr2b = vr2;
+            }
+        }
+
+    }
+
+  
   // detect if some lines in newCenterlines are duplicated (due to the fact that the 2 pts in line are replaced) 
   itEdge=newCenterlines->mod->firstEdge();
   for ( ; itEdge!=enEdge; ++itEdge )
@@ -942,8 +1159,8 @@ void AngioTkCenterline::importFile(std::string fileName)
 	  MLine *l = ge->lines[j];
 	  MVertex *v0 = l->getVertex(0);
 	  MVertex *v1 = l->getVertex(1);
-	  if ( indexVertexReplaced.find(v0) != indexVertexReplaced.end() &&
-	       indexVertexReplaced.find(v1) != indexVertexReplaced.end() )
+	  if ( vertexReplace/*indexVertexReplaced*/.find(v0) != vertexReplace/*indexVertexReplaced*/.end() &&
+	       vertexReplace/*indexVertexReplaced*/.find(v1) != vertexReplace/*indexVertexReplaced*/.end() )
 	    {
 	      M_registerLinesDuplicatedToIgnore.insert( l );
 	    }
@@ -951,6 +1168,17 @@ void AngioTkCenterline::importFile(std::string fileName)
     }
 
   // replace points in line
+  for ( auto const& idReplacePair : indexVertexReplacedNEW )
+    {
+      MVertex* newPt = idReplacePair.first;
+      for ( auto const& vecLine : idReplacePair.second)
+	{
+	  MLine* lineModified = vecLine.first;
+	  int ptIdInLine = vecLine.second;
+	  lineModified->setVertex(ptIdInLine,newPt);
+        }
+    }
+#if 0
   for ( auto const& idReplacePair : indexVertexReplaced )
     {
       MVertex* newPt = idReplacePair.second.second;
@@ -969,7 +1197,7 @@ void AngioTkCenterline::importFile(std::string fileName)
 #endif
 	}
     }
-
+#endif
   //---------------------------------------------//
 
   //modEdges.insert(modEdges.end(),mod->firstEdge(), mod->lastEdge());
@@ -1763,11 +1991,38 @@ void AngioTkCenterline::cleanBranch()
       /*if ( edges[i].vB == edges[i].vE )
 	continue;*/
 
+#if 0
+      bool vBisExtremity = this->centerlinesExtremities().find( edges[i].vB ) != this->centerlinesExtremities().end();
+      bool vEisExtremity = this->centerlinesExtremities().find( edges[i].vE ) != this->centerlinesExtremities().end();
+      bool vBisJunction = M_junctionsVertex.find( edges[i].vB ) != M_junctionsVertex.end();
+      bool vEisJunction = M_junctionsVertex.find( edges[i].vE ) != M_junctionsVertex.end();
+      if ( (vBisExtremity && vEisJunction ) || ( vEisExtremity && vBisJunction ) )
+        {
+	  // if ( edges[i].length > 2*edges[i].maxRad )
+          //   continue;
+          MVertex * vJunction = ( vBisJunction )? edges[i].vB : edges[i].vE;
+          std::string fieldPointDataRadius = "RadiusMin";//"MaximumInscribedSphereRadius";
+          double radiusJunc = this->minRadiusAtVertex(vJunction,fieldPointDataRadius );
+
+          std::vector<MLine*> const& mylines = edges[i].lines;
+          bool isInside = true;
+          for ( int q=0; q < mylines.size() && isInside; ++q )
+            {
+              MLine* mylineSearch = mylines[q];
+              MVertex * v0test = mylineSearch->getVertex( 0 );
+              double radiusV0test = this->minRadiusAtVertex(v0test,fieldPointDataRadius );
+              if ( ( vJunction->distance( v0test ) + radiusV0test ) > 1.25*radiusJunc )
+                isInside = false;
+            }
+          if ( isInside )
+            branchIdsRemove.insert(i);
+        }
+#endif
       if ( this->centerlinesExtremities().find( edges[i].vB ) != this->centerlinesExtremities().end() ||
 	   this->centerlinesExtremities().find( edges[i].vE ) != this->centerlinesExtremities().end() )
 	{
 	  //if ( 3*edges[i].length < (edges[i].minRad+edges[i].maxRad)/2. )
-	  if ( edges[i].length < 2*edges[i].maxRad )
+	  if ( edges[i].length < /*2**/edges[i].maxRad )
 	    {
 	      branchIdsRemove.insert(i);
 	    }
@@ -1788,7 +2043,7 @@ void AngioTkCenterline::cleanBranch()
 	      if ( ( edges[i].vB == edges[i2].vB && edges[i].vE == edges[i2].vE ) ||
 		   ( edges[i].vB == edges[i2].vE && edges[i].vE == edges[i2].vB ) )
 		{
-		  if ( edges[i2].length < 2*(edges[i2].minRad+edges[i2].maxRad)/2. )
+		  if ( edges[i2].length < /*2**/(edges[i2].minRad+edges[i2].maxRad)/2. )
 		    {
 		      branchIdsRemove.insert(i2);
 		    }
