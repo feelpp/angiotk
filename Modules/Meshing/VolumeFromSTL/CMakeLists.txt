@@ -7,7 +7,9 @@ if ( Feel++_FOUND AND VMTK_FOUND AND PYTHONLIBS_FOUND )
 
   #include_directories(${VolumeFromSTL_BINARY_DIR})
 
-  include_directories(${VolumeFromSTL_SOURCE_DIR}/include)
+  #include_directories(${VolumeFromSTL_SOURCE_DIR}/include)
+
+  add_subdirectory(gmshHeadersMissing)  
 
   add_subdirectory(src)
 

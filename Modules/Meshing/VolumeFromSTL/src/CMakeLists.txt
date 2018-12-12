@@ -24,7 +24,9 @@ add_library( angiotk_meshing_volumefromstl
   centerlinesmanageriodata.cpp
   )
 target_link_libraries( angiotk_meshing_volumefromstl ${ANGIOTK_MODULE_MESHING_EXTERNAL_LIBRARIES}) # ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} ${VMTK_LIBRARIES} )
-target_include_directories(angiotk_meshing_volumefromstl BEFORE PUBLIC ${VolumeFromSTL_SOURCE_DIR}/include/gmshHeadersMissing )
+target_include_directories(angiotk_meshing_volumefromstl PUBLIC ${VolumeFromSTL_SOURCE_DIR}/include/ )
+add_dependencies(angiotk_meshing_volumefromstl angiotk_gmsh_get_files)
+target_include_directories(angiotk_meshing_volumefromstl BEFORE PUBLIC ${VolumeFromSTL_BINARY_DIR}/gmshHeadersMissing )
 install(TARGETS angiotk_meshing_volumefromstl LIBRARY DESTINATION lib/ COMPONENT Libs)
 
 set(ANGIOTK_MODULE_MESHING_LIBRARIES angiotk_meshing_volumefromstl ) # ${FEELPP_LIBRARY} ${FEELPP_LIBRARIES} angiotk_meshing_volumefromstl)

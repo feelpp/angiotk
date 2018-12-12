@@ -34,16 +34,16 @@
 #include <discreteFace.h>
 #include <GEdgeCompound.h>
 #include <GFaceCompound.h>
-#include <gmshHeadersMissing/BackgroundMesh.h>
+#include <BackgroundMesh.h>
 #include <meshGFace.h>
 #include <meshGEdge.h>
 #include <MQuadrangle.h>
-#include <gmshHeadersMissing/Curvature.h>
+#include <Curvature.h>
 #include <MElement.h>
 #include <Context.h>
 #include <directions3D.h>
-#include <gmshHeadersMissing/meshGRegion.h>
-#include <gmshHeadersMissing/MVertexPositionSet.h>
+#include <meshGRegion.h>
+#include "MVertexPositionSet.h"
 
 
 #if defined(FEELPP_HAS_ANN_H)

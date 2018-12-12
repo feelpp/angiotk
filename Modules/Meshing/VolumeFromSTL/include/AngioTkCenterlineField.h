@@ -16,7 +16,7 @@
 #include <string>
 #include <memory> // std::shared_ptr
 
-#include <gmshHeadersMissing/Field.h>
+#include <Field.h>
 #include <MEdge.h>
 
 /* undefine the sign macro, defined by Gmsh, otherwise we end up having conflict with the inlined sign function of Eigen */
