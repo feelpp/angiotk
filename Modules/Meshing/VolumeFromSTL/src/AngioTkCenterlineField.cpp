@@ -4844,6 +4844,8 @@ AngioTkCenterline::applyFieldThresholdZoneImpl(std::vector<std::string> const& f
 	  int vtkId = M_mapVertexGmshIdToVtkId[v0->getIndex()];
 	  for ( std::string const& fieldName : fieldNames )
 	    {
+              if ( !this->hasField( fieldName ) )
+                continue;
 	      int nComp = M_centerlinesFieldsPointData[fieldName][vtkId].size();
 	      for (int c=0;c<nComp;++c)
 		{
@@ -4855,27 +4857,6 @@ AngioTkCenterline::applyFieldThresholdZoneImpl(std::vector<std::string> const& f
 	    }
 	}
     }
-#if 0
-  else if ( type == 1 ) // max
-    {
-      for ( auto myline : listOfLines )
-	{
-	  MVertex* v0 = myline->getVertex(0);
-	  MVertex* v1 = myline->getVertex(1);
-	  int vtkId = M_mapVertexGmshIdToVtkId[v0->getIndex()];
-	  for ( std::string const& fieldName : fieldNames )
-	    {
-	      int nComp = M_centerlinesFieldsPointData[fieldName][vtkId].size();
-	      for (int c=0;c<nComp;++c)
-		{
-		  if ( M_centerlinesFieldsPointData[fieldName][vtkId][c] > value )
-		    M_centerlinesFieldsPointData[fieldName][vtkId][c]=value;
-		}
-	    }
-	}
-    }
-#endif
-
 }
 
 
