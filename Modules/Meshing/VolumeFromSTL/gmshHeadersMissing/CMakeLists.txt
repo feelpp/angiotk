@@ -3,12 +3,13 @@ message(STATUS "[angiotk] adding missing Gmsh headers...")
 # we include this directory : add some missing headers from Gmsh
 find_program(WGET NAMES wget )
 if ( WGET )
-  add_custom_target(angiotk_gmsh_get_files ALL)
+  add_custom_target(angiotk_gmsh_get_files ALL DEPENDS Field.h)
   set(gmsh_gitlab_url "http://gitlab.onelab.info/gmsh/gmsh/raw/gmsh_${GMSH_MAJOR_VERSION}_${GMSH_MINOR_VERSION}_${GMSH_PATCH_VERSION}")
   set( GMSH_VERSION_FULL ${GMSH_MAJOR_VERSION}.${GMSH_MINOR_VERSION}.${GMSH_PATCH_VERSION})
   if ( GMSH_VERSION_FULL VERSION_LESS 2.16 )
     add_custom_command(
-      TARGET angiotk_gmsh_get_files
+      #TARGET angiotk_gmsh_get_files
+      OUTPUT Field.h
       COMMAND ${WGET} -N -q --timeout=5 ${gmsh_gitlab_url}/Mesh/Field.h -O Field.h 
       COMMAND ${WGET} -N -q --timeout=5 ${gmsh_gitlab_url}/Numeric/BasisFactory.h -O BasisFactory.h
       COMMAND ${WGET} -N -q --timeout=5 ${gmsh_gitlab_url}/Common/OpenFile.h -O OpenFile.h
@@ -22,7 +23,8 @@ if ( WGET )
     #   DESTINATION include/feelpp/gmsh COMPONENT Devel )
   else()
     add_custom_command(
-      TARGET angiotk_gmsh_get_files
+      #TARGET angiotk_gmsh_get_files
+      OUTPUT Field.h
       COMMAND ${WGET} -N -q --timeout=5 ${gmsh_gitlab_url}/Mesh/Field.h -O Field.h 
       COMMAND ${WGET} -N -q --timeout=5 ${gmsh_gitlab_url}/Numeric/BasisFactory.h -O BasisFactory.h
       COMMAND ${WGET} -N -q --timeout=5 ${gmsh_gitlab_url}/Common/OpenFile.h -O OpenFile.h
