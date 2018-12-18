@@ -1,0 +1,112 @@
+From 4721cb99f1ab366cf9ba6ee16e38990ff6e15f40 Mon Sep 17 00:00:00 2001
+From: Andras Lasso <lasso@queensu.ca>
+Date: Mon, 5 Nov 2018 22:14:29 -0500
+Subject: [PATCH 1/2] Fix VTK wrapping build error with latest VTK
+
+VTK reverted version number from 9.x to 8.2. Need to update wrapping script accordingly.
+---
+ CMake/vtkMacroKitPythonWrap.cmake | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/CMake/vtkMacroKitPythonWrap.cmake b/CMake/vtkMacroKitPythonWrap.cmake
+index d126da0c..c453a4b9 100644
+--- a/CMake/vtkMacroKitPythonWrap.cmake
++++ b/CMake/vtkMacroKitPythonWrap.cmake
+@@ -80,7 +80,7 @@ endmacro()
+ #!
+ #!   Slicer_VTK_WRAP_HIERARCHY_DIR:
+ #!
+-#!     Directory where to ouptut the hierarchy files
++#!     Directory where to output the hierarchy files
+ #!     Default is ${Slicer_BINARY_DIR}
+ #!
+ #!   Slicer_VTK_WRAP_MODULE_INSTALL_COMPONENT_IDENTIFIER:
+@@ -192,7 +192,7 @@ macro(vtkMacroKitPythonWrap)
+       #  - <module_name>_WRAP_HIERARCHY_FILE
+       set(${MY_KIT_NAME}_WRAP_DEPENDS "${_kit_wrap_depends}" CACHE INTERNAL "${MY_KIT_NAME} wrapping dependencies" FORCE)
+       set(_wrap_hierarchy_file "${Slicer_VTK_WRAP_HIERARCHY_DIR}/${MY_KIT_NAME}Hierarchy.txt")
+-      if(${VTK_VERSION_MAJOR} VERSION_LESS 9)
++      if(${VTK_VERSION_MAJOR}.${VTK_VERSION_MINOR} VERSION_LESS "8.2")
+         set(_wrap_hierarchy_stamp_file ${CMAKE_CURRENT_BINARY_DIR}/${MY_KIT_NAME}Hierarchy.stamp.txt)
+       endif()
+       set(${MY_KIT_NAME}_WRAP_HIERARCHY_FILE "${_wrap_hierarchy_file}" CACHE INTERNAL "${MY_KIT_NAME} wrap hierarchy file" FORCE)
+@@ -219,7 +219,7 @@ macro(vtkMacroKitPythonWrap)
+     # hierarchy file is created.
+     # XXX Use target_sources if cmake_minimum_required >= 3.1
+     get_target_property(_kit_srcs ${MY_KIT_NAME} SOURCES)
+-    if(${VTK_VERSION_MAJOR} VERSION_LESS 9)
++    if(${VTK_VERSION_MAJOR}.${VTK_VERSION_MINOR} VERSION_LESS "8.2")
+       list(APPEND _kit_srcs ${_wrap_hierarchy_stamp_file})
+     else()
+       list(APPEND _kit_srcs ${_wrap_hierarchy_file})
+
+From f5469652deaeeb823123bfa93f9f11e391aa05ac Mon Sep 17 00:00:00 2001
+From: Andras Lasso <lasso@queensu.ca>
+Date: Mon, 5 Nov 2018 23:01:24 -0500
+Subject: [PATCH 2/2] Fix build error with VTK 8.2
+
+FileName member is not available anymore in vtkDataReader base class.
+---
+ vtkVmtk/IO/vtkvmtkFDNEUTReader.cxx | 4 ++--
+ vtkVmtk/IO/vtkvmtkTetGenReader.cxx | 6 +++---
+ vtkVmtk/IO/vtkvmtkXdaReader.cxx    | 2 +-
+ 3 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/vtkVmtk/IO/vtkvmtkFDNEUTReader.cxx b/vtkVmtk/IO/vtkvmtkFDNEUTReader.cxx
+index d60b70e0..6a4e393f 100644
+--- a/vtkVmtk/IO/vtkvmtkFDNEUTReader.cxx
++++ b/vtkVmtk/IO/vtkvmtkFDNEUTReader.cxx
+@@ -65,14 +65,14 @@ int vtkvmtkFDNEUTReader::RequestData(
+     return 1;
+     }
+ 
+-  if (!this->FileName)
++  if (!this->GetFileName())
+     {
+     vtkErrorMacro(<<"FileName not set.");
+     return 1;
+     }
+         
+   FILE* FDNEUTFile;
+-  FDNEUTFile = fopen(this->FileName,"r");
++  FDNEUTFile = fopen(this->GetFileName(),"r");
+ 
+   if (!FDNEUTFile)
+     {
+diff --git a/vtkVmtk/IO/vtkvmtkTetGenReader.cxx b/vtkVmtk/IO/vtkvmtkTetGenReader.cxx
+index dea6d74d..8ee78a56 100644
+--- a/vtkVmtk/IO/vtkvmtkTetGenReader.cxx
++++ b/vtkVmtk/IO/vtkvmtkTetGenReader.cxx
+@@ -84,16 +84,16 @@ int vtkvmtkTetGenReader::RequestData(
+     return 1;
+     }
+ 
+-  if (!this->FileName)
++  if (!this->GetFileName())
+     {
+     vtkErrorMacro(<<"FileName not set.");
+     return 1;
+     }
+ 
+-  std::string nodeFileName = this->FileName;
++  std::string nodeFileName = this->GetFileName();
+   nodeFileName += ".node";
+ 
+-  std::string eleFileName = this->FileName;
++  std::string eleFileName = this->GetFileName();
+   eleFileName += ".ele";
+ 
+   ifstream nodeStream(nodeFileName.c_str());
+diff --git a/vtkVmtk/IO/vtkvmtkXdaReader.cxx b/vtkVmtk/IO/vtkvmtkXdaReader.cxx
+index cb703371..e15ce35f 100644
+--- a/vtkVmtk/IO/vtkvmtkXdaReader.cxx
++++ b/vtkVmtk/IO/vtkvmtkXdaReader.cxx
+@@ -61,7 +61,7 @@ int vtkvmtkXdaReader::RequestData(
+     return 1;
+     }
+ 
+-  if (!this->FileName)
++  if (!this->GetFileName())
+     {
+     vtkErrorMacro(<<"FileName not set.");
+     return 1;
