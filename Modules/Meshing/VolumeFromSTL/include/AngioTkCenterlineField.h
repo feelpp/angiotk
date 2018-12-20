@@ -363,6 +363,10 @@ std::tuple< bool,std::vector<MLine*> , double >
   void runTubularExtension();
   void saveTubularExtensionSTL(std::string const outputPath, bool binary );
 
+  // smoothCenterlinesRadius
+  void smoothCenterlinesRadius( std::string const& fieldName, int nIteration );
+private :
+  void smoothCenterlinesRadiusImpl( std::string const& fieldName );
 
  private :
   void saveCurrentGModelSTL(std::string const outputPath, bool binary );

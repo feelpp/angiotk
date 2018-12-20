@@ -844,7 +844,10 @@ CenterlinesManager::CenterlinesManager( std::string const& prefix )
     M_smoothResampleMeshSize( doption(_name="smooth-resample.mesh-size",_prefix=this->prefix() ) ),
     M_smoothResampleGeoPointSpacing( doption(_name="smooth-resample.geo-points-spacing",_prefix=this->prefix() ) ),
     M_cleanBranches( boption(_name="clean-branches.apply",_prefix=this->prefix() ) ),
-    M_cleanBranchesUseRadiusField( soption(_name="clean-branches.use-radius-field",_prefix=this->prefix() ) )
+    M_cleanBranchesUseRadiusField( soption(_name="clean-branches.use-radius-field",_prefix=this->prefix() ) ),
+    M_smoothRadius( boption(_name="smooth-radius.apply",_prefix=this->prefix()) ),
+    M_smoothRadiusFieldName( soption(_name="smooth-radius.field-name",_prefix=this->prefix()) ),
+    M_smoothRadiusNumberOfIteration( ioption(_name="smooth-radius.n-iteration",_prefix=this->prefix()) )
 {
     if ( Environment::vm().count(prefixvm(this->prefix(),"input.centerlines.filename").c_str()) )
         M_inputCenterlinesPath = Environment::vm()[prefixvm(this->prefix(),"input.centerlines.filename").c_str()].as<std::vector<std::string> >();
@@ -1049,6 +1052,11 @@ CenterlinesManager::run()
                 centerlinesTool->applyTubularColisionFix( avoidTubularColisionParam );
         }
 
+        if ( M_smoothRadius )
+        {
+            centerlinesTool->smoothCenterlinesRadius( M_smoothRadiusFieldName,M_smoothRadiusNumberOfIteration );
+        }
+
         if ( M_smoothResample )
         {
             fs::path outputOriginalPath = directory / fs::path(filename+"_original.vtk");
@@ -1110,6 +1118,9 @@ CenterlinesManager::options( std::string const& prefix )
         (prefixvm(prefix,"smooth-resample.geo-points-spacing").c_str(), po::value<double>()->default_value( 4.0 ), "(double) geo-points-spacing" )
         (prefixvm(prefix,"clean-branches.apply").c_str(), po::value<bool>()->default_value( true ), "(bool) apply clean-branches" )
         (prefixvm(prefix,"clean-branches.use-radius-field").c_str(), po::value<std::string>()->default_value( "" ), "(string) radius field name to use" )
+        (prefixvm(prefix,"smooth-radius.apply").c_str(), po::value<bool>()->default_value( false ), "(bool) smooth-radius.apply" )
+        (prefixvm(prefix,"smooth-radius.field-name").c_str(), po::value<std::string>()->default_value( "RadiusMin" ), "(string) radius field name to smooth" )
+        (prefixvm(prefix,"smooth-radius.n-iteration").c_str(), po::value<int>()->default_value( 100 ), "(int) smooth-radius.max-iteration" )
         ;
     return myCenterlinesManagerOptions.add( super_type::options( prefix ) );
 }

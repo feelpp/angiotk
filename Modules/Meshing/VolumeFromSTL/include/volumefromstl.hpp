@@ -258,6 +258,9 @@ private :
     double M_smoothResampleMeshSize, M_smoothResampleGeoPointSpacing;
     bool M_cleanBranches;
     std::string M_cleanBranchesUseRadiusField;
+    bool M_smoothRadius;
+    std::string M_smoothRadiusFieldName;
+    int M_smoothRadiusNumberOfIteration;
 };
 
 class ImageFromCenterlines : public AngioTkFilterBase

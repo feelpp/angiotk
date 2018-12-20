@@ -5872,4 +5872,104 @@ void AngioTkCenterline::runTubularExtension()
 
 
 
+void AngioTkCenterline::smoothCenterlinesRadius( std::string const& fieldName, int nIteration )
+{
+  //std::string fieldPointDataRadius = "RadiusMin";//"MaximumInscribedSphereRadius";
+  if ( !this->hasField( fieldName ) )
+    return;
+
+  for ( int k=0;k<nIteration;++k )
+    this->smoothCenterlinesRadiusImpl( fieldName );
+}
+
+
+void AngioTkCenterline::smoothCenterlinesRadiusImpl( std::string const& fieldPointDataRadius )
+{
+  double normModified = 0;
+  int countVertexModified = 0;
+  double scaling = 0.5/*2*/, scalingStartEnd = 2;//0.5;//2;
+  for( int i = 0; i < edges.size(); ++i )
+    {
+      int nLines = edges[i].lines.size();
+      if ( nLines <=3 )
+        continue;
+      MVertex* vB = edges[i].lines.front()->getVertex(0);
+      MVertex* vE = edges[i].lines.back()->getVertex(1);
+      double radiusB = this->minRadiusAtVertex(vB,fieldPointDataRadius );
+      double radiusE = this->minRadiusAtVertex(vE,fieldPointDataRadius );
+
+      double length = 0;
+      int lineIdStart = 0;
+      for ( ;lineIdStart<(nLines-1);++lineIdStart )
+        {
+          length += edges[i].lines[lineIdStart]->getLength();
+          if ( length > scalingStartEnd*radiusB )
+            {
+            ++lineIdStart;
+            break;
+            }
+        }
+      length = 0;
+      int lineIdEnd = nLines-1;
+      for ( ;lineIdEnd>0;--lineIdEnd )
+        {
+          length += edges[i].lines[lineIdEnd]->getLength();
+          if ( length > scalingStartEnd*radiusE )
+            {
+              --lineIdEnd;
+              break;
+            }
+        }
+
+      std::map<MVertex*,double> vertexToNewRadius;
+      for ( int lCurrent=lineIdStart;lCurrent<=lineIdEnd;++lCurrent )
+        {
+	  MVertex* vCurrent = edges[i].lines[lCurrent]->getVertex(0);
+          double radiusCurrent = this->minRadiusAtVertex(vCurrent,fieldPointDataRadius );
+
+          double radiusMean = radiusCurrent;
+          int countRadius = 1;
+          length = 0;
+          for ( int lForward=lCurrent;lForward<nLines;++lForward )
+            {
+              MVertex* vForward = edges[i].lines[lForward]->getVertex(1);
+              double radiusForward = this->minRadiusAtVertex( vForward,fieldPointDataRadius );
+              radiusMean += radiusForward;
+              ++countRadius;
+              length += edges[i].lines[lForward]->getLength();
+              if ( length > scaling*radiusCurrent )
+                break;
+            }
+          length = 0;
+          for ( int lBackward=lCurrent-1;lBackward>=0;--lBackward )
+            {
+              MVertex* vBackward = edges[i].lines[lBackward]->getVertex(0);
+              double radiusBackward = this->minRadiusAtVertex( vBackward,fieldPointDataRadius );
+              radiusMean += radiusBackward;
+              ++countRadius;
+              length += edges[i].lines[lBackward]->getLength();
+              if ( length > scaling*radiusCurrent )
+                break;
+            }
+          radiusMean /= countRadius;
+          vertexToNewRadius[vCurrent] = radiusMean;
+        }
+
+      for ( auto const& newRadiusData : vertexToNewRadius )
+        {
+          int vertexGmshId = newRadiusData.first->getIndex();
+          double newRadius = newRadiusData.second;
+          int vertexVtkId = this->mapVertexGmshIdToVtkId(vertexGmshId);
+          normModified += std::abs( this->M_centerlinesFieldsPointData[fieldPointDataRadius][vertexVtkId][0] - newRadius )/std::abs(this->M_centerlinesFieldsPointData[fieldPointDataRadius][vertexVtkId][0]);
+          ++countVertexModified;
+          this->M_centerlinesFieldsPointData[fieldPointDataRadius][vertexVtkId] = { newRadius };
+        }
+
+    } // for( int i = 0; i < edges.size(); ++i )
+
+  normModified /= countVertexModified;
+  std::cout << "normModified="<<normModified << "\n";
+}
+
+
 #endif // ANN
