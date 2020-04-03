@@ -31,4 +31,4 @@ docker run -it feelpp/angiotk
 
 == Programming environment
 
-{angiotk} requires a complex environment to build, please see link:{uri-www}/build for more details
+{angiotk} requires a complex environment to build, please see xref:build-angiotk.adoc[] for more details
